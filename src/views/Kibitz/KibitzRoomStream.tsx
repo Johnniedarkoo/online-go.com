@@ -30,6 +30,7 @@ import type {
     KibitzMode,
     KibitzRoomSummary,
     KibitzStreamItem,
+    KibitzStreamItemSource,
     KibitzVariationSummary,
 } from "@/models/kibitz";
 import "./KibitzRoomStream.css";
@@ -54,6 +55,7 @@ type DemoStreamEntry =
           key: string;
           createdAt: number;
           line: ChatMessage;
+          source: KibitzStreamItemSource;
       }
     | {
           kind: "variation";
@@ -61,6 +63,13 @@ type DemoStreamEntry =
           createdAt: number;
           item: KibitzStreamItem;
       };
+
+type LiveChatEntry = {
+    key: string;
+    createdAt: number;
+    line: ChatMessage;
+    source: "room-chat" | "game-chat";
+};
 
 export function KibitzRoomStream({
     mode,
@@ -77,44 +86,57 @@ export function KibitzRoomStream({
     const user = useUser();
     const chatDisabled = user.anonymous || !user.email_validated;
     const chatLinesRef = React.useRef<HTMLDivElement | null>(null);
-    const [proxy, setProxy] = React.useState<ChatChannelProxy | null>(null);
+    const [roomProxy, setRoomProxy] = React.useState<ChatChannelProxy | null>(null);
+    const [gameProxy, setGameProxy] = React.useState<ChatChannelProxy | null>(null);
     const [, refresh] = React.useState(0);
     const [followLatest, setFollowLatest] = React.useState(true);
     const [channelName, setChannelName] = React.useState(
         cachedChannelInformation(room.channel)?.name,
     );
+    const currentGameChannel = room.current_game?.game_id
+        ? `game-${room.current_game.game_id}`
+        : null;
 
     React.useEffect(() => {
         if (mode === "demo") {
-            setProxy(null);
+            setRoomProxy(null);
+            setGameProxy(null);
             setChannelName(room.title);
             return;
         }
 
-        const nextProxy = chat_manager.join(room.channel);
-        setProxy(nextProxy);
+        const nextRoomProxy = chat_manager.join(room.channel);
+        const nextGameProxy = currentGameChannel ? chat_manager.join(currentGameChannel) : null;
+        setRoomProxy(nextRoomProxy);
+        setGameProxy(nextGameProxy);
 
         const sync = () => {
-            nextProxy.channel.markAsRead();
+            nextRoomProxy.channel.markAsRead();
+            nextGameProxy?.channel.markAsRead();
             refresh((value) => value + 1);
         };
 
-        nextProxy.on("chat", sync);
-        nextProxy.on("chat-removed", sync);
-        nextProxy.on("join", sync);
-        nextProxy.on("part", sync);
+        nextRoomProxy.on("chat", sync);
+        nextRoomProxy.on("chat-removed", sync);
+        nextRoomProxy.on("join", sync);
+        nextRoomProxy.on("part", sync);
+        nextGameProxy?.on("chat", sync);
+        nextGameProxy?.on("chat-removed", sync);
 
         setChannelName(cachedChannelInformation(room.channel)?.name ?? room.title);
         sync();
 
         return () => {
-            nextProxy.off("chat", sync);
-            nextProxy.off("chat-removed", sync);
-            nextProxy.off("join", sync);
-            nextProxy.off("part", sync);
-            nextProxy.part();
+            nextRoomProxy.off("chat", sync);
+            nextRoomProxy.off("chat-removed", sync);
+            nextRoomProxy.off("join", sync);
+            nextRoomProxy.off("part", sync);
+            nextGameProxy?.off("chat", sync);
+            nextGameProxy?.off("chat-removed", sync);
+            nextRoomProxy.part();
+            nextGameProxy?.part();
         };
-    }, [mode, room.channel, room.title]);
+    }, [currentGameChannel, mode, room.channel, room.title]);
 
     const onKeyPress = React.useCallback(
         (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -124,7 +146,7 @@ export function KibitzRoomStream({
 
             const input = event.target as HTMLInputElement;
             const value = input.value.trim();
-            if (!value || !proxy) {
+            if (!value || !roomProxy) {
                 if (mode === "demo") {
                     onSendMessage(value);
                     input.value = "";
@@ -132,14 +154,36 @@ export function KibitzRoomStream({
                 return false;
             }
 
-            proxy.channel.send(value);
+            roomProxy.channel.send(value);
             input.value = "";
             return false;
         },
-        [mode, onSendMessage, proxy],
+        [mode, onSendMessage, roomProxy],
     );
 
-    const chatLog = proxy?.channel.chat_log.slice(-200) ?? [];
+    const liveEntries: LiveChatEntry[] =
+        mode === "demo"
+            ? []
+            : [
+                  ...(roomProxy?.channel.chat_log.slice(-200).map((line) => ({
+                      key: line.message.i || `room-system-${line.message.t}`,
+                      createdAt: line.message.t * 1000,
+                      line,
+                      source: "room-chat" as const,
+                  })) ?? []),
+                  ...(gameProxy?.channel.chat_log.slice(-200).map((line) => ({
+                      key: line.message.i || `game-system-${line.message.t}`,
+                      createdAt: line.message.t * 1000,
+                      line,
+                      source: "game-chat" as const,
+                  })) ?? []),
+              ].sort((left, right) => {
+                  if (left.createdAt === right.createdAt) {
+                      return left.key.localeCompare(right.key);
+                  }
+
+                  return left.createdAt - right.createdAt;
+              });
     const demoEntries: DemoStreamEntry[] = items
         .map<DemoStreamEntry | null>((item) => {
             if (item.type === "variation_posted") {
@@ -159,6 +203,7 @@ export function KibitzRoomStream({
                 kind: "chat",
                 key: item.id,
                 createdAt: item.created_at,
+                source: item.source ?? "room-stream",
                 line: {
                     channel: room.channel,
                     username: item.author?.username ?? "",
@@ -178,7 +223,7 @@ export function KibitzRoomStream({
         })
         .filter((entry): entry is DemoStreamEntry => entry !== null)
         .sort((left, right) => left.createdAt - right.createdAt);
-    const renderedLineCount = mode === "demo" ? demoEntries.length : chatLog.length;
+    const renderedLineCount = mode === "demo" ? demoEntries.length : liveEntries.length;
     let lastLine: ChatMessage | undefined;
 
     const updateFollowLatest = React.useCallback(() => {
@@ -255,7 +300,7 @@ export function KibitzRoomStream({
                 </div>
             )}
             <div className="KibitzRoomStream-items">
-                {(mode === "demo" ? demoEntries.length > 0 : chatLog.length > 0) ? (
+                {(mode === "demo" ? demoEntries.length > 0 : liveEntries.length > 0) ? (
                     <div ref={chatLinesRef} className="chat-lines" onScroll={updateFollowLatest}>
                         {mode === "demo"
                             ? demoEntries.map((entry) => {
@@ -293,22 +338,40 @@ export function KibitzRoomStream({
                                   const previousLine = lastLine;
                                   lastLine = entry.line;
                                   return (
-                                      <ChatLine
+                                      <div
                                           key={entry.key}
-                                          line={entry.line}
-                                          lastLine={previousLine}
-                                      />
+                                          className={"kibitz-chat-entry " + entry.source}
+                                      >
+                                          {entry.source === "game-chat" ? (
+                                              <div className="kibitz-chat-source-label">
+                                                  {pgettext(
+                                                      "Source label for watched game chat lines shown inside the kibitz stream",
+                                                      "game chat",
+                                                  )}
+                                              </div>
+                                          ) : null}
+                                          <ChatLine line={entry.line} lastLine={previousLine} />
+                                      </div>
                                   );
                               })
-                            : chatLog.map((line) => {
+                            : liveEntries.map((entry) => {
                                   const previousLine = lastLine;
-                                  lastLine = line;
+                                  lastLine = entry.line;
                                   return (
-                                      <ChatLine
-                                          key={line.message.i || `system-${line.message.t}`}
-                                          line={line}
-                                          lastLine={previousLine}
-                                      />
+                                      <div
+                                          key={entry.key}
+                                          className={"kibitz-chat-entry " + entry.source}
+                                      >
+                                          {entry.source === "game-chat" ? (
+                                              <div className="kibitz-chat-source-label">
+                                                  {pgettext(
+                                                      "Source label for watched game chat lines shown inside the kibitz stream",
+                                                      "Game chat",
+                                                  )}
+                                              </div>
+                                          ) : null}
+                                          <ChatLine line={entry.line} lastLine={previousLine} />
+                                      </div>
                                   );
                               })}
                     </div>

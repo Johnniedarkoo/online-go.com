@@ -415,15 +415,27 @@ function createRooms(): MockRoomState[] {
                     id: "top-19x19-chat-2",
                     room_id: "top-19x19",
                     type: "chat",
+                    source: "room-chat",
                     created_at: Date.now() - 210_000,
                     author: topRoomUsers[6],
                     text: "The shoulder-hit still feels biggest if white settles too calmly.",
                     game_id: currentGame19.game_id,
                 },
                 {
+                    id: "top-19x19-game-chat-1",
+                    room_id: "top-19x19",
+                    type: "chat",
+                    source: "game-chat",
+                    created_at: Date.now() - 195_000,
+                    author: vera,
+                    text: "I still like the top-side reduction here.",
+                    game_id: currentGame19.game_id,
+                },
+                {
                     id: "top-19x19-var-post-1",
                     room_id: "top-19x19",
                     type: "variation_posted",
+                    source: "room-stream",
                     created_at: Date.now() - 170_000,
                     author: topRoomUsers[1],
                     text: "Posted a variation: Black shoulder-hit follow-up.",
@@ -508,6 +520,7 @@ function createRooms(): MockRoomState[] {
                     id: "tournament-pick-chat-1",
                     room_id: "tournament-pick",
                     type: "chat",
+                    source: "room-chat",
                     created_at: Date.now() - 160_000,
                     author: tournamentUsers[3],
                     text: "If white tenukis again, the lower side gets severe quickly.",
@@ -517,6 +530,7 @@ function createRooms(): MockRoomState[] {
                     id: "tournament-pick-chat-2",
                     room_id: "tournament-pick",
                     type: "chat",
+                    source: "room-chat",
                     created_at: Date.now() - 130_000,
                     author: tournamentUsers[6],
                     text: "This one might actually be worth switching to if the vote gets moving.",
@@ -526,6 +540,7 @@ function createRooms(): MockRoomState[] {
                     id: "tournament-pick-proposal-seeded",
                     room_id: "tournament-pick",
                     type: "proposal_started",
+                    source: "room-stream",
                     created_at: Date.now() - 100_000,
                     author: tournamentUsers[2],
                     text: `${tournamentUsers[2].username} proposed ${formatProposalSummary(tournamentProposalGameA)}.`,
@@ -590,6 +605,7 @@ function createRooms(): MockRoomState[] {
                     id: "top-9x9-chat-1",
                     room_id: "top-9x9",
                     type: "chat",
+                    source: "room-chat",
                     created_at: Date.now() - 90_000,
                     author: fastUsers[2],
                     text: "Everything here is one tempo away from collapse.",
@@ -599,6 +615,7 @@ function createRooms(): MockRoomState[] {
                     id: "top-9x9-chat-2",
                     room_id: "top-9x9",
                     type: "chat",
+                    source: "room-chat",
                     created_at: Date.now() - 70_000,
                     author: fastUsers[4],
                     text: "A single bad shape move here and the corner is just gone.",
@@ -746,6 +763,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             id: `${roomId}-board-change-${Date.now()}`,
             room_id: roomId,
             type: "system",
+            source: "room-stream",
             created_at: Date.now(),
             text: `Switching board to ${game.title}.`,
             game_id: game.game_id,
@@ -765,6 +783,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             id: `${roomId}-chat-${Date.now()}`,
             room_id: roomId,
             type: "chat",
+            source: "room-chat",
             created_at: Date.now(),
             author,
             text: text.trim(),
@@ -822,6 +841,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             id: `${proposal.id}-vote-${voter.id}-${Date.now()}`,
             room_id: roomId,
             type: "system",
+            source: "room-stream",
             created_at: Date.now(),
             text: `${voter.username} voted to ${choice === "change" ? "change board" : "keep current"}.`,
             game_id: proposal.proposed_game.game_id,
@@ -885,6 +905,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             id: `${variation.id}-posted`,
             room_id: roomId,
             type: "variation_posted",
+            source: "room-stream",
             created_at: Date.now(),
             author: creator,
             text: `${creator.username} posted a variation: ${variation.title}.`,
@@ -927,6 +948,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             id: `${proposal.id}-started`,
             room_id: room.room.id,
             type: "proposal_started",
+            source: "room-stream",
             created_at: Date.now(),
             author: proposer,
             text: `${proposer.username} proposed ${formatProposalSummary(proposedGame)}.`,
@@ -951,6 +973,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
                 id: `${proposal.id}-accepted`,
                 room_id: room.room.id,
                 type: "proposal_result",
+                source: "room-stream",
                 created_at: Date.now(),
                 text: endedByClock
                     ? `Clock expired. Change board won. Switched to ${proposal.proposed_game.title}.`
@@ -963,6 +986,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
                 id: `${proposal.id}-rejected`,
                 room_id: room.room.id,
                 type: "proposal_result",
+                source: "room-stream",
                 created_at: Date.now(),
                 text: endedByClock
                     ? "Clock expired. Keeping current board."
@@ -981,6 +1005,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
                 id: `${nextQueued.id}-activated`,
                 room_id: room.room.id,
                 type: "system",
+                source: "room-stream",
                 created_at: Date.now(),
                 text: `${nextQueued.proposer.username}'s proposal is now live.`,
                 game_id: nextQueued.proposed_game.game_id,
@@ -1094,6 +1119,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             id: `${room.room.id}-sim-${Date.now()}-${speaker.id}`,
             room_id: room.room.id,
             type: "chat",
+            source: "room-chat",
             created_at: Date.now(),
             author: speaker,
             text: message,
@@ -1108,12 +1134,43 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
                 id: `${room.room.id}-sim-${Date.now()}-${secondSpeaker.id}-burst`,
                 room_id: room.room.id,
                 type: "chat",
+                source: "room-chat",
                 created_at: Date.now() + 1,
                 author: secondSpeaker,
                 text: secondMessage,
                 game_id: room.room.current_game?.game_id,
             });
         }
+
+        return true;
+    }
+
+    private simulateGameChat(room: MockRoomState): boolean {
+        const currentGame = room.room.current_game;
+        if (!currentGame) {
+            return false;
+        }
+
+        const speaker = choice(
+            room.room.active_chatters.length > 0 ? room.room.active_chatters : room.room.users,
+        );
+        const message = choice([
+            "I still think the top side is the bigger point.",
+            "The actual game chat seems calmer than the room chat right now.",
+            "White probably wants a lighter answer than people are calling for.",
+            "This exchange feels better for black than the stream is giving it credit for.",
+        ]);
+
+        this.pushStreamItem(room, {
+            id: `${room.room.id}-game-chat-${Date.now()}-${speaker.id}`,
+            room_id: room.room.id,
+            type: "chat",
+            source: "game-chat",
+            created_at: Date.now(),
+            author: speaker,
+            text: message,
+            game_id: currentGame.game_id,
+        });
 
         return true;
     }
@@ -1248,6 +1305,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
                 id: `${room.room.id}-vote-chat-${Date.now()}-${commentator.id}`,
                 room_id: room.room.id,
                 type: "chat",
+                source: "room-chat",
                 created_at: Date.now(),
                 author: commentator,
                 text: commentary,
@@ -1280,6 +1338,10 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             if (Math.random() < 0.5) {
                 changed = this.simulateChat(room) || changed;
             }
+        }
+
+        if (Math.random() < 0.18) {
+            changed = this.simulateGameChat(room) || changed;
         }
 
         if (room.room.id === "top-19x19" && Math.random() < 0.18) {

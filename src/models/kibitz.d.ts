@@ -34,6 +34,8 @@ export type KibitzStreamItemType =
     | "variation_posted"
     | "moderation";
 
+export type KibitzStreamItemSource = "room-chat" | "game-chat" | "room-stream";
+
 export interface KibitzRoomUser {
     id: number;
     username: string;
@@ -127,6 +129,7 @@ export interface KibitzStreamItem {
     id: string;
     room_id: string;
     type: KibitzStreamItemType;
+    source?: KibitzStreamItemSource;
     created_at: number;
     author?: KibitzRoomUser;
     text: string;
