@@ -403,14 +403,6 @@ function createRooms(): MockRoomState[] {
                     game_id: currentGame19.game_id,
                 },
                 {
-                    id: "top-19x19-join-1",
-                    room_id: "top-19x19",
-                    type: "system",
-                    created_at: Date.now() - 285_000,
-                    text: `${topRoomUsers[3].username} joined chat.`,
-                    game_id: currentGame19.game_id,
-                },
-                {
                     id: "top-19x19-chat-1",
                     room_id: "top-19x19",
                     type: "chat",
@@ -1077,22 +1069,12 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
         }
 
         const joining = Math.random() > 0.35;
-        const actor = choice(room.room.users);
 
         room.room.viewer_count = clamp(
             room.room.viewer_count + (joining ? 1 : -1),
             room.viewerFloor,
             room.viewerCeiling,
         );
-
-        this.pushStreamItem(room, {
-            id: `${room.room.id}-${joining ? "join" : "part"}-${Date.now()}`,
-            room_id: room.room.id,
-            type: "system",
-            created_at: Date.now(),
-            text: joining ? `${actor.username} joined chat.` : `${actor.username} stepped out.`,
-            game_id: room.room.current_game?.game_id,
-        });
         this.refreshActiveChatters(room);
 
         return true;
