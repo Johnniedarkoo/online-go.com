@@ -642,6 +642,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
     private rooms = new Map<string, MockRoomState>();
     private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     private activityTimer: ReturnType<typeof setInterval> | null = null;
+    private startupTimers: Array<ReturnType<typeof setTimeout>> = [];
     private proposalSequence = 100;
     private variationSequence = 100;
     private roomSequence = 100;
@@ -655,6 +656,7 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
 
         this.heartbeatTimer = setInterval(this.tickHeartbeat, 1000);
         this.activityTimer = setInterval(this.simulateActivity, 2500);
+        this.scheduleInitialTopRoomJoins();
     }
 
     public destroy(): void {
@@ -667,6 +669,11 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             clearInterval(this.activityTimer);
             this.activityTimer = null;
         }
+
+        for (const timer of this.startupTimers) {
+            clearTimeout(timer);
+        }
+        this.startupTimers = [];
     }
 
     public listRooms(): KibitzRoomSummary[] {
@@ -1066,6 +1073,29 @@ export class KibitzMockService extends EventEmitter<KibitzMockServiceEvents> {
             this.emit("changed");
         }
     };
+
+    private scheduleInitialTopRoomJoins(): void {
+        const delays = [4000, 8000];
+
+        for (const delay of delays) {
+            const timer = setTimeout(() => {
+                const room = this.rooms.get("top-19x19");
+                if (!room) {
+                    return;
+                }
+
+                room.room.viewer_count = clamp(
+                    room.room.viewer_count + 1,
+                    room.viewerFloor,
+                    room.viewerCeiling,
+                );
+                this.refreshActiveChatters(room);
+                this.emit("changed");
+            }, delay);
+
+            this.startupTimers.push(timer);
+        }
+    }
 
     private pickWeightedRoom(): MockRoomState {
         const rooms = Array.from(this.rooms.values());
