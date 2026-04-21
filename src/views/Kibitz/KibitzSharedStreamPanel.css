@@ -123,12 +123,10 @@
 }
 
 .KibitzSharedStreamPanel-mobileSwitchButton {
-    align-items: center;
     background: transparent;
     border: 0;
     color: var(--text-color-faded);
-    display: inline-flex;
-    gap: 0.35rem;
+    display: flex;
     justify-content: center;
     min-width: 0;
     padding: 0.45rem 0.75rem;
@@ -143,10 +141,46 @@
     color: var(--fg);
 }
 
+.KibitzSharedStreamPanel-mobileSwitchContent {
+    align-items: center;
+    display: grid;
+    grid-template-columns: 1rem auto 1rem;
+    min-width: 0;
+    width: max-content;
+    max-width: 100%;
+}
+
 .KibitzSharedStreamPanel-mobileSwitchLabel {
+    display: block;
     font-size: 0.82rem;
     font-weight: 700;
     line-height: 1.1;
+    grid-column: 2;
+    min-width: 0;
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.KibitzSharedStreamPanel-mobileSwitchSpacer {
+    grid-column: 1;
+    min-width: 0;
+}
+
+.KibitzSharedStreamPanel-mobileSwitchIndicator {
+    align-items: center;
+    display: inline-flex;
+    grid-column: 3;
+    justify-content: flex-end;
+    justify-self: end;
+    min-width: 0;
+}
+
+.KibitzSharedStreamPanel-mobileSwitchIndicator .KibitzSharedStreamPanel-unreadDot {
+    background: #2f9d5d;
+    box-shadow: 0 0 0 1px color-mix(in srgb, #2f9d5d 35%, transparent);
+    margin-left: 0;
 }
 
 .KibitzSharedStreamPanel-divider {

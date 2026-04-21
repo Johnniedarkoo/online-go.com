@@ -760,10 +760,26 @@ export function KibitzSharedStreamPanel({
                         aria-pressed={mobileTab === "room"}
                         onClick={() => handleMobileTabChange("room")}
                     >
-                        <span className="KibitzSharedStreamPanel-mobileSwitchLabel">
-                            {pgettext("Label for the kibitz mobile room tab", "Room")}
+                        <span className="KibitzSharedStreamPanel-mobileSwitchContent">
+                            <span
+                                className="KibitzSharedStreamPanel-mobileSwitchSpacer"
+                                aria-hidden="true"
+                            />
+                            <span className="KibitzSharedStreamPanel-mobileSwitchLabel">
+                                {pgettext("Label for the kibitz mobile room tab", "Room")}
+                            </span>
+                            <span
+                                className={
+                                    "KibitzSharedStreamPanel-mobileSwitchIndicator" +
+                                    (roomUnread ? " active" : "")
+                                }
+                                aria-hidden="true"
+                            >
+                                {roomUnread ? (
+                                    <span className="KibitzSharedStreamPanel-unreadDot" />
+                                ) : null}
+                            </span>
                         </span>
-                        {roomUnread ? <span className="KibitzSharedStreamPanel-unreadDot" /> : null}
                     </button>
                     <button
                         type="button"
@@ -774,10 +790,26 @@ export function KibitzSharedStreamPanel({
                         aria-pressed={mobileTab === "game"}
                         onClick={() => handleMobileTabChange("game")}
                     >
-                        <span className="KibitzSharedStreamPanel-mobileSwitchLabel">
-                            {pgettext("Label for the kibitz mobile game tab", "Game")}
+                        <span className="KibitzSharedStreamPanel-mobileSwitchContent">
+                            <span
+                                className="KibitzSharedStreamPanel-mobileSwitchSpacer"
+                                aria-hidden="true"
+                            />
+                            <span className="KibitzSharedStreamPanel-mobileSwitchLabel">
+                                {pgettext("Label for the kibitz mobile game tab", "Game")}
+                            </span>
+                            <span
+                                className={
+                                    "KibitzSharedStreamPanel-mobileSwitchIndicator" +
+                                    (gameUnread ? " active" : "")
+                                }
+                                aria-hidden="true"
+                            >
+                                {gameUnread ? (
+                                    <span className="KibitzSharedStreamPanel-unreadDot" />
+                                ) : null}
+                            </span>
                         </span>
-                        {gameUnread ? <span className="KibitzSharedStreamPanel-unreadDot" /> : null}
                     </button>
                 </div>
             ) : null}
