@@ -682,14 +682,6 @@ export function KibitzSharedStreamPanel({
             }
             style={!isMobileLayout ? { flexBasis: `${desktopRoomRatio}%` } : undefined}
         >
-            <div className="KibitzSharedStreamPanel-paneHeader">
-                <div className="KibitzSharedStreamPanel-paneTitleRow">
-                    <span className="KibitzSharedStreamPanel-paneTitle">
-                        {pgettext("Label for the Kibitz room stream pane", "Room")}
-                    </span>
-                    {roomUnread ? <span className="KibitzSharedStreamPanel-unreadDot" /> : null}
-                </div>
-            </div>
             <div className="KibitzSharedStreamPanel-paneBody">
                 <div className="KibitzSharedStreamPanel-paneFeed">
                     {renderEntries(roomEntries, "room")}
@@ -722,14 +714,6 @@ export function KibitzSharedStreamPanel({
             }
             style={!isMobileLayout ? { flexBasis: `${desktopGameRatio}%` } : undefined}
         >
-            <div className="KibitzSharedStreamPanel-paneHeader">
-                <div className="KibitzSharedStreamPanel-paneTitleRow">
-                    <span className="KibitzSharedStreamPanel-paneTitle">
-                        {pgettext("Label for the Kibitz game chat pane", "Game")}
-                    </span>
-                    {gameUnread ? <span className="KibitzSharedStreamPanel-unreadDot" /> : null}
-                </div>
-            </div>
             <div className="KibitzSharedStreamPanel-paneBody">
                 <div className="KibitzSharedStreamPanel-paneFeed">
                     {renderEntries(gameEntries, "game")}
@@ -805,9 +789,7 @@ export function KibitzSharedStreamPanel({
                         type="button"
                         className={
                             "KibitzSharedStreamPanel-divider" +
-                            (desktopDragging ? " is-dragging" : "") +
-                            (gameUnread && !gameVisible ? " game-unread" : "") +
-                            (roomUnread && !roomVisible ? " room-unread" : "")
+                            (desktopDragging ? " is-dragging" : "")
                         }
                         aria-label={pgettext(
                             "Aria label for the kibitz shared stream split control",
@@ -816,17 +798,34 @@ export function KibitzSharedStreamPanel({
                         onPointerDown={handleDesktopDividerPointerDown}
                     >
                         <span
-                            className="KibitzSharedStreamPanel-dividerBadge left"
+                            className="KibitzSharedStreamPanel-dividerSide left"
                             aria-hidden="true"
-                        />
+                        >
+                            <span className="KibitzSharedStreamPanel-dividerArrow">^</span>
+                            <span className="KibitzSharedStreamPanel-dividerLabel">
+                                {pgettext(
+                                    "Label for the Kibitz game stream in the split divider",
+                                    "Game",
+                                )}
+                            </span>
+                        </span>
+                        <span className="KibitzSharedStreamPanel-dividerHandle" aria-hidden="true">
+                            <span className="KibitzSharedStreamPanel-dividerHandleDot" />
+                            <span className="KibitzSharedStreamPanel-dividerHandleDot" />
+                            <span className="KibitzSharedStreamPanel-dividerHandleDot" />
+                        </span>
                         <span
-                            className="KibitzSharedStreamPanel-dividerHandle"
+                            className="KibitzSharedStreamPanel-dividerSide right"
                             aria-hidden="true"
-                        />
-                        <span
-                            className="KibitzSharedStreamPanel-dividerBadge right"
-                            aria-hidden="true"
-                        />
+                        >
+                            <span className="KibitzSharedStreamPanel-dividerLabel">
+                                {pgettext(
+                                    "Label for the Kibitz room stream in the split divider",
+                                    "Room",
+                                )}
+                            </span>
+                            <span className="KibitzSharedStreamPanel-dividerArrow">v</span>
+                        </span>
                     </button>
                 ) : null}
                 {roomPane}

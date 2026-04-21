@@ -8,10 +8,6 @@
     overflow: hidden;
 }
 
-.KibitzSharedStreamPanel.compact {
-    --shared-stream-pane-header-padding: 0.3rem 0.75rem 0.2rem;
-}
-
 .KibitzSharedStreamPanel-stack {
     display: flex;
     flex: 1 1 auto;
@@ -38,30 +34,7 @@
     display: none;
 }
 
-.KibitzSharedStreamPanel-paneHeader {
-    align-items: center;
-    display: flex;
-    justify-content: space-between;
-    min-height: 1.5rem;
-    padding: var(--shared-stream-pane-header-padding, 0.45rem 0.75rem 0.3rem);
-}
-
-.KibitzSharedStreamPanel-paneTitleRow {
-    align-items: center;
-    display: inline-flex;
-    gap: 0.35rem;
-    min-width: 0;
-}
-
-.KibitzSharedStreamPanel-paneTitle {
-    color: var(--fg);
-    font-size: 0.9rem;
-    font-weight: 700;
-    line-height: 1.1;
-}
-
-.KibitzSharedStreamPanel-unreadDot,
-.KibitzSharedStreamPanel-dividerBadge {
+.KibitzSharedStreamPanel-unreadDot {
     background: var(--primary);
     border-radius: 999px;
     display: inline-block;
@@ -178,13 +151,16 @@
 
 .KibitzSharedStreamPanel-divider {
     align-items: center;
-    background: transparent;
+    background: color-mix(in srgb, var(--card-background-color) 78%, var(--shade4));
     border: 0;
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, var(--shade3) 50%, transparent),
+        inset 0 -1px 0 color-mix(in srgb, var(--shade3) 50%, transparent);
     cursor: ns-resize;
     display: flex;
-    gap: 0.45rem;
-    justify-content: center;
-    min-height: 1rem;
+    gap: 0.55rem;
+    justify-content: space-between;
+    min-height: 1.55rem;
     padding: 0.15rem 0.75rem;
     position: relative;
     touch-action: none;
@@ -197,30 +173,61 @@
 }
 
 .KibitzSharedStreamPanel-dividerHandle {
+    align-items: center;
+    color: var(--text-color-faded);
+    display: inline-flex;
+    flex: 0 0 auto;
+    justify-content: center;
+    line-height: 1;
+    min-width: 3rem;
+    text-align: center;
+}
+
+.KibitzSharedStreamPanel-dividerHandleDot {
     background: var(--shade2);
     border-radius: 999px;
-    display: block;
+    display: inline-block;
     height: 0.24rem;
-    width: 2.75rem;
+    margin: 0 0.12rem;
+    vertical-align: middle;
+    width: 0.24rem;
 }
 
-.KibitzSharedStreamPanel-dividerBadge {
-    background: transparent;
-    height: 0.32rem;
-    width: 0.32rem;
+.KibitzSharedStreamPanel-dividerSide {
+    align-items: center;
+    color: var(--text-color-faded);
+    display: inline-flex;
+    flex: 1 1 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    gap: 0.35rem;
+    justify-content: center;
+    line-height: 1;
+    min-width: 0;
 }
 
-.KibitzSharedStreamPanel-divider.game-unread .left,
-.KibitzSharedStreamPanel-divider.room-unread .right {
-    background: var(--primary);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
+.KibitzSharedStreamPanel-dividerSide.left {
+    justify-content: flex-end;
+}
+
+.KibitzSharedStreamPanel-dividerSide.right {
+    justify-content: flex-start;
+}
+
+.KibitzSharedStreamPanel-dividerArrow {
+    color: color-mix(in srgb, var(--text-color-faded) 75%, var(--primary));
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.KibitzSharedStreamPanel-dividerLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 @media (max-width: 1000px) {
-    .KibitzSharedStreamPanel-paneHeader {
-        padding-top: 0.35rem;
-    }
-
     .KibitzSharedStreamPanel-paneFeed {
         padding-left: 0.75rem;
         padding-right: 0.75rem;

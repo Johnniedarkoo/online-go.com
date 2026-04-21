@@ -67,14 +67,19 @@ ogsTest("Kibitz shared stream panel game stream uses accented background", async
     await page.waitForTimeout(1000);
 
     const panel = page.locator(".KibitzSharedStreamPanel").first();
+    const divider = panel.locator(".KibitzSharedStreamPanel-divider");
     const roomFeed = panel.locator(
         ".KibitzSharedStreamPanel-roomPane .KibitzSharedStreamPanel-paneFeed",
     );
     const gameFeed = panel.locator(
         ".KibitzSharedStreamPanel-gamePane .KibitzSharedStreamPanel-paneFeed",
     );
+    const paneHeaders = panel.locator(".KibitzSharedStreamPanel-paneHeader");
 
     await expect(panel).toHaveClass(/split-game-30-room-70/);
+    await expect(paneHeaders).toHaveCount(0);
+    await expect(divider).toContainText("Game");
+    await expect(divider).toContainText("Room");
     await expect(roomFeed).toBeVisible();
     await expect(gameFeed).toBeVisible();
 
