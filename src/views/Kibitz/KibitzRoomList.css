@@ -133,9 +133,15 @@
 
         .room-subtitle {
             color: var(--text-color-faded);
+            display: -webkit-box;
             flex: 1 1 auto;
             font-size: 0.76rem;
             line-height: 1.1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: normal;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
         }
 
         .room-viewer-count {

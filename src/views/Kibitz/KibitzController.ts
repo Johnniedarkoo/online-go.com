@@ -113,6 +113,7 @@ function createSeededRooms(): KibitzRoomSummary[] {
             title: "Top 19x19",
             kind: "preset",
             viewer_count: 18,
+            description: "High-level 19x19 live games.",
             proposals_enabled: true,
         },
         {
@@ -121,6 +122,7 @@ function createSeededRooms(): KibitzRoomSummary[] {
             title: "Tournament Pick",
             kind: "preset",
             viewer_count: 11,
+            description: "The room for the most interesting tournament board right now.",
             proposals_enabled: true,
         },
         {
@@ -129,6 +131,7 @@ function createSeededRooms(): KibitzRoomSummary[] {
             title: "Top 9x9",
             kind: "preset",
             viewer_count: 7,
+            description: "Fast, sharp 9x9 games and tactics.",
             proposals_enabled: true,
         },
     ];
