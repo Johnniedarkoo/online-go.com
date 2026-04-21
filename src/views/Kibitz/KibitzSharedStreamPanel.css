@@ -94,6 +94,14 @@
     padding: 0 0.75rem 0.5rem;
 }
 
+.KibitzSharedStreamPanel.desktop .KibitzSharedStreamPanel-composer {
+    box-shadow:
+        0 0 0px 0px color-mix(in srgb, var(--primary) 60%, transparent),
+        inset 0 0 0px 0 rgba(0, 255, 0, 1),
+        inset 0 0 5px 0 color-mix(in srgb, var(--primary) 40%, transparent);
+    border-radius: 3px;
+}
+
 .KibitzSharedStreamPanel-composer .TabCompleteInput {
     width: 100%;
 }
