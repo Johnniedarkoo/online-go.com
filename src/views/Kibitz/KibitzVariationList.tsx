@@ -16,6 +16,7 @@
  */
 
 import * as React from "react";
+import { MiniGoban } from "@/components/MiniGoban";
 import { pgettext } from "@/lib/translate";
 import type { KibitzVariationSummary } from "@/models/kibitz";
 import "./KibitzVariationList.css";
@@ -104,25 +105,41 @@ export function KibitzVariationList({
                                         className="variation-item"
                                         onClick={() => onOpenVariation(variation.id)}
                                     >
-                                        <span className="variation-name">
-                                            {variation.title ||
-                                                pgettext(
-                                                    "Fallback title for an untitled variation in kibitz",
-                                                    "Untitled variation",
-                                                )}
-                                        </span>
-                                        <span className="variation-meta-row">
-                                            <span
-                                                className="variation-avatar"
-                                                aria-hidden="true"
-                                                title={variation.creator.username}
-                                            >
-                                                {getUserInitials(variation.creator.username)}
+                                        <span className="variation-main">
+                                            <span className="variation-name">
+                                                {variation.title ||
+                                                    pgettext(
+                                                        "Fallback title for an untitled variation in kibitz",
+                                                        "Untitled variation",
+                                                    )}
                                             </span>
-                                            <span className="variation-meta">
-                                                {variation.creator.username}
+                                            <span className="variation-meta-row">
+                                                <span
+                                                    className="variation-avatar"
+                                                    aria-hidden="true"
+                                                    title={variation.creator.username}
+                                                >
+                                                    {getUserInitials(variation.creator.username)}
+                                                </span>
+                                                <span className="variation-meta">
+                                                    {variation.creator.username}
+                                                </span>
                                             </span>
                                         </span>
+                                        {variation.mock_game_data ? (
+                                            <span className="variation-preview" aria-hidden="true">
+                                                <MiniGoban
+                                                    className="variation-preview-goban inline"
+                                                    noLink={true}
+                                                    noText={true}
+                                                    json={variation.mock_game_data}
+                                                    width={variation.mock_game_data.width}
+                                                    height={variation.mock_game_data.height}
+                                                    displayWidth={38}
+                                                    labels_positioning="none"
+                                                />
+                                            </span>
+                                        ) : null}
                                     </button>
                                 ))}
                             </React.Fragment>
