@@ -34,7 +34,7 @@ import { KibitzProposalQueue } from "./KibitzProposalQueue";
 import { KibitzDebugPanel } from "./KibitzDebugPanel";
 import { KibitzRoomList } from "./KibitzRoomList";
 import { KibitzRoomStage } from "./KibitzRoomStage";
-import { KibitzRoomStream } from "./KibitzRoomStream";
+import { KibitzSharedStreamPanel } from "./KibitzSharedStreamPanel";
 import { KibitzPresence } from "./KibitzPresence";
 import { KibitzVariationList } from "./KibitzVariationList";
 import { GobanAnalyzeButtonBar } from "@/components/GobanAnalyzeButtonBar/GobanAnalyzeButtonBar";
@@ -79,7 +79,6 @@ export function Kibitz(): React.ReactElement {
     const navigate = useNavigate();
     const { roomId } = useParams<"roomId">();
     const controllerRef = React.useRef<KibitzController | null>(null);
-    const pendingScrollRequestIdRef = React.useRef(0);
 
     if (!controllerRef.current || controllerRef.current.destroyed) {
         controllerRef.current = new KibitzController();
@@ -95,10 +94,6 @@ export function Kibitz(): React.ReactElement {
     const [secondaryPane, setSecondaryPane] = React.useState<KibitzSecondaryPaneState>(
         controller.secondary_pane,
     );
-    const [pendingScrollVariationRequest, setPendingScrollVariationRequest] = React.useState<{
-        variationId: string;
-        requestId: number;
-    } | null>(null);
     const [pendingSecondaryPaneMode, setPendingSecondaryPaneMode] =
         React.useState<SecondaryPaneMode | null>(null);
     const [debug, setDebug] = React.useState<KibitzDebugState>(controller.debug);
@@ -328,10 +323,6 @@ export function Kibitz(): React.ReactElement {
     const onOpenVariation = React.useCallback(
         (variationId: string) => {
             controller.openVariation(variationId);
-            setPendingScrollVariationRequest({
-                variationId,
-                requestId: ++pendingScrollRequestIdRef.current,
-            });
             if (isMobileLayout) {
                 setMobileCompanionPanel("compare");
             }
@@ -345,9 +336,6 @@ export function Kibitz(): React.ReactElement {
             setMobileCompanionPanel("compare");
         }
     }, [controller, isMobileLayout]);
-    const onScrolledToVariation = React.useCallback(() => {
-        setPendingScrollVariationRequest(null);
-    }, []);
     const onSetSecondaryPaneMode = React.useCallback((nextMode: SecondaryPaneMode) => {
         setPendingSecondaryPaneMode(nextMode);
     }, []);
@@ -781,22 +769,14 @@ export function Kibitz(): React.ReactElement {
                                     >
                                         <div className="Kibitz-mobile-panel-surface">
                                             {mobileCompanionPanel === "chat" ? (
-                                                <KibitzRoomStream
+                                                <KibitzSharedStreamPanel
                                                     mode={mode}
                                                     room={resolvedRoom}
                                                     items={stream}
                                                     variations={variations}
                                                     onOpenVariation={onOpenVariation}
                                                     onSendMessage={onSendMessage}
-                                                    scrollToVariationId={
-                                                        pendingScrollVariationRequest?.variationId ??
-                                                        null
-                                                    }
-                                                    scrollToVariationRequestId={
-                                                        pendingScrollVariationRequest?.requestId ??
-                                                        null
-                                                    }
-                                                    onScrolledToVariation={onScrolledToVariation}
+                                                    isMobileLayout={true}
                                                     compact={true}
                                                 />
                                             ) : null}
@@ -918,20 +898,14 @@ export function Kibitz(): React.ReactElement {
                                         onVote={onVoteProposal}
                                     />
                                 </div>
-                                <KibitzRoomStream
+                                <KibitzSharedStreamPanel
                                     mode={mode}
                                     room={resolvedRoom}
                                     items={stream}
                                     variations={variations}
                                     onOpenVariation={onOpenVariation}
                                     onSendMessage={onSendMessage}
-                                    scrollToVariationId={
-                                        pendingScrollVariationRequest?.variationId ?? null
-                                    }
-                                    scrollToVariationRequestId={
-                                        pendingScrollVariationRequest?.requestId ?? null
-                                    }
-                                    onScrolledToVariation={onScrolledToVariation}
+                                    isMobileLayout={false}
                                     compact={Boolean(activeProposal)}
                                 />
                                 <div className="Kibitz-footer-panels">{variationPanels}</div>
