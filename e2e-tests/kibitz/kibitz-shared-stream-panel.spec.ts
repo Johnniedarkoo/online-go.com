@@ -17,33 +17,47 @@
 
 import { expect } from "@playwright/test";
 import { load, ogsTest } from "@helpers";
-import { expectOGSClickableByName } from "@helpers/matchers";
 
 ogsTest(
-    "Kibitz shared stream panel desktop split cycles through room and game states",
+    "Kibitz shared stream panel desktop divider drags and snaps to preset splits",
     async ({ page }) => {
         await page.setViewportSize({ width: 1365, height: 900 });
         await load(page, "/kibitz/top-19x19?demo-kibitz=1");
         await page.waitForTimeout(1000);
 
         const panel = page.locator(".KibitzSharedStreamPanel").first();
-        const divider = await expectOGSClickableByName(page, /Shared stream split/);
+        const stack = panel.locator(".KibitzSharedStreamPanel-stack");
+        const divider = panel.locator(".KibitzSharedStreamPanel-divider");
         const roomPane = panel.locator(".KibitzSharedStreamPanel-roomPane");
         const gamePane = panel.locator(".KibitzSharedStreamPanel-gamePane");
+        const stackBox = await stack.boundingBox();
+        const dividerBox = await divider.boundingBox();
 
         await expect(roomPane).toBeVisible();
         await expect(gamePane).toBeVisible();
         await expect(panel.getByPlaceholder("Message Top 19x19")).toBeVisible();
+        await expect(panel).toHaveClass(/split-game-30-room-70/);
 
-        await divider.click();
-        await expect(gamePane).toBeHidden();
+        if (!stackBox || !dividerBox) {
+            throw new Error("Expected Kibitz shared stream panel to have measurable layout boxes");
+        }
+
+        await page.mouse.move(
+            dividerBox.x + dividerBox.width / 2,
+            dividerBox.y + dividerBox.height / 2,
+        );
+        await page.mouse.down();
+        await page.mouse.move(
+            dividerBox.x + dividerBox.width / 2,
+            stackBox.y + stackBox.height * 0.5,
+            { steps: 8 },
+        );
+        await page.mouse.up();
+
+        await expect(panel).toHaveClass(/split-game-50-room-50/);
+        await expect(gamePane).toBeVisible();
         await expect(roomPane).toBeVisible();
         await expect(panel.getByPlaceholder("Message Top 19x19")).toBeVisible();
-
-        await divider.click();
-        await expect(gamePane).toBeVisible();
-        await expect(roomPane).toBeHidden();
-        await expect(panel.getByPlaceholder("Can't send messages to game chat")).toBeVisible();
     },
 );
 

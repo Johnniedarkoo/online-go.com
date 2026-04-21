@@ -123,9 +123,41 @@ function splitPercentage(split: DesktopSplitState): { game: number; room: number
     }
 }
 
-function nextDesktopSplit(split: DesktopSplitState): DesktopSplitState {
-    const index = DESKTOP_SPLITS.indexOf(split);
-    return DESKTOP_SPLITS[(index + 1) % DESKTOP_SPLITS.length] ?? DEFAULT_DESKTOP_SPLIT;
+function snapDesktopSplitFromRatio(gameRatio: number): DesktopSplitState {
+    const nearest = DESKTOP_SPLITS.reduce<{
+        split: DesktopSplitState;
+        distance: number;
+    } | null>((best, split) => {
+        const distance = Math.abs(splitPercentage(split).game - gameRatio);
+        if (!best || distance < best.distance) {
+            return { split, distance };
+        }
+
+        return best;
+    }, null);
+
+    return nearest?.split ?? DEFAULT_DESKTOP_SPLIT;
+}
+
+function clampPercentage(value: number): number {
+    return Math.min(100, Math.max(0, value));
+}
+
+function ratioFromPointerPosition(
+    clientY: number,
+    dragState: {
+        top: number;
+        height: number;
+        dividerHeight: number;
+    },
+): number {
+    const availableHeight = dragState.height - dragState.dividerHeight;
+    if (availableHeight <= 0) {
+        return splitPercentage(DEFAULT_DESKTOP_SPLIT).game;
+    }
+
+    const centeredPosition = clientY - dragState.top - dragState.dividerHeight / 2;
+    return clampPercentage((centeredPosition / availableHeight) * 100);
 }
 
 function createChatLineFromItem(
@@ -194,15 +226,26 @@ export function KibitzSharedStreamPanel({
     const [gameProxy, setGameProxy] = React.useState<ChatChannelProxy | null>(null);
     const [, refresh] = React.useState(0);
     const [desktopSplit, setDesktopSplit] = React.useState<DesktopSplitState>(readDesktopSplit);
+    const [desktopDragRatio, setDesktopDragRatio] = React.useState<number | null>(null);
+    const [desktopDragging, setDesktopDragging] = React.useState(false);
     const [mobileTab, setMobileTab] = React.useState<MobileTab>(readMobileTab);
     const [roomFollowLatest, setRoomFollowLatest] = React.useState(true);
     const [gameFollowLatest, setGameFollowLatest] = React.useState(true);
     const [roomUnread, setRoomUnread] = React.useState(false);
     const [gameUnread, setGameUnread] = React.useState(false);
+    const desktopStackRef = React.useRef<HTMLDivElement | null>(null);
+    const desktopDragStateRef = React.useRef<{
+        pointerId: number;
+        top: number;
+        height: number;
+        dividerHeight: number;
+    } | null>(null);
     const roomPreviousEntryCountRef = React.useRef(0);
     const gamePreviousEntryCountRef = React.useRef(0);
-    const roomVisible = isMobileLayout ? mobileTab === "room" : desktopSplit !== "game-only";
-    const gameVisible = isMobileLayout ? mobileTab === "game" : desktopSplit !== "room-only";
+    const desktopGameRatio = desktopDragRatio ?? splitPercentage(desktopSplit).game;
+    const desktopRoomRatio = 100 - desktopGameRatio;
+    const roomVisible = isMobileLayout ? mobileTab === "room" : desktopRoomRatio > 0;
+    const gameVisible = isMobileLayout ? mobileTab === "game" : desktopGameRatio > 0;
     const currentGameChannel = room.current_game?.game_id
         ? `game-${room.current_game.game_id}`
         : null;
@@ -398,9 +441,85 @@ export function KibitzSharedStreamPanel({
     const showDesktopSplitControl = !isMobileLayout;
     const showMobileSwitcher = isMobileLayout;
 
-    const handleDesktopSplitToggle = React.useCallback(() => {
-        setDesktopSplit((split) => nextDesktopSplit(split));
+    const finishDesktopDrag = React.useCallback((clientY: number) => {
+        const dragState = desktopDragStateRef.current;
+
+        if (!dragState) {
+            setDesktopDragging(false);
+            setDesktopDragRatio(null);
+            return;
+        }
+
+        const nextSplit = snapDesktopSplitFromRatio(ratioFromPointerPosition(clientY, dragState));
+        desktopDragStateRef.current = null;
+        setDesktopDragging(false);
+        setDesktopDragRatio(null);
+        setDesktopSplit(nextSplit);
     }, []);
+
+    const handleDesktopDividerPointerDown = React.useCallback(
+        (event: React.PointerEvent<HTMLButtonElement>) => {
+            if (event.button !== 0 || isMobileLayout) {
+                return;
+            }
+
+            const stack = desktopStackRef.current;
+            const divider = event.currentTarget;
+            if (!stack) {
+                return;
+            }
+
+            const stackRect = stack.getBoundingClientRect();
+            const dividerRect = divider.getBoundingClientRect();
+            desktopDragStateRef.current = {
+                pointerId: event.pointerId,
+                top: stackRect.top,
+                height: stackRect.height,
+                dividerHeight: dividerRect.height,
+            };
+            setDesktopDragging(true);
+            setDesktopDragRatio(
+                ratioFromPointerPosition(event.clientY, desktopDragStateRef.current),
+            );
+            divider.setPointerCapture(event.pointerId);
+            event.preventDefault();
+        },
+        [isMobileLayout],
+    );
+
+    React.useEffect(() => {
+        if (!desktopDragging) {
+            return;
+        }
+
+        const handlePointerMove = (event: PointerEvent) => {
+            const dragState = desktopDragStateRef.current;
+            if (!dragState || event.pointerId !== dragState.pointerId) {
+                return;
+            }
+
+            setDesktopDragRatio(ratioFromPointerPosition(event.clientY, dragState));
+        };
+
+        const handlePointerEnd = (event: PointerEvent) => {
+            const dragState = desktopDragStateRef.current;
+            if (!dragState || event.pointerId !== dragState.pointerId) {
+                return;
+            }
+
+            finishDesktopDrag(event.clientY);
+        };
+
+        window.addEventListener("pointermove", handlePointerMove);
+        window.addEventListener("pointerup", handlePointerEnd);
+        window.addEventListener("pointercancel", handlePointerEnd);
+
+        return () => {
+            window.removeEventListener("pointermove", handlePointerMove);
+            window.removeEventListener("pointerup", handlePointerEnd);
+            window.removeEventListener("pointercancel", handlePointerEnd);
+        };
+    }, [desktopDragging, finishDesktopDrag]);
 
     const handleMobileTabChange = React.useCallback((tab: MobileTab) => {
         setMobileTab(tab);
@@ -569,11 +688,7 @@ export function KibitzSharedStreamPanel({
                 (roomVisible ? "" : " hidden") +
                 (roomUnread ? " has-unread" : "")
             }
-            style={
-                !isMobileLayout && desktopSplit !== "game-only" && desktopSplit !== "room-only"
-                    ? { flexBasis: `${splitPercentage(desktopSplit).room}%` }
-                    : undefined
-            }
+            style={!isMobileLayout ? { flexBasis: `${desktopRoomRatio}%` } : undefined}
         >
             <div className="KibitzSharedStreamPanel-paneHeader">
                 <div className="KibitzSharedStreamPanel-paneTitleRow">
@@ -613,11 +728,7 @@ export function KibitzSharedStreamPanel({
                 (gameVisible ? "" : " hidden") +
                 (gameUnread ? " has-unread" : "")
             }
-            style={
-                !isMobileLayout && desktopSplit !== "room-only" && desktopSplit !== "game-only"
-                    ? { flexBasis: `${splitPercentage(desktopSplit).game}%` }
-                    : undefined
-            }
+            style={!isMobileLayout ? { flexBasis: `${desktopGameRatio}%` } : undefined}
         >
             <div className="KibitzSharedStreamPanel-paneHeader">
                 <div className="KibitzSharedStreamPanel-paneTitleRow">
@@ -656,6 +767,7 @@ export function KibitzSharedStreamPanel({
                 "KibitzSharedStreamPanel" +
                 (isMobileLayout ? " mobile" : " desktop") +
                 (compact ? " compact" : "") +
+                (desktopDragging ? " is-dragging" : "") +
                 " split-" +
                 (isMobileLayout ? mobileTab : desktopSplit)
             }
@@ -693,13 +805,14 @@ export function KibitzSharedStreamPanel({
                 </div>
             ) : null}
 
-            <div className="KibitzSharedStreamPanel-stack">
+            <div className="KibitzSharedStreamPanel-stack" ref={desktopStackRef}>
                 {gamePane}
                 {showDesktopSplitControl ? (
                     <button
                         type="button"
                         className={
                             "KibitzSharedStreamPanel-divider" +
+                            (desktopDragging ? " is-dragging" : "") +
                             (gameUnread && !gameVisible ? " game-unread" : "") +
                             (roomUnread && !roomVisible ? " room-unread" : "")
                         }
@@ -707,7 +820,7 @@ export function KibitzSharedStreamPanel({
                             "Aria label for the kibitz shared stream split control",
                             "Shared stream split",
                         )}
-                        onClick={handleDesktopSplitToggle}
+                        onPointerDown={handleDesktopDividerPointerDown}
                     >
                         <span
                             className="KibitzSharedStreamPanel-dividerBadge left"

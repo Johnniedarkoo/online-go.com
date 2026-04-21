@@ -27,6 +27,11 @@
     min-height: 0;
     min-width: 0;
     overflow: hidden;
+    transition: flex-basis 180ms ease;
+}
+
+.KibitzSharedStreamPanel.is-dragging .KibitzSharedStreamPanel-pane {
+    transition: none;
 }
 
 .KibitzSharedStreamPanel-pane.hidden {
@@ -150,14 +155,20 @@
     align-items: center;
     background: transparent;
     border: 0;
-    cursor: pointer;
+    cursor: ns-resize;
     display: flex;
     gap: 0.45rem;
     justify-content: center;
     min-height: 1rem;
     padding: 0.15rem 0.75rem;
     position: relative;
+    touch-action: none;
+    user-select: none;
     width: 100%;
+}
+
+.KibitzSharedStreamPanel-divider.is-dragging {
+    cursor: ns-resize;
 }
 
 .KibitzSharedStreamPanel-dividerHandle {
