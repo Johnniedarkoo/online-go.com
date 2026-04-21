@@ -78,16 +78,6 @@
         }
     }
 
-    .kibitz-chat-source-label {
-        color: color-mix(in srgb, var(--text-color-faded) 88%, var(--primary));
-        font-size: 0.72rem;
-        font-style: italic;
-        font-weight: normal;
-        line-height: 1.1;
-        margin-bottom: 0.12rem;
-        opacity: 0.95;
-    }
-
     .variation-post {
         align-items: center;
         background: var(--shade4);

@@ -665,14 +665,6 @@ export function KibitzSharedStreamPanel({
 
                     return (
                         <div key={entry.key} className={"kibitz-chat-entry " + entry.source}>
-                            {entry.source === "game-chat" ? (
-                                <div className="kibitz-chat-source-label">
-                                    {pgettext(
-                                        "Source label for watched game chat lines shown inside the kibitz stream",
-                                        "game chat",
-                                    )}
-                                </div>
-                            ) : null}
                             <ChatLine line={entry.line} lastLine={previousLine} />
                         </div>
                     );
@@ -747,9 +739,10 @@ export function KibitzSharedStreamPanel({
     );
 
     const disabledComposer = (
-        <div className="KibitzSharedStreamPanel-disabledComposer">
+        <div className="KibitzSharedStreamPanel-disabledComposer chat-input-container input-group">
             <TabCompleteInput
                 id={`kibitz-chat-disabled-${room.id}`}
+                className="chat-input"
                 autoComplete="off"
                 placeholder={pgettext(
                     "Placeholder text shown when the kibitz game chat composer is disabled",

@@ -61,6 +61,40 @@ ogsTest(
     },
 );
 
+ogsTest("Kibitz shared stream panel game stream uses accented background", async ({ page }) => {
+    await page.setViewportSize({ width: 1365, height: 900 });
+    await load(page, "/kibitz/top-19x19?demo-kibitz=1");
+    await page.waitForTimeout(1000);
+
+    const panel = page.locator(".KibitzSharedStreamPanel").first();
+    const roomFeed = panel.locator(
+        ".KibitzSharedStreamPanel-roomPane .KibitzSharedStreamPanel-paneFeed",
+    );
+    const gameFeed = panel.locator(
+        ".KibitzSharedStreamPanel-gamePane .KibitzSharedStreamPanel-paneFeed",
+    );
+
+    await expect(panel).toHaveClass(/split-game-30-room-70/);
+    await expect(roomFeed).toBeVisible();
+    await expect(gameFeed).toBeVisible();
+
+    const computedStyles = await gameFeed.evaluate((element) => {
+        const styles = window.getComputedStyle(element);
+        return {
+            backgroundColor: styles.backgroundColor,
+        };
+    });
+
+    const roomStyles = await roomFeed.evaluate((element) => {
+        const styles = window.getComputedStyle(element);
+        return {
+            backgroundColor: styles.backgroundColor,
+        };
+    });
+
+    expect(computedStyles.backgroundColor).not.toBe(roomStyles.backgroundColor);
+});
+
 ogsTest(
     "Kibitz shared stream panel mobile switcher swaps between room and game feeds",
     async ({ page }) => {

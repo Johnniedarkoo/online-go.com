@@ -89,6 +89,10 @@
     padding: 0.25rem 0.75rem 0.5rem;
 }
 
+.KibitzSharedStreamPanel-gamePane .KibitzSharedStreamPanel-paneFeed {
+    background: color-mix(in srgb, var(--primary) 6%, var(--card-background-color));
+}
+
 .KibitzSharedStreamPanel-paneFeed .chat-lines,
 .KibitzSharedStreamPanel-paneFeed .stream-empty {
     min-width: 0;
@@ -123,13 +127,17 @@
 
 .KibitzSharedStreamPanel-disabledComposer {
     display: flex;
-    flex-direction: column;
-    flex: 0 0 auto;
-    min-height: 0;
+    align-items: stretch;
+    flex: 0 0 30px;
+    height: 30px;
+    min-height: 30px;
+    overflow: hidden;
     padding: 0 0.75rem 0.5rem;
 }
 
-.KibitzSharedStreamPanel-disabledComposer .TabCompleteInput {
+.KibitzSharedStreamPanel-disabledComposer.chat-input-container {
+    box-sizing: border-box;
+    margin: 0;
     width: 100%;
 }
 
