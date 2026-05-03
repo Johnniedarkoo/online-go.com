@@ -490,7 +490,10 @@ export function KibitzMobileGamePicker({
     const mobileHeaderSubtitle =
         mobileStep === "preview"
             ? null
-            : pgettext("Subtitle for the mobile Kibitz game picker selection step", "Choose a game");
+            : pgettext(
+                  "Subtitle for the mobile Kibitz game picker selection step",
+                  "Choose a game",
+              );
 
     const renderMobileSelectStep = () => (
         <>
