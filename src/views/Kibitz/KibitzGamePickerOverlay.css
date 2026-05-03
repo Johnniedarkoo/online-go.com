@@ -2136,6 +2136,15 @@
     .Kibitz
         .Kibitz-mobile-overlay-panel
         > .KibitzGamePickerOverlay.KibitzMobileGamePicker
+        .KibitzGamePickerOverlay-mobileHeaderActions-preview
+        > button {
+        height: 2rem;
+        min-height: 2rem;
+    }
+
+    .Kibitz
+        .Kibitz-mobile-overlay-panel
+        > .KibitzGamePickerOverlay.KibitzMobileGamePicker
         .KibitzGamePickerOverlay-mobileBackButtonInline {
         background: var(--shade3);
         border-color: var(--shade3);
