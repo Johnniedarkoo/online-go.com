@@ -502,6 +502,7 @@ export function KibitzMobileGamePicker({
                         channel=""
                         initialMiniGoban={true}
                         onSelectGameId={onSelectGameId}
+                        compactControls={true}
                     />
                 </div>
             ) : (
