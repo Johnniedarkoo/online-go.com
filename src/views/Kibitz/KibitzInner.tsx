@@ -44,6 +44,7 @@ import type { KibitzController } from "./KibitzController";
 import { KIBITZ_VARIATION_COLORS } from "./kibitzVariationTree";
 import { KibitzGamePickerOverlay } from "./KibitzGamePickerOverlay";
 import { KibitzMobileGamePicker } from "./KibitzMobileGamePicker";
+import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
 import { getKibitzAccessPolicyForUser, isKibitzAccessBlockedForUser } from "./kibitzAnalysisPolicy";
 import {
     getKibitzBlockedRoomFollowupMessage,
@@ -54,7 +55,7 @@ import "./Kibitz.css";
 
 type SecondaryPaneMode = "hidden" | "small" | "equal";
 type MobileCompanionPanel = "chat" | "vote" | "compare";
-type MobileOverlayMode = "rooms" | "create-room" | "change-board" | null;
+type MobileOverlayMode = "rooms" | "room-settings" | "create-room" | "change-board" | null;
 type KibitzGamePickerMode = "create-room" | "change-board" | null;
 interface PendingPostedVariation {
     pendingId: string;
@@ -918,6 +919,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         setMobileOverlayMode((mode) => (mode === "rooms" ? null : "rooms"));
     }, []);
 
+    const onToggleMobileRoomSettings = React.useCallback(() => {
+        setMobileOverlayMode((mode) => (mode === "room-settings" ? null : "room-settings"));
+    }, []);
+
     const onCloseMobileOverlay = React.useCallback(() => {
         setMobileOverlayMode(null);
     }, []);
@@ -962,6 +967,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     );
 
     const resolvedRoomUsers = resolvedRoom ? controller.getRoomUsers(resolvedRoom.id) : [];
+    const canOpenRoomSettings = canManageRoom || Boolean(handleOpenChangeBoard);
     const mobileMatchup = formatMobileMatchup(resolvedRoom);
     React.useEffect(() => {
         if (!resolvedRoom) {
@@ -1134,75 +1140,101 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 <div className="Kibitz-main">
                     {isMobileLayout ? (
                         <div className="Kibitz-mobile-room-shell">
-                            <button
-                                type="button"
-                                className="Kibitz-mobile-room-bar"
-                                style={{
-                                    backgroundColor: "var(--card-background-color)",
-                                    backgroundImage: "none",
-                                }}
-                                onClick={onToggleMobileRooms}
-                                aria-expanded={mobileOverlayMode !== null}
+                            <div
+                                className={
+                                    "Kibitz-mobile-room-header" +
+                                    (canOpenRoomSettings ? " has-settings" : "")
+                                }
                             >
-                                <div className="mobile-room-header-title">{resolvedRoom.title}</div>
-                                {mobileMatchup ? (
-                                    <div className="mobile-room-header-matchup">
-                                        <span className="mobile-room-header-matchup-first">
-                                            {mobileMatchup.firstPlayer}{" "}
-                                            <span className="mobile-room-header-matchup-black-dot">
-                                                ●
+                                <button
+                                    type="button"
+                                    className="Kibitz-mobile-room-bar"
+                                    style={{
+                                        backgroundColor: "var(--card-background-color)",
+                                        backgroundImage: "none",
+                                    }}
+                                    onClick={onToggleMobileRooms}
+                                    aria-expanded={mobileOverlayMode === "rooms"}
+                                >
+                                    <div className="mobile-room-header-title">
+                                        {resolvedRoom.title}
+                                    </div>
+                                    {mobileMatchup ? (
+                                        <div className="mobile-room-header-matchup">
+                                            <span className="mobile-room-header-matchup-first">
+                                                {mobileMatchup.firstPlayer}{" "}
+                                                <span className="mobile-room-header-matchup-black-dot">
+                                                    ●
+                                                </span>
                                             </span>
+                                            <span className="mobile-room-header-matchup-second">
+                                                <span className="mobile-room-header-matchup-vs">
+                                                    {pgettext(
+                                                        "Prefix for the second player in the mobile kibitz room header matchup",
+                                                        "vs",
+                                                    )}
+                                                </span>{" "}
+                                                <span className="mobile-room-header-matchup-second-name">
+                                                    {mobileMatchup.secondPlayer}
+                                                </span>{" "}
+                                                <span className="mobile-room-header-matchup-white-dot">
+                                                    ○
+                                                </span>
+                                            </span>
+                                        </div>
+                                    ) : null}
+                                    <div
+                                        className={
+                                            "mobile-room-header-meta" +
+                                            (mobileViewerCountFlash
+                                                ? " mobile-room-header-meta-flash"
+                                                : "")
+                                        }
+                                    >
+                                        <span
+                                            className="mobile-room-viewer-icon"
+                                            title={interpolate(
+                                                pgettext(
+                                                    "Tooltip for the viewer count shown in the mobile kibitz room header",
+                                                    "{{count}} people here",
+                                                ),
+                                                { count: resolvedRoom.viewer_count },
+                                            )}
+                                        >
+                                            <svg
+                                                viewBox="0 0 16 16"
+                                                focusable="false"
+                                                aria-hidden="true"
+                                            >
+                                                <path
+                                                    d="M8 8a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 1c-2.7 0-5 1.4-5 3.2V14h10v-1.8C13 10.4 10.7 9 8 9Z"
+                                                    fill="currentColor"
+                                                />
+                                            </svg>
                                         </span>
-                                        <span className="mobile-room-header-matchup-second">
-                                            <span className="mobile-room-header-matchup-vs">
-                                                {pgettext(
-                                                    "Prefix for the second player in the mobile kibitz room header matchup",
-                                                    "vs",
-                                                )}
-                                            </span>{" "}
-                                            <span className="mobile-room-header-matchup-second-name">
-                                                {mobileMatchup.secondPlayer}
-                                            </span>{" "}
-                                            <span className="mobile-room-header-matchup-white-dot">
-                                                ○
-                                            </span>
+                                        <span className="mobile-room-viewer-count">
+                                            {resolvedRoom.viewer_count}
                                         </span>
                                     </div>
-                                ) : null}
-                                <div
-                                    className={
-                                        "mobile-room-header-meta" +
-                                        (mobileViewerCountFlash
-                                            ? " mobile-room-header-meta-flash"
-                                            : "")
-                                    }
-                                >
-                                    <span
-                                        className="mobile-room-viewer-icon"
-                                        title={interpolate(
-                                            pgettext(
-                                                "Tooltip for the viewer count shown in the mobile kibitz room header",
-                                                "{{count}} people here",
-                                            ),
-                                            { count: resolvedRoom.viewer_count },
+                                </button>
+                                {canOpenRoomSettings ? (
+                                    <button
+                                        type="button"
+                                        className="Kibitz-mobile-room-settings-button"
+                                        onClick={onToggleMobileRoomSettings}
+                                        aria-expanded={
+                                            mobileOverlayMode === "room-settings" ||
+                                            mobileOverlayMode === "change-board"
+                                        }
+                                        aria-label={pgettext(
+                                            "Aria label for opening room settings in mobile Kibitz",
+                                            "Room settings",
                                         )}
                                     >
-                                        <svg
-                                            viewBox="0 0 16 16"
-                                            focusable="false"
-                                            aria-hidden="true"
-                                        >
-                                            <path
-                                                d="M8 8a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 1c-2.7 0-5 1.4-5 3.2V14h10v-1.8C13 10.4 10.7 9 8 9Z"
-                                                fill="currentColor"
-                                            />
-                                        </svg>
-                                    </span>
-                                    <span className="mobile-room-viewer-count">
-                                        {resolvedRoom.viewer_count}
-                                    </span>
-                                </div>
-                            </button>
+                                        <i className="fa fa-gear" aria-hidden="true" />
+                                    </button>
+                                ) : null}
+                            </div>
                             {mobileOverlayMode ? (
                                 <>
                                     <button
@@ -1226,6 +1258,26 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                                     blockedRoomIds={blockedRoomIds}
                                                 />
                                             </div>
+                                        ) : mobileOverlayMode === "room-settings" ? (
+                                            <div className="Kibitz-mobile-room-settings-panel">
+                                                <KibitzRoomSettingsPopover
+                                                    room={resolvedRoom}
+                                                    canEditRoom={canManageRoom}
+                                                    canChangeBoard={Boolean(handleOpenChangeBoard)}
+                                                    onClose={onCloseMobileOverlay}
+                                                    onRequestChangeBoard={() => {
+                                                        setMobileOverlayMode("change-board");
+                                                    }}
+                                                    onDeleteRoom={handleDeleteRoom}
+                                                    onSaveRoomDetails={async (title, description) =>
+                                                        controller.updateRoomDetails(
+                                                            resolvedRoom.id,
+                                                            title,
+                                                            description,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
                                         ) : (
                                             <KibitzMobileGamePicker
                                                 key={mobileOverlayMode}
@@ -1234,7 +1286,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                                 currentRoom={resolvedRoom}
                                                 onClose={onCloseMobileOverlay}
                                                 onBackToMenu={() => {
-                                                    setMobileOverlayMode("rooms");
+                                                    setMobileOverlayMode(
+                                                        mobileOverlayMode === "change-board"
+                                                            ? "room-settings"
+                                                            : "rooms",
+                                                    );
                                                 }}
                                                 onCreateRoom={async (
                                                     game,
