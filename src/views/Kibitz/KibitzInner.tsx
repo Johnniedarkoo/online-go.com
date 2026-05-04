@@ -1263,6 +1263,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                                 <KibitzRoomSettingsPopover
                                                     room={resolvedRoom}
                                                     canEditRoom={canManageRoom}
+                                                    canDeleteRoom={permissions.can_delete_room}
                                                     canChangeBoard={Boolean(handleOpenChangeBoard)}
                                                     onClose={onCloseMobileOverlay}
                                                     onRequestChangeBoard={() => {
