@@ -1350,6 +1350,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                         onSetSecondaryPaneMode={onSetSecondaryPaneMode}
                                         onChangeBoard={undefined}
                                         canEditRoom={canManageRoom}
+                                        canDeleteRoom={permissions.can_delete_room}
                                         onSaveRoomDetails={async (title, description) =>
                                             controller.updateRoomDetails(
                                                 resolvedRoom.id,
@@ -1494,6 +1495,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                 onSetSecondaryPaneMode={onSetSecondaryPaneMode}
                                 onChangeBoard={handleOpenChangeBoard}
                                 canEditRoom={canManageRoom}
+                                canDeleteRoom={permissions.can_delete_room}
                                 onSaveRoomDetails={async (title, description) =>
                                     controller.updateRoomDetails(
                                         resolvedRoom.id,
