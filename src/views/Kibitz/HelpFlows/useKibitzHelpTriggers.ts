@@ -39,9 +39,22 @@ type UseKibitzHelpTriggersResult = {
     noteDraftStartedFromPostedVariation: () => void;
 };
 
-function getVisibleFlowId(flowInfo: ReturnType<DynamicHelp.AppApi["getFlowInfo"]>): string | null {
-    const visibleFlow = flowInfo.find((flow) => flow.visible);
-    return visibleFlow?.id ?? null;
+const KIBITZ_HELP_FLOW_ID_SET = new Set<string>(Object.values(KIBITZ_HELP_FLOW_IDS));
+
+function isKibitzHelpFlowId(flowId: string): flowId is KibitzHelpFlowId {
+    return KIBITZ_HELP_FLOW_ID_SET.has(flowId);
+}
+
+function getVisibleKibitzFlowId(
+    flowInfo: ReturnType<DynamicHelp.AppApi["getFlowInfo"]>,
+): KibitzHelpFlowId | null {
+    for (const flow of flowInfo) {
+        if (flow.visible && isKibitzHelpFlowId(flow.id)) {
+            return flow.id;
+        }
+    }
+
+    return null;
 }
 
 function isFlowSeen(
@@ -98,12 +111,16 @@ export function useKibitzHelpTriggers({
         }
 
         const flowInfo = getFlowInfo();
-        if (getVisibleFlowId(flowInfo) != null) {
+        if (getVisibleKibitzFlowId(flowInfo) != null) {
             return;
         }
 
         const flowState = flowInfo.find((flow) => flow.id === pendingFlowId);
-        if (flowState?.visible || flowState?.seen) {
+        if (flowState == null) {
+            return;
+        }
+
+        if (flowState.visible || flowState.seen) {
             pendingFlowIdRef.current = null;
             return;
         }

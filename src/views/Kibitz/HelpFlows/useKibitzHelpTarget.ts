@@ -38,25 +38,91 @@ export function useKibitzHelpTarget(
 ): DynamicHelpTarget | null {
     const { registerTargetItem } = React.useContext(DynamicHelp.Api);
     const targetIdRef = React.useRef<KibitzHelpTargetId | null>(null);
+    const registerTargetItemRef = React.useRef<typeof registerTargetItem | null>(null);
     const targetRef = React.useRef<DynamicHelpTarget | null>(null);
+    const targetElementRef = React.useRef<HTMLElement | null>(null);
+    const [target, setTarget] = React.useState<DynamicHelpTarget | null>(null);
+    const [activeSnapshot, setActiveSnapshot] = React.useState(false);
+
+    const syncActiveSnapshot = React.useCallback(() => {
+        const nextActive = Boolean(targetRef.current?.active());
+        setActiveSnapshot((currentActive) =>
+            currentActive === nextActive ? currentActive : nextActive,
+        );
+    }, []);
+
+    const ref = React.useCallback(
+        (targetElement: HTMLElement | null) => {
+            targetElementRef.current = targetElement;
+            targetRef.current?.ref(targetElement);
+            syncActiveSnapshot();
+        },
+        [syncActiveSnapshot],
+    );
 
     React.useEffect(() => {
         const resolvedTargetId = targetId ?? null;
 
         if (resolvedTargetId == null) {
             targetIdRef.current = null;
+            registerTargetItemRef.current = null;
+            targetRef.current?.ref(null);
             targetRef.current = null;
+            setTarget(null);
+            setActiveSnapshot(false);
             return;
         }
 
-        if (targetIdRef.current === resolvedTargetId && targetRef.current != null) {
+        if (
+            targetIdRef.current === resolvedTargetId &&
+            registerTargetItemRef.current === registerTargetItem &&
+            targetRef.current != null
+        ) {
             return;
         }
 
+        targetRef.current?.ref(null);
         const nextTarget = registerTargetItem(resolvedTargetId);
         targetIdRef.current = resolvedTargetId;
+        registerTargetItemRef.current = registerTargetItem;
         targetRef.current = nextTarget;
-    }, [registerTargetItem, targetId]);
+        nextTarget.ref(targetElementRef.current);
+        setTarget(nextTarget);
+        syncActiveSnapshot();
+    }, [registerTargetItem, syncActiveSnapshot, targetId]);
 
-    return targetRef.current;
+    React.useEffect(() => {
+        if (target == null) {
+            return;
+        }
+
+        let attempts = 0;
+        const intervalId = window.setInterval(() => {
+            attempts += 1;
+            syncActiveSnapshot();
+
+            if (targetRef.current?.active() || attempts >= 50) {
+                window.clearInterval(intervalId);
+            }
+        }, 100);
+
+        syncActiveSnapshot();
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
+    }, [syncActiveSnapshot, target]);
+
+    return React.useMemo(() => {
+        const currentTarget = target ?? targetRef.current;
+        if (currentTarget == null) {
+            return null;
+        }
+
+        return {
+            ref,
+            active: () => currentTarget.active(),
+            used: () => currentTarget.used(),
+        };
+    }, [activeSnapshot, ref, target]);
 }
