@@ -57,6 +57,7 @@ export function useKibitzHelpTriggers({
     selectedVariationReady,
 }: UseKibitzHelpTriggersArgs): UseKibitzHelpTriggersResult {
     const { triggerFlow, getFlowInfo, getSystemStatus } = React.useContext(DynamicHelp.Api);
+    const previousRoomIdRef = React.useRef<string | null>(null);
     const previousRoomGameIdRef = React.useRef<number | null>(null);
     const previousSelectedVariationIdRef = React.useRef<string | null>(null);
     const draftHelpRequestedRef = React.useRef(false);
@@ -84,13 +85,21 @@ export function useKibitzHelpTriggers({
 
     React.useEffect(() => {
         if (!room || !mainBoardReady || pickerOpen || mobileOverlayOpen) {
+            previousRoomIdRef.current = room?.id ?? null;
             previousRoomGameIdRef.current = room?.current_game?.game_id ?? null;
             return;
         }
 
+        const currentRoomId = room.id;
         const currentGameId = room.current_game?.game_id ?? null;
+        const previousRoomId = previousRoomIdRef.current;
         const previousGameId = previousRoomGameIdRef.current;
+        previousRoomIdRef.current = currentRoomId;
         previousRoomGameIdRef.current = currentGameId;
+
+        if (previousRoomId == null || previousRoomId !== currentRoomId) {
+            return;
+        }
 
         if (previousGameId == null || previousGameId === currentGameId) {
             return;

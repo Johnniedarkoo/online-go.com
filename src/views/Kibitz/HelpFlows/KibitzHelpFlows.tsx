@@ -90,7 +90,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobilePanelSwitcher} position="top-centre">
                     {pgettext(
                         "Kibitz mobile help bubble explaining the panel switcher",
-                        "Use these tabs to move between chat and variations.",
+                        "Click this button to switch between watching Chat and watching Variations.",
                     )}
                 </HelpItem>
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobileVariationsTab} position="top-centre">
@@ -109,7 +109,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                     "Kibitz desktop first run",
                 )}
             >
-                <HelpItem target={KIBITZ_HELP_TARGETS.desktopRoomList} position="top-right">
+                <HelpItem target={KIBITZ_HELP_TARGETS.desktopRoomList} position="center-right">
                     {pgettext(
                         "Kibitz desktop help bubble explaining the room list",
                         "Rooms. Choose a Kibitz room here. Each room has its own main board, chat, and variations.",
