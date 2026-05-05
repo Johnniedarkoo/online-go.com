@@ -1018,7 +1018,7 @@ export function KibitzRoomStage({
                                 {mobileCompanionPanel === "compare"
                                     ? pgettext(
                                           "Mobile kibitz transport-row toggle label",
-                                          "To room board",
+                                          "Main board",
                                       )
                                     : pgettext(
                                           "Mobile kibitz transport-row toggle label",
@@ -1035,10 +1035,7 @@ export function KibitzRoomStage({
                                 onReturnLiveVisibilityChange={setMobileReturnLiveAvailable}
                             />
                         </div>
-                        <div
-                            className="mobile-board-controls-panels"
-                            ref={mobileVariationActionsTarget.ref}
-                        >
+                        <div className="mobile-board-controls-panels">
                             {/* Back to live is intentionally only exposed in chat mode on mobile;
                                 compare mode keeps the right column reserved for New variation. */}
                             {mobileReturnLiveAvailable && mobileCompanionPanel !== "compare" ? (
@@ -1078,6 +1075,7 @@ export function KibitzRoomStage({
                                 <button
                                     type="button"
                                     className="kibitz-mobile-transport-button kibitz-mobile-stage-panel-button primary mobile-board-controls-new-variation"
+                                    ref={mobileVariationActionsTarget.ref}
                                     onClick={() => {
                                         if (
                                             selectedVariation &&
@@ -1483,10 +1481,7 @@ export function KibitzRoomStage({
                                         onReady={setSecondaryBoardController}
                                     />
                                 </div>
-                                <div
-                                    className="secondary-board-transport-row"
-                                    ref={desktopVariationActionsTarget.ref}
-                                >
+                                <div className="secondary-board-transport-row">
                                     <div className="secondary-board-return-live-action">
                                         {secondaryReturnLiveAvailable ? (
                                             <button
@@ -1520,6 +1515,7 @@ export function KibitzRoomStage({
                                             <button
                                                 type="button"
                                                 className="kibitz-move-control create-variation-button"
+                                                ref={desktopVariationActionsTarget.ref}
                                                 onClick={() =>
                                                     onCreateVariationFromPostedVariation(
                                                         selectedVariation,

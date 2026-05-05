@@ -250,10 +250,30 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     );
     const [pendingPostedVariation, setPendingPostedVariation] =
         React.useState<PendingPostedVariation | null>(null);
-    const { registerTargetItem, triggerFlow } = React.useContext(DynamicHelp.Api);
+    const { registerTargetItem } = React.useContext(DynamicHelp.Api);
+    const desktopRoomListTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopRoomList);
     const mobileRoomTitleTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileRoomTitle);
     const mobileRoomMenuTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileRoomMenu);
+    const desktopRoomSettingsTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopRoomSettings);
+    const desktopMainBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopMainBoard);
     const desktopVariationsTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopVariations);
+    const desktopStreamTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopStream);
+    const mobileMainBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileMainBoard);
+    const mobilePanelSwitcherTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobilePanelSwitcher);
+    const mobileVariationsTabTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileVariationsTab);
+    const mobileVariationsPanelTarget = registerTargetItem(
+        KIBITZ_HELP_TARGETS.mobileVariationsPanel,
+    );
+    const mobileVariationBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileVariationBoard);
+    const desktopVariationBoardTarget = registerTargetItem(
+        KIBITZ_HELP_TARGETS.desktopVariationBoard,
+    );
+    const mobileVariationActionsTarget = registerTargetItem(
+        KIBITZ_HELP_TARGETS.mobileVariationActions,
+    );
+    const desktopVariationActionsTarget = registerTargetItem(
+        KIBITZ_HELP_TARGETS.desktopVariationActions,
+    );
     const blockedVariationFlashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const mobileShellRef = React.useRef<HTMLDivElement | null>(null);
     const mobileDividerRef = React.useRef<HTMLDivElement | null>(null);
@@ -352,6 +372,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const currentSecondaryPaneMode: SecondaryPaneMode = secondaryPane.collapsed
         ? "hidden"
         : (secondaryPane.size ?? "small");
+    const [pickerMode, setPickerMode] = React.useState<KibitzGamePickerMode>(null);
 
     React.useEffect(() => {
         controller.on("rooms-changed", setRooms);
@@ -410,6 +431,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     );
     const isSelectedRoomBlocked = !selectedRoomPolicy.allowed;
     const isBlockedRoom = Boolean(accessBlocked?.room_id === roomId || isSelectedRoomBlocked);
+    const resolvedRoom = isBlockedRoom
+        ? null
+        : (activeRoom ??
+          (roomId ? (rooms.find((room) => room.id === roomId) ?? null) : (rooms[0] ?? null)));
 
     React.useEffect(() => {
         if (roomId || !defaultRoomId) {
@@ -481,6 +506,45 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         return next;
     }, [gameVariations, variations]);
 
+    const selectedVariation = displayedVariations.find(
+        (variation) => variation.id === secondaryPane.variation_id,
+    );
+    const kibitzHelpTriggers = useKibitzHelpTriggers({
+        isMobileLayout,
+        room: resolvedRoom,
+        flowReadiness: {
+            [KIBITZ_HELP_FLOW_IDS.mobileFirstRun]:
+                mobileRoomTitleTarget.active() &&
+                mobileMainBoardTarget.active() &&
+                mobilePanelSwitcherTarget.active() &&
+                mobileVariationsTabTarget.active(),
+            [KIBITZ_HELP_FLOW_IDS.desktopFirstRun]:
+                desktopRoomListTarget.active() &&
+                desktopMainBoardTarget.active() &&
+                desktopVariationsTarget.active() &&
+                desktopStreamTarget.active(),
+            [KIBITZ_HELP_FLOW_IDS.mobileFirstVariations]: mobileVariationsPanelTarget.active(),
+            [KIBITZ_HELP_FLOW_IDS.desktopFirstVariations]: desktopVariationsTarget.active(),
+            [KIBITZ_HELP_FLOW_IDS.mobilePostedVariation]: mobileVariationBoardTarget.active(),
+            [KIBITZ_HELP_FLOW_IDS.desktopPostedVariation]: desktopVariationBoardTarget.active(),
+            [KIBITZ_HELP_FLOW_IDS.draftFromPostedVariation]: (isMobileLayout
+                ? mobileVariationActionsTarget
+                : desktopVariationActionsTarget
+            ).active(),
+            [KIBITZ_HELP_FLOW_IDS.roomBoardChange]: isMobileLayout
+                ? mobileMainBoardTarget.active()
+                : desktopMainBoardTarget.active(),
+            [KIBITZ_HELP_FLOW_IDS.roomManagement]: isMobileLayout
+                ? mobileRoomMenuTarget.active()
+                : desktopRoomSettingsTarget.active(),
+        },
+        pickerOpen: Boolean(pickerMode),
+        mobileOverlayOpen: mobileOverlayMode != null,
+        canManageRoom,
+        selectedVariationId: secondaryPane.variation_id ?? null,
+        selectedVariationReady: selectedVariation != null,
+    });
+
     const onClearPreview = React.useCallback(() => {
         const currentVariation = displayedVariations.find(
             (variation) => variation.id === secondaryPane.variation_id,
@@ -516,10 +580,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
     const onOpenVariation = React.useCallback(
         (variationId: string, focusVariation: boolean = false) => {
-            if (
-                !visibleVariationIds.includes(variationId) &&
-                visibleVariationIds.length >= MAX_VISIBLE_VARIATIONS
-            ) {
+            const isNewlyOpened = !visibleVariationIds.includes(variationId);
+
+            if (isNewlyOpened && visibleVariationIds.length >= MAX_VISIBLE_VARIATIONS) {
                 if (blockedVariationFlashTimerRef.current) {
                     clearTimeout(blockedVariationFlashTimerRef.current);
                 }
@@ -551,16 +614,19 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 setVariationFocusRequestId((previous) => previous + 1);
             }
             controller.openVariation(variationId);
-            triggerFlow(
-                isMobileLayout
-                    ? KIBITZ_HELP_FLOW_IDS.mobilePostedVariation
-                    : KIBITZ_HELP_FLOW_IDS.desktopPostedVariation,
-            );
+            if (isNewlyOpened) {
+                kibitzHelpTriggers.requestFlow(
+                    isMobileLayout
+                        ? KIBITZ_HELP_FLOW_IDS.mobilePostedVariation
+                        : KIBITZ_HELP_FLOW_IDS.desktopPostedVariation,
+                );
+                kibitzHelpTriggers.requestFlow(KIBITZ_HELP_FLOW_IDS.draftFromPostedVariation);
+            }
             if (isMobileLayout) {
                 setMobileCompanionPanel("compare");
             }
         },
-        [controller, isMobileLayout, triggerFlow, visibleVariationIds],
+        [controller, isMobileLayout, kibitzHelpTriggers, visibleVariationIds],
     );
     const onToggleVariation = React.useCallback(
         (variationId: string) => {
@@ -627,7 +693,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             );
             setVariationFocusRequestId((previous) => previous + 1);
             controller.openVariation(variationId);
-            triggerFlow(KIBITZ_HELP_FLOW_IDS.desktopFirstVariations);
+            kibitzHelpTriggers.noteDesktopVariationMadeVisible();
             if (isMobileLayout) {
                 setMobileCompanionPanel("compare");
             }
@@ -636,8 +702,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             controller,
             displayedVariations,
             isMobileLayout,
-            triggerFlow,
             secondaryPane.variation_id,
+            kibitzHelpTriggers,
             visibleVariationIds,
         ],
     );
@@ -670,8 +736,6 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const onSetSecondaryPaneMode = React.useCallback((nextMode: SecondaryPaneMode) => {
         setPendingSecondaryPaneMode(nextMode);
     }, []);
-
-    const [pickerMode, setPickerMode] = React.useState<KibitzGamePickerMode>(null);
 
     const onOpenCreateRoom = React.useCallback(() => {
         if (isMobileLayout) {
@@ -720,10 +784,6 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         [controller],
     );
 
-    const resolvedRoom = isBlockedRoom
-        ? null
-        : (activeRoom ??
-          (roomId ? (rooms.find((room) => room.id === roomId) ?? null) : (rooms[0] ?? null)));
     const currentGameId = resolvedRoom?.current_game?.game_id ?? null;
     const roomProposals = proposals.filter((proposal) => proposal.room_id === resolvedRoom?.id);
     const activeProposal = roomProposals.find((proposal) => proposal.status === "active");
@@ -791,23 +851,6 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         };
     }, [mainBoardController, resolvedRoom]);
 
-    const selectedVariation = displayedVariations.find(
-        (variation) => variation.id === secondaryPane.variation_id,
-    );
-    const kibitzHelpTriggers = useKibitzHelpTriggers({
-        isMobileLayout,
-        room: resolvedRoom,
-        mainBoardReady: Boolean(mainBoardController),
-        pickerOpen: Boolean(pickerMode),
-        mobileOverlayOpen: mobileOverlayMode != null,
-        canManageRoom,
-        draftHelpReady:
-            secondaryPane.variation_source_game_id != null &&
-            currentSecondaryPaneMode === "equal" &&
-            (!isMobileLayout || mobileCompanionPanel === "compare"),
-        selectedVariationId: secondaryPane.variation_id ?? null,
-        selectedVariationReady: selectedVariation != null,
-    });
     React.useEffect(() => {
         setVisibleVariationIds((previous) =>
             previous.filter((variationId) =>

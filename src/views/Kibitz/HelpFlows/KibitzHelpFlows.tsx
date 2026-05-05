@@ -90,7 +90,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobilePanelSwitcher} position="top-centre">
                     {pgettext(
                         "Kibitz mobile help bubble explaining the panel switcher",
-                        "Click this button to switch between watching Chat and watching Variations.",
+                        "Use these tabs to move between chat and variations.",
                     )}
                 </HelpItem>
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobileVariationsTab} position="top-centre">
@@ -178,7 +178,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobileVariationBoard} position="top-centre">
                     {pgettext(
                         "Kibitz mobile help bubble for a posted variation board",
-                        "You're viewing a posted variation. Tap the To main board button to return to the main board.",
+                        "You're viewing a posted variation. Use Main board to return.",
                     )}
                 </HelpItem>
             </HelpFlow>

@@ -46,8 +46,8 @@ export function KibitzRoomList({
     const roomListTarget = helpTargetId ? registerTargetItem(helpTargetId) : null;
 
     return (
-        <div className="KibitzRoomList" ref={roomListTarget?.ref}>
-            <div className="KibitzRoomList-titleRow">
+        <div className="KibitzRoomList">
+            <div className="KibitzRoomList-titleRow" ref={roomListTarget?.ref}>
                 <div className="KibitzRoomList-titleBlock">
                     <div className="KibitzRoomList-title">
                         {pgettext("Title for the kibitz left rail", "Kibitz")}

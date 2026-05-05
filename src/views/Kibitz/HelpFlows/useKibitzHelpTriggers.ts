@@ -22,14 +22,15 @@ import type { KibitzRoomSummary } from "@/models/kibitz";
 
 import { KIBITZ_HELP_FLOW_IDS } from "./KibitzHelpFlows";
 
+type KibitzHelpFlowId = (typeof KIBITZ_HELP_FLOW_IDS)[keyof typeof KIBITZ_HELP_FLOW_IDS];
+
 type UseKibitzHelpTriggersArgs = {
     isMobileLayout: boolean;
     room: KibitzRoomSummary | null;
-    mainBoardReady: boolean;
+    flowReadiness: Record<KibitzHelpFlowId, boolean>;
     pickerOpen: boolean;
     mobileOverlayOpen: boolean;
     canManageRoom: boolean;
-    draftHelpReady: boolean;
     selectedVariationId: string | null;
     selectedVariationReady: boolean;
 };
@@ -37,7 +38,7 @@ type UseKibitzHelpTriggersArgs = {
 type UseKibitzHelpTriggersResult = {
     noteMobileVariationsPanelOpened: () => void;
     noteDesktopVariationMadeVisible: () => void;
-    requestFlow: (flowId: string) => boolean;
+    requestFlow: (flowId: KibitzHelpFlowId) => void;
 };
 
 function getVisibleFlowId(flowInfo: ReturnType<DynamicHelp.AppApi["getFlowInfo"]>): string | null {
@@ -48,11 +49,10 @@ function getVisibleFlowId(flowInfo: ReturnType<DynamicHelp.AppApi["getFlowInfo"]
 export function useKibitzHelpTriggers({
     isMobileLayout,
     room,
-    mainBoardReady,
+    flowReadiness,
     pickerOpen,
     mobileOverlayOpen,
     canManageRoom,
-    draftHelpReady,
     selectedVariationId,
     selectedVariationReady,
 }: UseKibitzHelpTriggersArgs): UseKibitzHelpTriggersResult {
@@ -60,31 +60,60 @@ export function useKibitzHelpTriggers({
     const previousRoomIdRef = React.useRef<string | null>(null);
     const previousRoomGameIdRef = React.useRef<number | null>(null);
     const previousSelectedVariationIdRef = React.useRef<string | null>(null);
-    const draftHelpRequestedRef = React.useRef(false);
+    const pendingFlowRequestsRef = React.useRef<Set<KibitzHelpFlowId>>(new Set());
+    const [pendingFlowTick, setPendingFlowTick] = React.useState(0);
 
-    const maybeTriggerFlow = React.useCallback(
-        (flowId: string) => {
-            if (!getSystemStatus().initialized) {
-                return false;
-            }
-
+    const requestFlow = React.useCallback(
+        (flowId: KibitzHelpFlowId) => {
             const flowInfo = getFlowInfo();
-            if (!flowInfo.some((flow) => flow.id === flowId)) {
-                return false;
+            const flowState = flowInfo.find((flow) => flow.id === flowId);
+            if (flowState?.visible || flowState?.seen) {
+                return;
             }
 
-            if (getVisibleFlowId(flowInfo) != null) {
-                return false;
+            if (pendingFlowRequestsRef.current.has(flowId)) {
+                return;
+            }
+
+            pendingFlowRequestsRef.current.add(flowId);
+            setPendingFlowTick((value) => value + 1);
+        },
+        [getFlowInfo],
+    );
+
+    const flushPendingFlowRequests = React.useCallback(() => {
+        if (!getSystemStatus().initialized) {
+            return;
+        }
+
+        const flowInfo = getFlowInfo();
+        if (getVisibleFlowId(flowInfo) != null) {
+            return;
+        }
+
+        for (const flowId of pendingFlowRequestsRef.current) {
+            const flowState = flowInfo.find((flow) => flow.id === flowId);
+            if (flowState?.visible || flowState?.seen) {
+                pendingFlowRequestsRef.current.delete(flowId);
+                continue;
+            }
+
+            if (!flowReadiness[flowId]) {
+                continue;
+            }
+
+            if (!flowState) {
+                continue;
             }
 
             triggerFlow(flowId);
-            return true;
-        },
-        [getFlowInfo, getSystemStatus, triggerFlow],
-    );
+            pendingFlowRequestsRef.current.delete(flowId);
+            break;
+        }
+    }, [flowReadiness, getFlowInfo, getSystemStatus, triggerFlow]);
 
     React.useEffect(() => {
-        if (!room || !mainBoardReady || pickerOpen || mobileOverlayOpen) {
+        if (!room || pickerOpen || mobileOverlayOpen) {
             previousRoomIdRef.current = room?.id ?? null;
             previousRoomGameIdRef.current = room?.current_game?.game_id ?? null;
             return;
@@ -94,6 +123,7 @@ export function useKibitzHelpTriggers({
         const currentGameId = room.current_game?.game_id ?? null;
         const previousRoomId = previousRoomIdRef.current;
         const previousGameId = previousRoomGameIdRef.current;
+
         previousRoomIdRef.current = currentRoomId;
         previousRoomGameIdRef.current = currentGameId;
 
@@ -105,11 +135,11 @@ export function useKibitzHelpTriggers({
             return;
         }
 
-        maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.roomBoardChange);
-    }, [mainBoardReady, maybeTriggerFlow, mobileOverlayOpen, pickerOpen, room]);
+        requestFlow(KIBITZ_HELP_FLOW_IDS.roomBoardChange);
+    }, [mobileOverlayOpen, pickerOpen, requestFlow, room]);
 
     React.useEffect(() => {
-        if (!room || !mainBoardReady || pickerOpen || mobileOverlayOpen) {
+        if (!room || pickerOpen || mobileOverlayOpen) {
             return;
         }
 
@@ -129,95 +159,90 @@ export function useKibitzHelpTriggers({
             return;
         }
 
-        maybeTriggerFlow(
+        requestFlow(
             isMobileLayout
                 ? KIBITZ_HELP_FLOW_IDS.mobilePostedVariation
                 : KIBITZ_HELP_FLOW_IDS.desktopPostedVariation,
         );
     }, [
-        canManageRoom,
         isMobileLayout,
-        mainBoardReady,
-        maybeTriggerFlow,
         mobileOverlayOpen,
         pickerOpen,
+        requestFlow,
         room,
         selectedVariationId,
         selectedVariationReady,
     ]);
 
     React.useEffect(() => {
-        if (!room || !mainBoardReady || pickerOpen || mobileOverlayOpen) {
+        if (!room || pickerOpen || mobileOverlayOpen) {
             return;
         }
 
-        maybeTriggerFlow(
+        requestFlow(
             isMobileLayout
                 ? KIBITZ_HELP_FLOW_IDS.mobileFirstRun
                 : KIBITZ_HELP_FLOW_IDS.desktopFirstRun,
         );
-    }, [isMobileLayout, mainBoardReady, maybeTriggerFlow, mobileOverlayOpen, pickerOpen, room]);
+    }, [isMobileLayout, mobileOverlayOpen, pickerOpen, requestFlow, room]);
 
     React.useEffect(() => {
-        if (!room || !mainBoardReady || pickerOpen || mobileOverlayOpen || !canManageRoom) {
+        if (!room || pickerOpen || mobileOverlayOpen || !canManageRoom) {
             return;
         }
 
-        const intervalId = window.setInterval(() => {
-            maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.roomManagement);
-        }, 1200);
-
-        maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.roomManagement);
-
-        return () => {
-            window.clearInterval(intervalId);
-        };
-    }, [canManageRoom, mainBoardReady, maybeTriggerFlow, mobileOverlayOpen, pickerOpen, room]);
+        requestFlow(KIBITZ_HELP_FLOW_IDS.roomManagement);
+    }, [canManageRoom, mobileOverlayOpen, pickerOpen, requestFlow, room]);
 
     const noteMobileVariationsPanelOpened = React.useCallback(() => {
         if (!isMobileLayout) {
             return;
         }
 
-        maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.mobileFirstVariations);
-    }, [isMobileLayout, maybeTriggerFlow]);
+        requestFlow(KIBITZ_HELP_FLOW_IDS.mobileFirstVariations);
+    }, [isMobileLayout, requestFlow]);
 
     const noteDesktopVariationMadeVisible = React.useCallback(() => {
         if (isMobileLayout) {
             return;
         }
 
-        maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.desktopFirstVariations);
-    }, [isMobileLayout, maybeTriggerFlow]);
+        requestFlow(KIBITZ_HELP_FLOW_IDS.desktopFirstVariations);
+    }, [isMobileLayout, requestFlow]);
 
     React.useEffect(() => {
-        if (!draftHelpReady) {
-            draftHelpRequestedRef.current = false;
+        if (pendingFlowRequestsRef.current.size === 0) {
             return;
         }
 
-        if (draftHelpRequestedRef.current) {
-            return;
-        }
-
-        const attemptTrigger = () => {
-            const triggered = maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.draftFromPostedVariation);
-            if (triggered) {
-                draftHelpRequestedRef.current = true;
+        const intervalId = window.setInterval(() => {
+            if (pendingFlowRequestsRef.current.size === 0) {
+                window.clearInterval(intervalId);
+                return;
             }
-        };
 
-        const intervalId = window.setInterval(attemptTrigger, 1200);
-        attemptTrigger();
+            flushPendingFlowRequests();
+
+            if (pendingFlowRequestsRef.current.size === 0) {
+                window.clearInterval(intervalId);
+            }
+        }, 1200);
+
+        flushPendingFlowRequests();
+
+        if (pendingFlowRequestsRef.current.size === 0) {
+            window.clearInterval(intervalId);
+            return;
+        }
 
         return () => {
             window.clearInterval(intervalId);
         };
-    }, [draftHelpReady, maybeTriggerFlow]);
+    }, [flushPendingFlowRequests, pendingFlowTick]);
 
     return {
         noteMobileVariationsPanelOpened,
         noteDesktopVariationMadeVisible,
-        requestFlow: maybeTriggerFlow,
+        requestFlow,
     };
 }
