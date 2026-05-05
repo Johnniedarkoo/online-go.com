@@ -16,13 +16,11 @@
  */
 
 import * as React from "react";
-import * as DynamicHelp from "react-dynamic-help";
 import { Player } from "@/components/Player";
 import * as player_cache from "@/lib/player_cache";
 import { pgettext } from "@/lib/translate";
 import type { KibitzRoomSummary, KibitzRoomUser } from "@/models/kibitz";
 import { KibitzUserAvatar } from "./KibitzUserAvatar";
-import { KIBITZ_HELP_FLOW_IDS } from "./HelpFlows/KibitzHelpFlows";
 import "./KibitzRoomSettingsPopover.css";
 
 type KibitzRoomSettingsPopoverView = "menu" | "edit-details";
@@ -44,13 +42,12 @@ export function KibitzRoomSettingsPopover({
     canEditRoom,
     canDeleteRoom,
     canChangeBoard,
-    isMobileLayout,
+    isMobileLayout: _isMobileLayout,
     onClose,
     onDeleteRoom,
     onRequestChangeBoard,
     onSaveRoomDetails,
 }: KibitzRoomSettingsPopoverProps): React.ReactElement {
-    const { enableFlow } = React.useContext(DynamicHelp.Api);
     const [view, setView] = React.useState<KibitzRoomSettingsPopoverView>("menu");
     const [roomTitle, setRoomTitle] = React.useState(room.title);
     const [roomDescription, setRoomDescription] = React.useState(room.description ?? "");
@@ -243,24 +240,6 @@ export function KibitzRoomSettingsPopover({
                         {pgettext(
                             "Button label for closing the Kibitz room settings popover",
                             "Close",
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        className="KibitzRoomSettingsPopover-secondaryAction"
-                        onClick={() => {
-                            onClose();
-                            enableFlow(
-                                isMobileLayout
-                                    ? KIBITZ_HELP_FLOW_IDS.mobileFirstRun
-                                    : KIBITZ_HELP_FLOW_IDS.desktopFirstRun,
-                                true,
-                            );
-                        }}
-                    >
-                        {pgettext(
-                            "Button label for replaying the Kibitz help overview",
-                            "How Kibitz works",
                         )}
                     </button>
                 </>
