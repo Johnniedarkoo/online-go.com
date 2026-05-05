@@ -85,19 +85,13 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobileMainBoard} position="bottom-centre">
                     {pgettext(
                         "Kibitz mobile help bubble explaining the main board",
-                        "This is the room's main board. Everyone here is looking at this game.",
-                    )}
-                </HelpItem>
-                <HelpItem target={KIBITZ_HELP_TARGETS.mobilePanelSwitcher} position="top-centre">
-                    {pgettext(
-                        "Kibitz mobile help bubble explaining the panel switcher",
-                        "Use these tabs to move between chat and variations.",
+                        "This is the room's main board. Everyone here is watching this game together.",
                     )}
                 </HelpItem>
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobileVariationsTab} position="top-centre">
                     {pgettext(
                         "Kibitz mobile help bubble explaining the variations tab",
-                        "Open Variations to inspect posted lines.",
+                        "Open Variations to shared  variations, or create your own.",
                     )}
                 </HelpItem>
             </HelpFlow>
@@ -113,7 +107,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.desktopRoomList} position="bottom-right">
                     {pgettext(
                         "Kibitz desktop help bubble explaining the room list",
-                        "Rooms. Choose a Kibitz room here. Each room has its own main board, chat, and variations.",
+                        "Choose a room here. Each room has its own main board, chat, and variations.",
                     )}
                 </HelpItem>
                 <HelpItem target={KIBITZ_HELP_TARGETS.desktopMainBoard} position="center-right">
@@ -125,13 +119,13 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.desktopVariations} position="top-centre">
                     {pgettext(
                         "Kibitz desktop help bubble explaining the variations area",
-                        "Variations. Open posted lines here to inspect or continue them.",
+                        "Variations appear here. Open one to view, or show several at once.",
                     )}
                 </HelpItem>
                 <HelpItem target={KIBITZ_HELP_TARGETS.desktopStream} position="center-left">
                     {pgettext(
                         "Kibitz desktop help bubble explaining the stream panel",
-                        "Chat and room events appear here. Posted variations also show up in the room history.",
+                        "Game chat shows what the players say in-game. Room chat is where you and other kibitzers talk.",
                     )}
                 </HelpItem>
             </HelpFlow>
@@ -163,7 +157,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.desktopVariations} position="top-centre">
                     {pgettext(
                         "Kibitz desktop help bubble for the variations area",
-                        "Variations are shared lines from this room. Opening one lets you inspect it without changing the main board.",
+                        "Variations are shared by Kibitz viewers. Opening one does not change the main board.",
                     )}
                 </HelpItem>
             </HelpFlow>
@@ -179,7 +173,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobileVariationBoard} position="top-centre">
                     {pgettext(
                         "Kibitz mobile help bubble for a posted variation board",
-                        "You're viewing a posted variation. Use Main board to return.",
+                        "You're viewing a posted variation. Tap Main board to return.",
                     )}
                 </HelpItem>
             </HelpFlow>
@@ -195,7 +189,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.desktopVariationBoard} position="top-centre">
                     {pgettext(
                         "Kibitz desktop help bubble for a posted variation board",
-                        "You're viewing a posted variation. The main board remains the room's shared game.",
+                        "You're viewing a posted variation. The main board is still the room's shared game.",
                     )}
                 </HelpItem>
             </HelpFlow>
@@ -227,7 +221,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={roomBoardChangeTarget} position={roomBoardChangePosition}>
                     {pgettext(
                         "Kibitz help bubble explaining that the room board changed",
-                        "The room changed to a new main board. Chat and room history stay with this room.",
+                        "This room has a new main board. Chat and history stay with the room.",
                     )}
                 </HelpItem>
             </HelpFlow>
@@ -243,7 +237,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={roomManagementTarget} position="bottom-centre">
                     {pgettext(
                         "Kibitz help bubble for room management",
-                        "Room settings. Manage room details and the live game from here.",
+                        "Room settings. Manage room details and the live game here.",
                     )}
                 </HelpItem>
             </HelpFlow>
