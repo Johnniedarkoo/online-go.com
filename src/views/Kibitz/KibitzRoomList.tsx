@@ -16,11 +16,11 @@
  */
 
 import * as React from "react";
-import * as DynamicHelp from "react-dynamic-help";
 import { interpolate, pgettext } from "@/lib/translate";
 import type { KibitzRoomSummary } from "@/models/kibitz";
 import { getKibitzRoomLockedLabel, getKibitzRoomLockedTooltip } from "./kibitzAnalysisPolicyCopy";
 import { KIBITZ_HELP_TARGETS } from "./HelpFlows/KibitzHelpTargets";
+import { useKibitzHelpTarget } from "./HelpFlows/useKibitzHelpTarget";
 import "./KibitzRoomList.css";
 
 interface KibitzRoomListProps {
@@ -42,8 +42,7 @@ export function KibitzRoomList({
     blockedRoomIds,
     helpTargetId,
 }: KibitzRoomListProps): React.ReactElement {
-    const { registerTargetItem } = React.useContext(DynamicHelp.Api);
-    const roomListTarget = helpTargetId ? registerTargetItem(helpTargetId) : null;
+    const roomListTarget = useKibitzHelpTarget(helpTargetId);
 
     return (
         <div className="KibitzRoomList">

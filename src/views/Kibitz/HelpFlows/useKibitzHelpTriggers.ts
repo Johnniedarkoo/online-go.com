@@ -27,23 +27,28 @@ type KibitzHelpFlowId = (typeof KIBITZ_HELP_FLOW_IDS)[keyof typeof KIBITZ_HELP_F
 type UseKibitzHelpTriggersArgs = {
     isMobileLayout: boolean;
     room: KibitzRoomSummary | null;
-    flowReadiness: Record<KibitzHelpFlowId, boolean>;
+    flowReadiness: Partial<Record<KibitzHelpFlowId, boolean>>;
     pickerOpen: boolean;
     mobileOverlayOpen: boolean;
-    canManageRoom: boolean;
-    selectedVariationId: string | null;
-    selectedVariationReady: boolean;
 };
 
 type UseKibitzHelpTriggersResult = {
     noteMobileVariationsPanelOpened: () => void;
     noteDesktopVariationMadeVisible: () => void;
-    requestFlow: (flowId: KibitzHelpFlowId) => void;
+    notePostedVariationOpened: () => void;
+    noteDraftStartedFromPostedVariation: () => void;
 };
 
 function getVisibleFlowId(flowInfo: ReturnType<DynamicHelp.AppApi["getFlowInfo"]>): string | null {
     const visibleFlow = flowInfo.find((flow) => flow.visible);
     return visibleFlow?.id ?? null;
+}
+
+function isFlowSeen(
+    flowInfo: ReturnType<DynamicHelp.AppApi["getFlowInfo"]>,
+    flowId: KibitzHelpFlowId,
+): boolean {
+    return flowInfo.some((flow) => flow.id === flowId && flow.seen);
 }
 
 export function useKibitzHelpTriggers({
@@ -52,37 +57,43 @@ export function useKibitzHelpTriggers({
     flowReadiness,
     pickerOpen,
     mobileOverlayOpen,
-    canManageRoom,
-    selectedVariationId,
-    selectedVariationReady,
 }: UseKibitzHelpTriggersArgs): UseKibitzHelpTriggersResult {
     const { triggerFlow, getFlowInfo, getSystemStatus } = React.useContext(DynamicHelp.Api);
-    const previousRoomIdRef = React.useRef<string | null>(null);
-    const previousRoomGameIdRef = React.useRef<number | null>(null);
-    const previousSelectedVariationIdRef = React.useRef<string | null>(null);
-    const pendingFlowRequestsRef = React.useRef<Set<KibitzHelpFlowId>>(new Set());
+    const firstRunFlowId = isMobileLayout
+        ? KIBITZ_HELP_FLOW_IDS.mobileFirstRun
+        : KIBITZ_HELP_FLOW_IDS.desktopFirstRun;
+    const previousMainBoardIdRef = React.useRef<number | null>(null);
+    const hydratedMainBoardRef = React.useRef(false);
+    const pendingFlowIdRef = React.useRef<KibitzHelpFlowId | null>(null);
+    const flowReadinessRef = React.useRef(flowReadiness);
+    const lastAutoTriggerAtRef = React.useRef(0);
     const [pendingFlowTick, setPendingFlowTick] = React.useState(0);
 
-    const requestFlow = React.useCallback(
-        (flowId: KibitzHelpFlowId) => {
+    React.useEffect(() => {
+        flowReadinessRef.current = flowReadiness;
+    }, [flowReadiness]);
+
+    const queueFlow = React.useCallback(
+        (flowId: KibitzHelpFlowId, allowBeforeFirstRunSeen: boolean) => {
             const flowInfo = getFlowInfo();
             const flowState = flowInfo.find((flow) => flow.id === flowId);
-            if (flowState?.visible || flowState?.seen) {
+            if (flowState?.visible || flowState?.seen || pendingFlowIdRef.current === flowId) {
                 return;
             }
 
-            if (pendingFlowRequestsRef.current.has(flowId)) {
+            if (!allowBeforeFirstRunSeen && !isFlowSeen(flowInfo, firstRunFlowId)) {
                 return;
             }
 
-            pendingFlowRequestsRef.current.add(flowId);
+            pendingFlowIdRef.current = flowId;
             setPendingFlowTick((value) => value + 1);
         },
-        [getFlowInfo],
+        [firstRunFlowId, getFlowInfo],
     );
 
-    const flushPendingFlowRequests = React.useCallback(() => {
-        if (!getSystemStatus().initialized) {
+    const flushPendingFlow = React.useCallback(() => {
+        const pendingFlowId = pendingFlowIdRef.current;
+        if (!pendingFlowId || !getSystemStatus().initialized) {
             return;
         }
 
@@ -91,87 +102,53 @@ export function useKibitzHelpTriggers({
             return;
         }
 
-        for (const flowId of pendingFlowRequestsRef.current) {
-            const flowState = flowInfo.find((flow) => flow.id === flowId);
-            if (flowState?.visible || flowState?.seen) {
-                pendingFlowRequestsRef.current.delete(flowId);
-                continue;
-            }
-
-            if (!flowReadiness[flowId]) {
-                continue;
-            }
-
-            if (!flowState) {
-                continue;
-            }
-
-            triggerFlow(flowId);
-            pendingFlowRequestsRef.current.delete(flowId);
-            break;
-        }
-    }, [flowReadiness, getFlowInfo, getSystemStatus, triggerFlow]);
-
-    React.useEffect(() => {
-        if (!room || pickerOpen || mobileOverlayOpen) {
-            previousRoomIdRef.current = room?.id ?? null;
-            previousRoomGameIdRef.current = room?.current_game?.game_id ?? null;
+        const flowState = flowInfo.find((flow) => flow.id === pendingFlowId);
+        if (flowState?.visible || flowState?.seen) {
+            pendingFlowIdRef.current = null;
             return;
         }
 
-        const currentRoomId = room.id;
-        const currentGameId = room.current_game?.game_id ?? null;
-        const previousRoomId = previousRoomIdRef.current;
-        const previousGameId = previousRoomGameIdRef.current;
-
-        previousRoomIdRef.current = currentRoomId;
-        previousRoomGameIdRef.current = currentGameId;
-
-        if (previousRoomId == null || previousRoomId !== currentRoomId) {
+        if (!flowReadinessRef.current[pendingFlowId]) {
             return;
         }
 
-        if (previousGameId == null || previousGameId === currentGameId) {
+        const now = Date.now();
+        if (now - lastAutoTriggerAtRef.current < 800) {
             return;
         }
 
-        requestFlow(KIBITZ_HELP_FLOW_IDS.roomBoardChange);
-    }, [mobileOverlayOpen, pickerOpen, requestFlow, room]);
+        lastAutoTriggerAtRef.current = now;
+        triggerFlow(pendingFlowId);
+        pendingFlowIdRef.current = null;
+    }, [getFlowInfo, getSystemStatus, triggerFlow]);
+
+    const firstRunSeen = React.useCallback(() => {
+        return isFlowSeen(getFlowInfo(), firstRunFlowId);
+    }, [firstRunFlowId, getFlowInfo]);
+    const firstRunReady = Boolean(flowReadiness[firstRunFlowId]);
 
     React.useEffect(() => {
         if (!room || pickerOpen || mobileOverlayOpen) {
             return;
         }
 
-        if (selectedVariationId == null) {
-            previousSelectedVariationIdRef.current = null;
+        if (firstRunSeen()) {
             return;
         }
 
-        if (!selectedVariationReady) {
+        if (!firstRunReady) {
             return;
         }
 
-        const previousSelectedVariationId = previousSelectedVariationIdRef.current;
-        previousSelectedVariationIdRef.current = selectedVariationId;
-
-        if (previousSelectedVariationId === selectedVariationId) {
-            return;
-        }
-
-        requestFlow(
-            isMobileLayout
-                ? KIBITZ_HELP_FLOW_IDS.mobilePostedVariation
-                : KIBITZ_HELP_FLOW_IDS.desktopPostedVariation,
-        );
+        queueFlow(firstRunFlowId, true);
     }, [
-        isMobileLayout,
+        firstRunFlowId,
+        firstRunReady,
         mobileOverlayOpen,
         pickerOpen,
-        requestFlow,
+        queueFlow,
         room,
-        selectedVariationId,
-        selectedVariationReady,
+        firstRunSeen,
     ]);
 
     React.useEffect(() => {
@@ -179,58 +156,46 @@ export function useKibitzHelpTriggers({
             return;
         }
 
-        requestFlow(
-            isMobileLayout
-                ? KIBITZ_HELP_FLOW_IDS.mobileFirstRun
-                : KIBITZ_HELP_FLOW_IDS.desktopFirstRun,
-        );
-    }, [isMobileLayout, mobileOverlayOpen, pickerOpen, requestFlow, room]);
+        const currentMainBoardId = room.current_game?.game_id ?? null;
+        if (currentMainBoardId == null) {
+            return;
+        }
+
+        if (!hydratedMainBoardRef.current) {
+            hydratedMainBoardRef.current = true;
+            previousMainBoardIdRef.current = currentMainBoardId;
+            return;
+        }
+
+        const previousMainBoardId = previousMainBoardIdRef.current;
+        previousMainBoardIdRef.current = currentMainBoardId;
+
+        if (previousMainBoardId == null || previousMainBoardId === currentMainBoardId) {
+            return;
+        }
+
+        if (!firstRunSeen()) {
+            return;
+        }
+
+        queueFlow(KIBITZ_HELP_FLOW_IDS.roomBoardChange, false);
+    }, [firstRunSeen, mobileOverlayOpen, pickerOpen, queueFlow, room]);
 
     React.useEffect(() => {
-        if (!room || pickerOpen || mobileOverlayOpen || !canManageRoom) {
-            return;
-        }
-
-        requestFlow(KIBITZ_HELP_FLOW_IDS.roomManagement);
-    }, [canManageRoom, mobileOverlayOpen, pickerOpen, requestFlow, room]);
-
-    const noteMobileVariationsPanelOpened = React.useCallback(() => {
-        if (!isMobileLayout) {
-            return;
-        }
-
-        requestFlow(KIBITZ_HELP_FLOW_IDS.mobileFirstVariations);
-    }, [isMobileLayout, requestFlow]);
-
-    const noteDesktopVariationMadeVisible = React.useCallback(() => {
-        if (isMobileLayout) {
-            return;
-        }
-
-        requestFlow(KIBITZ_HELP_FLOW_IDS.desktopFirstVariations);
-    }, [isMobileLayout, requestFlow]);
-
-    React.useEffect(() => {
-        if (pendingFlowRequestsRef.current.size === 0) {
+        if (pendingFlowIdRef.current == null) {
             return;
         }
 
         const intervalId = window.setInterval(() => {
-            if (pendingFlowRequestsRef.current.size === 0) {
-                window.clearInterval(intervalId);
-                return;
-            }
-
-            flushPendingFlowRequests();
-
-            if (pendingFlowRequestsRef.current.size === 0) {
+            flushPendingFlow();
+            if (pendingFlowIdRef.current == null) {
                 window.clearInterval(intervalId);
             }
-        }, 1200);
+        }, 800);
 
-        flushPendingFlowRequests();
+        flushPendingFlow();
 
-        if (pendingFlowRequestsRef.current.size === 0) {
+        if (pendingFlowIdRef.current == null) {
             window.clearInterval(intervalId);
             return;
         }
@@ -238,11 +203,49 @@ export function useKibitzHelpTriggers({
         return () => {
             window.clearInterval(intervalId);
         };
-    }, [flushPendingFlowRequests, pendingFlowTick]);
+    }, [flushPendingFlow, pendingFlowTick]);
+
+    const noteMobileVariationsPanelOpened = React.useCallback(() => {
+        if (!isMobileLayout || !firstRunSeen()) {
+            return;
+        }
+
+        queueFlow(KIBITZ_HELP_FLOW_IDS.mobileFirstVariations, false);
+    }, [firstRunSeen, isMobileLayout, queueFlow]);
+
+    const noteDesktopVariationMadeVisible = React.useCallback(() => {
+        if (isMobileLayout || !firstRunSeen()) {
+            return;
+        }
+
+        queueFlow(KIBITZ_HELP_FLOW_IDS.desktopFirstVariations, false);
+    }, [firstRunSeen, isMobileLayout, queueFlow]);
+
+    const notePostedVariationOpened = React.useCallback(() => {
+        if (!firstRunSeen()) {
+            return;
+        }
+
+        queueFlow(
+            isMobileLayout
+                ? KIBITZ_HELP_FLOW_IDS.mobilePostedVariation
+                : KIBITZ_HELP_FLOW_IDS.desktopPostedVariation,
+            false,
+        );
+    }, [firstRunSeen, isMobileLayout, queueFlow]);
+
+    const noteDraftStartedFromPostedVariation = React.useCallback(() => {
+        if (!firstRunSeen()) {
+            return;
+        }
+
+        queueFlow(KIBITZ_HELP_FLOW_IDS.draftFromPostedVariation, false);
+    }, [firstRunSeen, queueFlow]);
 
     return {
         noteMobileVariationsPanelOpened,
         noteDesktopVariationMadeVisible,
-        requestFlow,
+        notePostedVariationOpened,
+        noteDraftStartedFromPostedVariation,
     };
 }

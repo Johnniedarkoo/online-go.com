@@ -61,6 +61,7 @@ export function KibitzHelpFlows(): React.ReactElement {
     const roomBoardChangeTarget = isDesktop
         ? KIBITZ_HELP_TARGETS.desktopMainBoard
         : KIBITZ_HELP_TARGETS.mobileMainBoard;
+    const roomBoardChangePosition = isDesktop ? "center-right" : "bottom-centre";
     const roomManagementTarget = isDesktop
         ? KIBITZ_HELP_TARGETS.desktopRoomSettings
         : KIBITZ_HELP_TARGETS.mobileRoomMenu;
@@ -109,7 +110,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                     "Kibitz desktop first run",
                 )}
             >
-                <HelpItem target={KIBITZ_HELP_TARGETS.desktopRoomList} position="center-right">
+                <HelpItem target={KIBITZ_HELP_TARGETS.desktopRoomList} position="bottom-right">
                     {pgettext(
                         "Kibitz desktop help bubble explaining the room list",
                         "Rooms. Choose a Kibitz room here. Each room has its own main board, chat, and variations.",
@@ -223,7 +224,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                     "Kibitz room board change",
                 )}
             >
-                <HelpItem target={roomBoardChangeTarget} position="bottom-centre">
+                <HelpItem target={roomBoardChangeTarget} position={roomBoardChangePosition}>
                     {pgettext(
                         "Kibitz help bubble explaining that the room board changed",
                         "The room changed to a new main board. Chat and room history stay with this room.",

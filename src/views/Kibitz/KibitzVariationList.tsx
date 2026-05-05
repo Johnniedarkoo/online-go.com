@@ -16,12 +16,12 @@
  */
 
 import * as React from "react";
-import * as DynamicHelp from "react-dynamic-help";
 import { pgettext } from "@/lib/translate";
 import type { KibitzVariationSummary } from "@/models/kibitz";
 import { getKibitzVariationColor } from "./kibitzVariationTree";
 import { KibitzUserAvatar } from "./KibitzUserAvatar";
 import { KIBITZ_HELP_TARGETS } from "./HelpFlows/KibitzHelpTargets";
+import { useKibitzHelpTarget } from "./HelpFlows/useKibitzHelpTarget";
 import "./KibitzVariationList.css";
 
 interface KibitzVariationListProps {
@@ -51,8 +51,7 @@ export function KibitzVariationList({
     title,
     helpTargetId,
 }: KibitzVariationListProps): React.ReactElement {
-    const { registerTargetItem } = React.useContext(DynamicHelp.Api);
-    const variationListTarget = helpTargetId ? registerTargetItem(helpTargetId) : null;
+    const variationListTarget = useKibitzHelpTarget(helpTargetId);
     const selectedVariationElementRef = React.useRef<HTMLDivElement | null>(null);
     const previousFocusRequestIdRef = React.useRef<number>(variationFocusRequestId);
     const visibleVariationIdSet = React.useMemo(

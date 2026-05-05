@@ -16,7 +16,6 @@
  */
 
 import * as React from "react";
-import * as DynamicHelp from "react-dynamic-help";
 import type { MoveTree } from "goban";
 import { Resizable } from "@/components/Resizable";
 import { GobanController } from "@/lib/GobanController";
@@ -39,6 +38,7 @@ import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
 import { KibitzNodeText } from "./KibitzNodeText";
 import { KibitzUserAvatar } from "./KibitzUserAvatar";
 import { KIBITZ_HELP_TARGETS } from "./HelpFlows/KibitzHelpTargets";
+import { useKibitzHelpTarget } from "./HelpFlows/useKibitzHelpTarget";
 import { applyKibitzVariationToController } from "./kibitzVariationTree";
 import "./KibitzRoomStage.css";
 
@@ -288,21 +288,22 @@ export function KibitzRoomStage({
         (variation) => variation.id === secondaryPane.variation_draft_base_id,
     );
     const isDraftingVariation = secondaryPane.variation_source_game_id != null;
-    const { registerTargetItem } = React.useContext(DynamicHelp.Api);
-    const desktopRoomTitleTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopRoomTitle);
-    const desktopRoomSettingsTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopRoomSettings);
-    const desktopMainBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopMainBoard);
-    const desktopVariationBoardTarget = registerTargetItem(
+    const desktopRoomTitleTarget = useKibitzHelpTarget(KIBITZ_HELP_TARGETS.desktopRoomTitle);
+    const desktopRoomSettingsTarget = useKibitzHelpTarget(KIBITZ_HELP_TARGETS.desktopRoomSettings);
+    const desktopMainBoardTarget = useKibitzHelpTarget(KIBITZ_HELP_TARGETS.desktopMainBoard);
+    const desktopVariationBoardTarget = useKibitzHelpTarget(
         KIBITZ_HELP_TARGETS.desktopVariationBoard,
     );
-    const desktopVariationActionsTarget = registerTargetItem(
+    const desktopVariationActionsTarget = useKibitzHelpTarget(
         KIBITZ_HELP_TARGETS.desktopVariationActions,
     );
-    const mobileMainBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileMainBoard);
-    const mobileVariationBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileVariationBoard);
-    const mobilePanelSwitcherTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobilePanelSwitcher);
-    const mobileVariationsTabTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileVariationsTab);
-    const mobileVariationActionsTarget = registerTargetItem(
+    const mobileMainBoardTarget = useKibitzHelpTarget(KIBITZ_HELP_TARGETS.mobileMainBoard);
+    const mobileVariationBoardTarget = useKibitzHelpTarget(
+        KIBITZ_HELP_TARGETS.mobileVariationBoard,
+    );
+    const mobilePanelSwitcherTarget = useKibitzHelpTarget(KIBITZ_HELP_TARGETS.mobilePanelSwitcher);
+    const mobileVariationsTabTarget = useKibitzHelpTarget(KIBITZ_HELP_TARGETS.mobileVariationsTab);
+    const mobileVariationActionsTarget = useKibitzHelpTarget(
         KIBITZ_HELP_TARGETS.mobileVariationActions,
     );
     const openRoomSettings = React.useCallback(
@@ -903,9 +904,9 @@ export function KibitzRoomStage({
                         ref={(node) => {
                             mobileBoardSlotRef(node);
                             if (renderMainBoard) {
-                                mobileMainBoardTarget.ref(node);
+                                mobileMainBoardTarget?.ref(node);
                             } else if (renderVariationBoard) {
-                                mobileVariationBoardTarget.ref(node);
+                                mobileVariationBoardTarget?.ref(node);
                             }
                         }}
                         onClick={renderMainBoard ? onOpenMobileRooms : undefined}
@@ -999,14 +1000,14 @@ export function KibitzRoomStage({
                             </div>
                         ) : null}
                     </div>
-                    <div className="mobile-board-controls-row" ref={mobilePanelSwitcherTarget.ref}>
+                    <div className="mobile-board-controls-row" ref={mobilePanelSwitcherTarget?.ref}>
                         <button
                             type="button"
                             className={
                                 "kibitz-mobile-transport-button kibitz-mobile-stage-panel-button mobile-board-controls-toggle" +
                                 (mobileCompanionPanel === "compare" ? " active" : "")
                             }
-                            ref={mobileVariationsTabTarget.ref}
+                            ref={mobileVariationsTabTarget?.ref}
                             onClick={() =>
                                 onSelectMobileCompanionPanel?.(
                                     mobileCompanionPanel === "compare" ? "chat" : "compare",
@@ -1075,7 +1076,7 @@ export function KibitzRoomStage({
                                 <button
                                     type="button"
                                     className="kibitz-mobile-transport-button kibitz-mobile-stage-panel-button primary mobile-board-controls-new-variation"
-                                    ref={mobileVariationActionsTarget.ref}
+                                    ref={mobileVariationActionsTarget?.ref}
                                     onClick={() => {
                                         if (
                                             selectedVariation &&
@@ -1112,7 +1113,7 @@ export function KibitzRoomStage({
                             type="button"
                             className="board-settings-button"
                             onClick={openRoomSettings}
-                            ref={desktopRoomSettingsTarget.ref}
+                            ref={desktopRoomSettingsTarget?.ref}
                             aria-label={pgettext(
                                 "Aria label for opening room settings in Kibitz",
                                 "Room settings",
@@ -1120,7 +1121,7 @@ export function KibitzRoomStage({
                         >
                             <i className="fa fa-gear" aria-hidden="true" />
                         </button>
-                        <div className="board-title" ref={desktopRoomTitleTarget.ref}>
+                        <div className="board-title" ref={desktopRoomTitleTarget?.ref}>
                             {room.title}
                         </div>
                     </div>
@@ -1170,7 +1171,7 @@ export function KibitzRoomStage({
                                     className="board-fit-slot"
                                     ref={(node) => {
                                         mainBoardSlotRef(node);
-                                        desktopMainBoardTarget.ref(node);
+                                        desktopMainBoardTarget?.ref(node);
                                     }}
                                 >
                                     <KibitzBoard
@@ -1468,7 +1469,7 @@ export function KibitzRoomStage({
                                     className="board-fit-slot"
                                     ref={(node) => {
                                         secondaryBoardSlotRef(node);
-                                        desktopVariationBoardTarget.ref(node);
+                                        desktopVariationBoardTarget?.ref(node);
                                     }}
                                 >
                                     <KibitzBoard
@@ -1515,7 +1516,7 @@ export function KibitzRoomStage({
                                             <button
                                                 type="button"
                                                 className="kibitz-move-control create-variation-button"
-                                                ref={desktopVariationActionsTarget.ref}
+                                                ref={desktopVariationActionsTarget?.ref}
                                                 onClick={() =>
                                                     onCreateVariationFromPostedVariation(
                                                         selectedVariation,
