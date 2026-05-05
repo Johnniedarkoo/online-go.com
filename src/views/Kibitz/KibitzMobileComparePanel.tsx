@@ -16,6 +16,7 @@
  */
 
 import * as React from "react";
+import * as DynamicHelp from "react-dynamic-help";
 import { GobanController } from "@/lib/GobanController";
 import { alert } from "@/lib/swal_config";
 import { interpolate, pgettext } from "@/lib/translate";
@@ -31,6 +32,7 @@ import { KibitzVariationComposer } from "./KibitzVariationComposer";
 import { KibitzVariationList } from "./KibitzVariationList";
 import { KibitzNodeText } from "./KibitzNodeText";
 import { KibitzMoveTreeStrip } from "./KibitzMoveTreeStrip";
+import { KIBITZ_HELP_TARGETS } from "./HelpFlows/KibitzHelpTargets";
 import "./KibitzMobileComparePanel.css";
 
 interface KibitzMobileComparePanelProps {
@@ -80,6 +82,8 @@ export function KibitzMobileComparePanel({
     onPostVariation,
     onDiscardDraft,
 }: KibitzMobileComparePanelProps): React.ReactElement {
+    const { registerTargetItem } = React.useContext(DynamicHelp.Api);
+    const variationsPanelTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileVariationsPanel);
     const [nodeText, setNodeText] = React.useState(controller?.goban.engine.cur_move?.text ?? "");
 
     const panelModeKey = React.useMemo(() => {
@@ -157,7 +161,7 @@ export function KibitzMobileComparePanel({
     const hasFoldoutBody = nodeTextParts.body != null;
 
     return (
-        <div className="KibitzMobileComparePanel">
+        <div className="KibitzMobileComparePanel" ref={variationsPanelTarget.ref}>
             <KibitzMoveTreeStrip controller={controller} layoutKey={panelModeKey} />
             {isDraftingVariation ? (
                 <div className="KibitzMobileComparePanel-tools">

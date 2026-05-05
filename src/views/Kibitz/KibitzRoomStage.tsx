@@ -16,6 +16,7 @@
  */
 
 import * as React from "react";
+import * as DynamicHelp from "react-dynamic-help";
 import type { MoveTree } from "goban";
 import { Resizable } from "@/components/Resizable";
 import { GobanController } from "@/lib/GobanController";
@@ -37,6 +38,7 @@ import { KibitzVariationComposer } from "./KibitzVariationComposer";
 import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
 import { KibitzNodeText } from "./KibitzNodeText";
 import { KibitzUserAvatar } from "./KibitzUserAvatar";
+import { KIBITZ_HELP_TARGETS } from "./HelpFlows/KibitzHelpTargets";
 import { applyKibitzVariationToController } from "./kibitzVariationTree";
 import "./KibitzRoomStage.css";
 
@@ -286,6 +288,23 @@ export function KibitzRoomStage({
         (variation) => variation.id === secondaryPane.variation_draft_base_id,
     );
     const isDraftingVariation = secondaryPane.variation_source_game_id != null;
+    const { registerTargetItem } = React.useContext(DynamicHelp.Api);
+    const desktopRoomTitleTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopRoomTitle);
+    const desktopRoomSettingsTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopRoomSettings);
+    const desktopMainBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopMainBoard);
+    const desktopVariationBoardTarget = registerTargetItem(
+        KIBITZ_HELP_TARGETS.desktopVariationBoard,
+    );
+    const desktopVariationActionsTarget = registerTargetItem(
+        KIBITZ_HELP_TARGETS.desktopVariationActions,
+    );
+    const mobileMainBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileMainBoard);
+    const mobileVariationBoardTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileVariationBoard);
+    const mobilePanelSwitcherTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobilePanelSwitcher);
+    const mobileVariationsTabTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileVariationsTab);
+    const mobileVariationActionsTarget = registerTargetItem(
+        KIBITZ_HELP_TARGETS.mobileVariationActions,
+    );
     const openRoomSettings = React.useCallback(
         (event: React.MouseEvent<HTMLButtonElement>) => {
             close_all_popovers();
@@ -296,6 +315,7 @@ export function KibitzRoomStage({
                         canEditRoom={canEditRoom}
                         canDeleteRoom={canDeleteRoom}
                         canChangeBoard={Boolean(onChangeBoard)}
+                        isMobileLayout={false}
                         onClose={close_all_popovers}
                         onRequestChangeBoard={() => {
                             close_all_popovers();
@@ -880,7 +900,14 @@ export function KibitzRoomStage({
                                 ? " mobile-board-fit-slot-openable"
                                 : "")
                         }
-                        ref={mobileBoardSlotRef}
+                        ref={(node) => {
+                            mobileBoardSlotRef(node);
+                            if (renderMainBoard) {
+                                mobileMainBoardTarget.ref(node);
+                            } else if (renderVariationBoard) {
+                                mobileVariationBoardTarget.ref(node);
+                            }
+                        }}
                         onClick={renderMainBoard ? onOpenMobileRooms : undefined}
                         role={renderMainBoard && onOpenMobileRooms ? "button" : undefined}
                         tabIndex={renderMainBoard && onOpenMobileRooms ? 0 : undefined}
@@ -972,13 +999,14 @@ export function KibitzRoomStage({
                             </div>
                         ) : null}
                     </div>
-                    <div className="mobile-board-controls-row">
+                    <div className="mobile-board-controls-row" ref={mobilePanelSwitcherTarget.ref}>
                         <button
                             type="button"
                             className={
                                 "kibitz-mobile-transport-button kibitz-mobile-stage-panel-button mobile-board-controls-toggle" +
                                 (mobileCompanionPanel === "compare" ? " active" : "")
                             }
+                            ref={mobileVariationsTabTarget.ref}
                             onClick={() =>
                                 onSelectMobileCompanionPanel?.(
                                     mobileCompanionPanel === "compare" ? "chat" : "compare",
@@ -1007,7 +1035,10 @@ export function KibitzRoomStage({
                                 onReturnLiveVisibilityChange={setMobileReturnLiveAvailable}
                             />
                         </div>
-                        <div className="mobile-board-controls-panels">
+                        <div
+                            className="mobile-board-controls-panels"
+                            ref={mobileVariationActionsTarget.ref}
+                        >
                             {/* Back to live is intentionally only exposed in chat mode on mobile;
                                 compare mode keeps the right column reserved for New variation. */}
                             {mobileReturnLiveAvailable && mobileCompanionPanel !== "compare" ? (
@@ -1083,6 +1114,7 @@ export function KibitzRoomStage({
                             type="button"
                             className="board-settings-button"
                             onClick={openRoomSettings}
+                            ref={desktopRoomSettingsTarget.ref}
                             aria-label={pgettext(
                                 "Aria label for opening room settings in Kibitz",
                                 "Room settings",
@@ -1090,7 +1122,9 @@ export function KibitzRoomStage({
                         >
                             <i className="fa fa-gear" aria-hidden="true" />
                         </button>
-                        <div className="board-title">{room.title}</div>
+                        <div className="board-title" ref={desktopRoomTitleTarget.ref}>
+                            {room.title}
+                        </div>
                     </div>
                     <div className="players player-pair">
                         <div className="player-badge">
@@ -1134,7 +1168,13 @@ export function KibitzRoomStage({
                                         : "board-content-preview")
                                 }
                             >
-                                <div className="board-fit-slot" ref={mainBoardSlotRef}>
+                                <div
+                                    className="board-fit-slot"
+                                    ref={(node) => {
+                                        mainBoardSlotRef(node);
+                                        desktopMainBoardTarget.ref(node);
+                                    }}
+                                >
                                     <KibitzBoard
                                         gameId={mainGame.game_id}
                                         {...boardDimensionsOf(mainGame)}
@@ -1426,7 +1466,13 @@ export function KibitzRoomStage({
                             </div>
                         ) : selectedVariation ? (
                             <div className="board-content board-content-posted-variation">
-                                <div className="board-fit-slot" ref={secondaryBoardSlotRef}>
+                                <div
+                                    className="board-fit-slot"
+                                    ref={(node) => {
+                                        secondaryBoardSlotRef(node);
+                                        desktopVariationBoardTarget.ref(node);
+                                    }}
+                                >
                                     <KibitzBoard
                                         gameId={selectedVariation?.game_id}
                                         {...boardDimensionsOf(mainGame)}
@@ -1437,7 +1483,10 @@ export function KibitzRoomStage({
                                         onReady={setSecondaryBoardController}
                                     />
                                 </div>
-                                <div className="secondary-board-transport-row">
+                                <div
+                                    className="secondary-board-transport-row"
+                                    ref={desktopVariationActionsTarget.ref}
+                                >
                                     <div className="secondary-board-return-live-action">
                                         {secondaryReturnLiveAvailable ? (
                                             <button

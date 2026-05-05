@@ -16,6 +16,7 @@
  */
 
 import * as React from "react";
+import * as DynamicHelp from "react-dynamic-help";
 import { ChatLine } from "@/components/Chat";
 import { GameChatLine } from "@/components/Chat/GameChatLine";
 import { TabCompleteInput } from "@/components/TabCompleteInput";
@@ -36,6 +37,7 @@ import type {
     KibitzStreamItemSource,
     KibitzVariationSummary,
 } from "@/models/kibitz";
+import { KIBITZ_HELP_TARGETS } from "./HelpFlows/KibitzHelpTargets";
 import "./KibitzSharedStreamPanel.css";
 import "@/components/Chat/ChatLog.css";
 
@@ -330,6 +332,9 @@ export function KibitzSharedStreamPanel({
     const [roomUnread, setRoomUnread] = React.useState(false);
     const [gameUnread, setGameUnread] = React.useState(false);
     const desktopStackRef = React.useRef<HTMLDivElement | null>(null);
+    const { registerTargetItem } = React.useContext(DynamicHelp.Api);
+    const desktopStreamTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopStream);
+    const mobileChatTabTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileChatTab);
     const desktopDragStateRef = React.useRef<{
         pointerId: number;
         top: number;
@@ -873,6 +878,7 @@ export function KibitzSharedStreamPanel({
                 " split-" +
                 (isMobileLayout ? mobileTab : desktopSplit)
             }
+            ref={desktopStreamTarget.ref}
         >
             {showMobileSwitcher ? (
                 <div
@@ -885,6 +891,7 @@ export function KibitzSharedStreamPanel({
                             "KibitzSharedStreamPanel-mobileSwitchButton" +
                             (mobileTab === "room" ? " active" : "")
                         }
+                        ref={mobileChatTabTarget.ref}
                         aria-pressed={mobileTab === "room"}
                         onClick={() => handleMobileTabChange("room")}
                     >

@@ -16,6 +16,7 @@
  */
 
 import * as React from "react";
+import * as DynamicHelp from "react-dynamic-help";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { GobanController } from "@/lib/GobanController";
 import { GobanControllerContext } from "@/components/GobanView";
@@ -42,6 +43,9 @@ import { KibitzVariationList } from "./KibitzVariationList";
 import { KibitzMobileComparePanel } from "./KibitzMobileComparePanel";
 import type { KibitzController } from "./KibitzController";
 import { KIBITZ_VARIATION_COLORS } from "./kibitzVariationTree";
+import { KIBITZ_HELP_FLOW_IDS } from "./HelpFlows/KibitzHelpFlows";
+import { KIBITZ_HELP_TARGETS } from "./HelpFlows/KibitzHelpTargets";
+import { useKibitzHelpTriggers } from "./HelpFlows/useKibitzHelpTriggers";
 import { KibitzGamePickerOverlay } from "./KibitzGamePickerOverlay";
 import { KibitzMobileGamePicker } from "./KibitzMobileGamePicker";
 import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
@@ -246,6 +250,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     );
     const [pendingPostedVariation, setPendingPostedVariation] =
         React.useState<PendingPostedVariation | null>(null);
+    const { registerTargetItem, triggerFlow } = React.useContext(DynamicHelp.Api);
+    const mobileRoomTitleTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileRoomTitle);
+    const mobileRoomMenuTarget = registerTargetItem(KIBITZ_HELP_TARGETS.mobileRoomMenu);
+    const desktopVariationsTarget = registerTargetItem(KIBITZ_HELP_TARGETS.desktopVariations);
     const blockedVariationFlashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const mobileShellRef = React.useRef<HTMLDivElement | null>(null);
     const mobileDividerRef = React.useRef<HTMLDivElement | null>(null);
@@ -543,11 +551,16 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 setVariationFocusRequestId((previous) => previous + 1);
             }
             controller.openVariation(variationId);
+            triggerFlow(
+                isMobileLayout
+                    ? KIBITZ_HELP_FLOW_IDS.mobilePostedVariation
+                    : KIBITZ_HELP_FLOW_IDS.desktopPostedVariation,
+            );
             if (isMobileLayout) {
                 setMobileCompanionPanel("compare");
             }
         },
-        [controller, isMobileLayout, visibleVariationIds],
+        [controller, isMobileLayout, triggerFlow, visibleVariationIds],
     );
     const onToggleVariation = React.useCallback(
         (variationId: string) => {
@@ -614,6 +627,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             );
             setVariationFocusRequestId((previous) => previous + 1);
             controller.openVariation(variationId);
+            triggerFlow(KIBITZ_HELP_FLOW_IDS.desktopFirstVariations);
             if (isMobileLayout) {
                 setMobileCompanionPanel("compare");
             }
@@ -622,6 +636,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             controller,
             displayedVariations,
             isMobileLayout,
+            triggerFlow,
             secondaryPane.variation_id,
             visibleVariationIds,
         ],
@@ -645,12 +660,13 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const onCreateVariationFromPostedVariation = React.useCallback(
         (variation: KibitzVariationSummary) => {
             controller.startVariationFromPostedVariation(variation);
+            triggerFlow(KIBITZ_HELP_FLOW_IDS.draftFromPostedVariation);
             if (isMobileLayout) {
                 setMobileOverlayMode(null);
                 setMobileCompanionPanel("compare");
             }
         },
-        [controller, isMobileLayout],
+        [controller, isMobileLayout, triggerFlow],
     );
     const onSetSecondaryPaneMode = React.useCallback((nextMode: SecondaryPaneMode) => {
         setPendingSecondaryPaneMode(nextMode);
@@ -779,6 +795,16 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const selectedVariation = displayedVariations.find(
         (variation) => variation.id === secondaryPane.variation_id,
     );
+    const kibitzHelpTriggers = useKibitzHelpTriggers({
+        isMobileLayout,
+        room: resolvedRoom,
+        mainBoardReady: Boolean(mainBoardController),
+        pickerOpen: Boolean(pickerMode),
+        mobileOverlayOpen: mobileOverlayMode != null,
+        canManageRoom,
+        selectedVariationId: secondaryPane.variation_id ?? null,
+        selectedVariationReady: selectedVariation != null,
+    });
     React.useEffect(() => {
         setVisibleVariationIds((previous) =>
             previous.filter((variationId) =>
@@ -877,6 +903,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     blockedVariationFlashId={blockedVariationFlashId}
                     onRecallVariation={onOpenVariation}
                     onToggleVariation={onToggleVariation}
+                    helpTargetId={KIBITZ_HELP_TARGETS.desktopVariationList}
                 />
             )}
             {queuedRoomProposals.length > 0 ? (
@@ -897,6 +924,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         (panel: MobileCompanionPanel) => {
             setMobileCompanionPanel(panel);
 
+            if (panel === "compare") {
+                kibitzHelpTriggers.noteMobileVariationsPanelOpened();
+            }
+
             if (!isMobileLayout) {
                 return;
             }
@@ -912,7 +943,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 setPendingSecondaryPaneMode("hidden");
             }
         },
-        [currentSecondaryPaneMode, hasCompareTarget, isMobileLayout],
+        [currentSecondaryPaneMode, hasCompareTarget, isMobileLayout, kibitzHelpTriggers],
     );
 
     const onToggleMobileRooms = React.useCallback(() => {
@@ -1134,6 +1165,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                         onSelectRoom={onSelectRoom}
                         onCreateRoom={onOpenCreateRoom}
                         blockedRoomIds={blockedRoomIds}
+                        helpTargetId={KIBITZ_HELP_TARGETS.desktopRoomList}
                     />
                     <KibitzPresence room={resolvedRoom} users={resolvedRoomUsers} />
                 </div>
@@ -1149,6 +1181,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                 <button
                                     type="button"
                                     className="Kibitz-mobile-room-bar"
+                                    ref={mobileRoomTitleTarget.ref}
                                     style={{
                                         backgroundColor: "var(--card-background-color)",
                                         backgroundImage: "none",
@@ -1221,6 +1254,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                     <button
                                         type="button"
                                         className="Kibitz-mobile-room-settings-button"
+                                        ref={mobileRoomMenuTarget.ref}
                                         onClick={onToggleMobileRoomSettings}
                                         aria-expanded={
                                             mobileOverlayMode === "room-settings" ||
@@ -1265,6 +1299,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                                     canEditRoom={canManageRoom}
                                                     canDeleteRoom={permissions.can_delete_room}
                                                     canChangeBoard={Boolean(handleOpenChangeBoard)}
+                                                    isMobileLayout={true}
                                                     onClose={onCloseMobileOverlay}
                                                     onRequestChangeBoard={() => {
                                                         setMobileOverlayMode("change-board");
@@ -1545,7 +1580,12 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                     />
                                 </GobanControllerContext.Provider>
                                 <div className="Kibitz-sidebar-stream-spacer" aria-hidden="true" />
-                                <div className="Kibitz-footer-panels">{variationPanels}</div>
+                                <div
+                                    className="Kibitz-footer-panels"
+                                    ref={desktopVariationsTarget.ref}
+                                >
+                                    {variationPanels}
+                                </div>
                             </div>
                         </div>
                     )}
