@@ -109,13 +109,13 @@ export function KibitzHelpFlows(): React.ReactElement {
                     "Kibitz desktop first run",
                 )}
             >
-                <HelpItem target={KIBITZ_HELP_TARGETS.desktopRoomList} position="bottom-right">
+                <HelpItem target={KIBITZ_HELP_TARGETS.desktopRoomList} position="top-right">
                     {pgettext(
                         "Kibitz desktop help bubble explaining the room list",
                         "Rooms. Choose a Kibitz room here. Each room has its own main board, chat, and variations.",
                     )}
                 </HelpItem>
-                <HelpItem target={KIBITZ_HELP_TARGETS.desktopMainBoard} position="bottom-centre">
+                <HelpItem target={KIBITZ_HELP_TARGETS.desktopMainBoard} position="center-right">
                     {pgettext(
                         "Kibitz desktop help bubble explaining the main board",
                         "Main board. This is the game the room is watching together.",
@@ -127,7 +127,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                         "Variations. Open posted lines here to inspect or continue them.",
                     )}
                 </HelpItem>
-                <HelpItem target={KIBITZ_HELP_TARGETS.desktopStream} position="top-centre">
+                <HelpItem target={KIBITZ_HELP_TARGETS.desktopStream} position="center-left">
                     {pgettext(
                         "Kibitz desktop help bubble explaining the stream panel",
                         "Chat and room events appear here. Posted variations also show up in the room history.",
@@ -178,7 +178,7 @@ export function KibitzHelpFlows(): React.ReactElement {
                 <HelpItem target={KIBITZ_HELP_TARGETS.mobileVariationBoard} position="top-centre">
                     {pgettext(
                         "Kibitz mobile help bubble for a posted variation board",
-                        "You're viewing a posted variation. Use Back to return to the main board.",
+                        "You're viewing a posted variation. Tap the To main board button to return to the main board.",
                     )}
                 </HelpItem>
             </HelpFlow>

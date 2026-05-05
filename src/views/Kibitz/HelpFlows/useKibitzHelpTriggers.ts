@@ -29,6 +29,7 @@ type UseKibitzHelpTriggersArgs = {
     pickerOpen: boolean;
     mobileOverlayOpen: boolean;
     canManageRoom: boolean;
+    draftHelpReady: boolean;
     selectedVariationId: string | null;
     selectedVariationReady: boolean;
 };
@@ -36,8 +37,7 @@ type UseKibitzHelpTriggersArgs = {
 type UseKibitzHelpTriggersResult = {
     noteMobileVariationsPanelOpened: () => void;
     noteDesktopVariationMadeVisible: () => void;
-    noteDraftStartedFromPostedVariation: () => void;
-    requestFlow: (flowId: string) => void;
+    requestFlow: (flowId: string) => boolean;
 };
 
 function getVisibleFlowId(flowInfo: ReturnType<DynamicHelp.AppApi["getFlowInfo"]>): string | null {
@@ -52,29 +52,32 @@ export function useKibitzHelpTriggers({
     pickerOpen,
     mobileOverlayOpen,
     canManageRoom,
+    draftHelpReady,
     selectedVariationId,
     selectedVariationReady,
 }: UseKibitzHelpTriggersArgs): UseKibitzHelpTriggersResult {
     const { triggerFlow, getFlowInfo, getSystemStatus } = React.useContext(DynamicHelp.Api);
     const previousRoomGameIdRef = React.useRef<number | null>(null);
     const previousSelectedVariationIdRef = React.useRef<string | null>(null);
+    const draftHelpRequestedRef = React.useRef(false);
 
     const maybeTriggerFlow = React.useCallback(
         (flowId: string) => {
             if (!getSystemStatus().initialized) {
-                return;
+                return false;
             }
 
             const flowInfo = getFlowInfo();
             if (!flowInfo.some((flow) => flow.id === flowId)) {
-                return;
+                return false;
             }
 
             if (getVisibleFlowId(flowInfo) != null) {
-                return;
+                return false;
             }
 
             triggerFlow(flowId);
+            return true;
         },
         [getFlowInfo, getSystemStatus, triggerFlow],
     );
@@ -178,14 +181,34 @@ export function useKibitzHelpTriggers({
         maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.desktopFirstVariations);
     }, [isMobileLayout, maybeTriggerFlow]);
 
-    const noteDraftStartedFromPostedVariation = React.useCallback(() => {
-        maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.draftFromPostedVariation);
-    }, [maybeTriggerFlow]);
+    React.useEffect(() => {
+        if (!draftHelpReady) {
+            draftHelpRequestedRef.current = false;
+            return;
+        }
+
+        if (draftHelpRequestedRef.current) {
+            return;
+        }
+
+        const attemptTrigger = () => {
+            const triggered = maybeTriggerFlow(KIBITZ_HELP_FLOW_IDS.draftFromPostedVariation);
+            if (triggered) {
+                draftHelpRequestedRef.current = true;
+            }
+        };
+
+        const intervalId = window.setInterval(attemptTrigger, 1200);
+        attemptTrigger();
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
+    }, [draftHelpReady, maybeTriggerFlow]);
 
     return {
         noteMobileVariationsPanelOpened,
         noteDesktopVariationMadeVisible,
-        noteDraftStartedFromPostedVariation,
         requestFlow: maybeTriggerFlow,
     };
 }

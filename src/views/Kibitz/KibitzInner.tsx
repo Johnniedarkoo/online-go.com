@@ -660,13 +660,12 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const onCreateVariationFromPostedVariation = React.useCallback(
         (variation: KibitzVariationSummary) => {
             controller.startVariationFromPostedVariation(variation);
-            triggerFlow(KIBITZ_HELP_FLOW_IDS.draftFromPostedVariation);
             if (isMobileLayout) {
                 setMobileOverlayMode(null);
                 setMobileCompanionPanel("compare");
             }
         },
-        [controller, isMobileLayout, triggerFlow],
+        [controller, isMobileLayout],
     );
     const onSetSecondaryPaneMode = React.useCallback((nextMode: SecondaryPaneMode) => {
         setPendingSecondaryPaneMode(nextMode);
@@ -802,6 +801,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         pickerOpen: Boolean(pickerMode),
         mobileOverlayOpen: mobileOverlayMode != null,
         canManageRoom,
+        draftHelpReady:
+            secondaryPane.variation_source_game_id != null &&
+            currentSecondaryPaneMode === "equal" &&
+            (!isMobileLayout || mobileCompanionPanel === "compare"),
         selectedVariationId: secondaryPane.variation_id ?? null,
         selectedVariationReady: selectedVariation != null,
     });
