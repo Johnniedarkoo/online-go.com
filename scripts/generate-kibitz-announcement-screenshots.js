@@ -105,6 +105,34 @@ async function openFirstVariation(page) {
     await expect(page.locator(".board-panel.secondary-board")).toBeVisible({ timeout: 15000 });
 }
 
+async function openMultipleVariations(page, variationCount = 2) {
+    const variationTriggers = page.locator(
+        ".KibitzVariationList .variation-recall, .KibitzVariationList .variation-item, .KibitzRoomStream .variation-post",
+    );
+    const count = Math.min(await variationTriggers.count(), variationCount);
+
+    for (let index = 0; index < count; index++) {
+        const trigger = variationTriggers.nth(index);
+        await expect(trigger).toBeVisible({ timeout: 15000 });
+        await trigger.scrollIntoViewIfNeeded();
+        await trigger.click({ force: true });
+    }
+
+    await expect(page.locator(".board-panel.secondary-board")).toBeVisible({ timeout: 15000 });
+}
+
+async function openChangeBoardPreview(page, gameId) {
+    await page.getByLabel("Room settings").click();
+    await page.getByRole("button", { name: "Change live game" }).click();
+    await expect(page.locator(".KibitzGamePickerOverlay")).toBeVisible({ timeout: 15000 });
+    await page.locator("#kibitz-game-picker-input").fill(String(gameId));
+    await page.getByRole("button", { name: "Load" }).click();
+    await expect(page.locator(".KibitzGamePickerOverlay")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole("button", { name: "Change board" })).toBeVisible({
+        timeout: 15000,
+    });
+}
+
 async function clickUntilCompareMode(page) {
     const stageBoards = page.locator(".KibitzRoomStage-boards").first();
     const compareButton = page.locator(".KibitzDividerHandle .divider-mode-button.compare-view");
@@ -168,7 +196,7 @@ async function main() {
     try {
         const scenes = [
             {
-                fileName: "kibitz-announcement-01-room-stage.png",
+                fileName: "kibitz-announcement-01-room-main-stage.png",
                 run: async () => {
                     await page.setViewportSize({ width: 1920, height: 1080 });
                     await goto(page, baseUrl, "/kibitz/user-fea5dced");
@@ -176,7 +204,7 @@ async function main() {
                     await captureLocator(
                         page,
                         ".KibitzRoomStage",
-                        path.join(outputDir, "kibitz-announcement-01-room-stage.png"),
+                        path.join(outputDir, "kibitz-announcement-01-room-main-stage.png"),
                     );
                 },
             },
@@ -194,7 +222,7 @@ async function main() {
                 },
             },
             {
-                fileName: "kibitz-announcement-03-create-room.png",
+                fileName: "kibitz-announcement-03-create-room-flow.png",
                 run: async () => {
                     await page.setViewportSize({ width: 1920, height: 1080 });
                     await goto(page, baseUrl, "/kibitz/user-fea5dced");
@@ -207,44 +235,47 @@ async function main() {
                     await captureLocator(
                         page,
                         ".KibitzGamePickerOverlay",
-                        path.join(outputDir, "kibitz-announcement-03-create-room.png"),
+                        path.join(outputDir, "kibitz-announcement-03-create-room-flow.png"),
                     );
                 },
             },
             {
-                fileName: "kibitz-announcement-04-new-main-board.png",
-                run: async () => {
-                    await page.setViewportSize({ width: 1920, height: 1080 });
-                    await goto(page, baseUrl, "/kibitz/top-9x9?demo-kibitz=1");
-                    await waitForKibitzReady(page);
-                    await captureLocator(
-                        page,
-                        ".KibitzRoomStage",
-                        path.join(outputDir, "kibitz-announcement-04-new-main-board.png"),
-                    );
-                },
-            },
-            {
-                fileName: "kibitz-announcement-05-change-board-flow.png",
+                fileName: "kibitz-announcement-04-room-after-changing-main-board.png",
                 run: async () => {
                     await page.setViewportSize({ width: 1920, height: 1080 });
                     await goto(page, baseUrl, "/kibitz/user-fea5dced");
                     await waitForKibitzReady(page);
-                    await page.getByLabel("Room settings").click();
-                    await page.getByRole("button", { name: "Change live game" }).click();
-                    await expect(page.locator(".KibitzGamePickerOverlay")).toBeVisible({
+                    await openChangeBoardPreview(page, 12459);
+                    await page.getByRole("button", { name: "Change board" }).click();
+                    await expect(page.locator(".KibitzRoomStage")).toBeVisible({
                         timeout: 15000,
                     });
-                    await page.locator("#kibitz-game-picker-input").fill("12459");
-                    await page.getByRole("button", { name: "Load" }).click();
-                    await expect(page.locator(".KibitzGamePickerOverlay")).toBeVisible({
-                        timeout: 15000,
-                    });
+                    await waitForKibitzReady(page);
+                    await captureLocator(
+                        page,
+                        ".KibitzRoomStage",
+                        path.join(
+                            outputDir,
+                            "kibitz-announcement-04-room-after-changing-main-board.png",
+                        ),
+                    );
+                },
+            },
+            {
+                fileName: "kibitz-announcement-05-room-settings-change-game-flow.png",
+                run: async () => {
+                    await page.setViewportSize({ width: 1920, height: 1080 });
+                    await goto(page, baseUrl, "/kibitz/user-fea5dced");
+                    await waitForKibitzReady(page);
+                    await openChangeBoardPreview(page, 12459);
                     await waitForStableRect(page, ".KibitzGamePickerOverlay");
                     await captureLocator(
                         page,
                         ".KibitzGamePickerOverlay",
-                        path.join(outputDir, "kibitz-announcement-05-change-board-flow.png"),
+                        path.join(
+                            outputDir,
+                            "kibitz-announcement-05-room-settings-change-game-flow.png",
+                        ),
                     );
                 },
             },
@@ -266,22 +297,42 @@ async function main() {
                 },
             },
             {
-                fileName: "kibitz-announcement-07-variation-quick-list.png",
+                fileName: "kibitz-announcement-07-variations-list-one-enabled.png",
                 run: async () => {
                     await page.setViewportSize({ width: 1920, height: 1080 });
                     await goto(page, baseUrl, "/kibitz/user-fea5dced");
                     await waitForKibitzReady(page);
                     await openFirstVariation(page);
-                    await clickUntilCompareMode(page);
                     await captureLocator(
                         page,
                         ".KibitzVariationList",
-                        path.join(outputDir, "kibitz-announcement-07-variation-quick-list.png"),
+                        path.join(
+                            outputDir,
+                            "kibitz-announcement-07-variations-list-one-enabled.png",
+                        ),
                     );
                 },
             },
             {
-                fileName: "kibitz-announcement-08-mobile-room.png",
+                fileName: "kibitz-announcement-08-variations-board-multiple-enabled.png",
+                run: async () => {
+                    await page.setViewportSize({ width: 1920, height: 1080 });
+                    await goto(page, baseUrl, "/kibitz/user-fea5dced");
+                    await waitForKibitzReady(page);
+                    await openMultipleVariations(page, 2);
+                    await clickUntilCompareMode(page);
+                    await captureLocator(
+                        page,
+                        ".KibitzRoomStage",
+                        path.join(
+                            outputDir,
+                            "kibitz-announcement-08-variations-board-multiple-enabled.png",
+                        ),
+                    );
+                },
+            },
+            {
+                fileName: "kibitz-announcement-09-mobile-room.png",
                 run: async () => {
                     await page.setViewportSize({ width: 390, height: 844 });
                     await goto(page, baseUrl, "/kibitz/user-fea5dced");
@@ -292,7 +343,7 @@ async function main() {
                     await captureLocator(
                         page,
                         ".KibitzRoomStage-mobile",
-                        path.join(outputDir, "kibitz-announcement-08-mobile-room.png"),
+                        path.join(outputDir, "kibitz-announcement-09-mobile-room.png"),
                     );
                 },
             },
