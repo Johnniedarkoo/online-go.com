@@ -103,6 +103,7 @@ interface KibitzRoomStageProps {
     isMobileLayout?: boolean;
     mobileCompanionPanel?: "chat" | "vote" | "compare";
     mobileHasActiveVote?: boolean;
+    mobileDividerDragging?: boolean;
     onSelectMobileCompanionPanel?: (panel: "chat" | "vote" | "compare") => void;
     onOpenMobileRooms?: () => void;
     onMobileCompareControllerChange?: (controller: GobanController | null) => void;
@@ -2079,6 +2080,7 @@ export function KibitzRoomStage({
     isMobileLayout = false,
     mobileCompanionPanel,
     mobileHasActiveVote = false,
+    mobileDividerDragging = false,
     onSelectMobileCompanionPanel,
     onOpenMobileRooms,
     onMobileCompareControllerChange,
@@ -5825,6 +5827,7 @@ export function KibitzRoomStage({
                                                 size={mobileBoardSize}
                                                 interactive={true}
                                                 coordinateSafeInput={true}
+                                                allowTransientDragScaling={mobileDividerDragging}
                                                 fitMode="contain"
                                                 respectContainerBounds={true}
                                                 moveTree={secondaryPane.variation_source_move_tree}

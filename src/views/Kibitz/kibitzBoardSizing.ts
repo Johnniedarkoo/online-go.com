@@ -18,6 +18,7 @@
 export function computeRecenterScale({
     fitMode,
     coordinateSafeInput,
+    allowTransientDragScaling = false,
     metricsWidth,
     metricsHeight,
     containerWidth,
@@ -25,12 +26,14 @@ export function computeRecenterScale({
 }: {
     fitMode: "native" | "contain";
     coordinateSafeInput: boolean;
+    allowTransientDragScaling?: boolean;
     metricsWidth: number;
     metricsHeight: number;
     containerWidth: number;
     containerHeight: number;
 }): number {
-    const allowCssTransformScaling = fitMode === "contain" && !coordinateSafeInput;
+    const coordinateSafeInputActive = coordinateSafeInput && !allowTransientDragScaling;
+    const allowCssTransformScaling = fitMode === "contain" && !coordinateSafeInputActive;
 
     return allowCssTransformScaling && metricsWidth > 0 && metricsHeight > 0
         ? Math.min(containerWidth / metricsWidth, containerHeight / metricsHeight)

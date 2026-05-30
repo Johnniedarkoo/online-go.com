@@ -712,6 +712,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const mobileSplitRatioRafRef = React.useRef<number | null>(null);
     const lastCommittedMobileSplitRatioRef = React.useRef(mobileSplitRatio);
     const mobileDividerMoveDebugPendingRef = React.useRef<Record<string, unknown> | null>(null);
+    const [mobileDividerDragging, setMobileDividerDragging] = React.useState(false);
+    const previousMobileDividerDraggingRef = React.useRef(false);
     const [desktopSidebarWidthPx, setDesktopSidebarWidthPx] = React.useState<number | null>(() => {
         const stored = window.localStorage.getItem(DESKTOP_SIDEBAR_WIDTH_STORAGE_KEY);
         const parsed = stored ? Number.parseFloat(stored) : NaN;
@@ -813,6 +815,21 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     React.useEffect(() => {
         lastCommittedMobileSplitRatioRef.current = mobileSplitRatio;
     }, [mobileSplitRatio]);
+
+    React.useEffect(() => {
+        const wasDragging = previousMobileDividerDraggingRef.current;
+        if (!wasDragging && mobileDividerDragging) {
+            recordKibitzBoardSizeEvent("mobile-divider:drag-active-start", {
+                mobileDividerDragging,
+            });
+        } else if (wasDragging && !mobileDividerDragging) {
+            recordKibitzBoardSizeEvent("mobile-divider:drag-active-end", {
+                mobileDividerDragging,
+            });
+        }
+
+        previousMobileDividerDraggingRef.current = mobileDividerDragging;
+    }, [mobileDividerDragging]);
 
     desktopSidebarWidthPxRef.current = desktopSidebarWidthPx;
 
@@ -955,6 +972,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 mobileSplitRatioRafRef.current = null;
             }
             commitPendingMobileSplitRatio("pointerup-flush");
+            setMobileDividerDragging(false);
             stopDrag();
             if (isKibitzBoardSizeDebugEnabled()) {
                 recordKibitzBoardSizeEvent("mobile-divider:pointer-up", {
@@ -975,6 +993,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             }
             pendingMobileSplitRatioRef.current = null;
             mobileDividerMoveDebugPendingRef.current = null;
+            setMobileDividerDragging(false);
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);
             window.removeEventListener("pointercancel", onPointerUp);
@@ -2519,6 +2538,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 });
             }
             event.preventDefault();
+            setMobileDividerDragging(true);
             mobileDragStateRef.current = {
                 pointerId: event.pointerId,
                 startY: event.clientY,
@@ -2978,6 +2998,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                             visibleVariationIds={visibleVariationIds}
                                             variationColorIndexes={variationColorIndexes}
                                             secondaryPane={secondaryPane}
+                                            mobileDividerDragging={mobileDividerDragging}
                                             onClearPreview={onClearPreview}
                                             onPostVariation={onPostVariation}
                                             onSetSecondaryPaneMode={onSetSecondaryPaneMode}
@@ -3145,6 +3166,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                     visibleVariationIds={visibleVariationIds}
                                     variationColorIndexes={variationColorIndexes}
                                     secondaryPane={secondaryPane}
+                                    mobileDividerDragging={mobileDividerDragging}
                                     onClearPreview={onClearPreview}
                                     onPostVariation={onPostVariation}
                                     onSetSecondaryPaneMode={onSetSecondaryPaneMode}

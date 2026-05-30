@@ -59,6 +59,7 @@ describe("computeRecenterScale", () => {
             computeRecenterScale({
                 fitMode: "contain",
                 coordinateSafeInput: true,
+                allowTransientDragScaling: false,
                 containerWidth: 374,
                 containerHeight: 374,
                 metricsWidth: 357,
@@ -67,11 +68,26 @@ describe("computeRecenterScale", () => {
         ).toBe(1);
     });
 
+    it("allows temporary contain-scaling during transient drag", () => {
+        expect(
+            computeRecenterScale({
+                fitMode: "contain",
+                coordinateSafeInput: true,
+                allowTransientDragScaling: true,
+                containerWidth: 374,
+                containerHeight: 374,
+                metricsWidth: 357,
+                metricsHeight: 357,
+            }),
+        ).toBeCloseTo(374 / 357);
+    });
+
     it("still contain-scales non-coordinate-safe boards", () => {
         expect(
             computeRecenterScale({
                 fitMode: "contain",
                 coordinateSafeInput: false,
+                allowTransientDragScaling: false,
                 containerWidth: 374,
                 containerHeight: 374,
                 metricsWidth: 357,
