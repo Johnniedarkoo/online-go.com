@@ -71,6 +71,7 @@ import {
     getKibitzBlockedRoomFollowupMessage,
     getKibitzBlockedRoomMessage,
 } from "./kibitzAnalysisPolicyText";
+import { isKibitzBoardSizeDebugEnabled, recordKibitzBoardSizeEvent } from "./kibitzBoardSizeDebug";
 import {
     isKibitzVariationDebugEnabled,
     logKibitzVariationDebug,
@@ -706,6 +707,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
         return DEFAULT_MOBILE_SPLIT_RATIO;
     });
+    const mobileSplitRatioRef = React.useRef(mobileSplitRatio);
+    const mobileDividerMoveDebugFrameRef = React.useRef<number | null>(null);
+    const mobileDividerMoveDebugPendingRef = React.useRef<Record<string, unknown> | null>(null);
     const [desktopSidebarWidthPx, setDesktopSidebarWidthPx] = React.useState<number | null>(() => {
         const stored = window.localStorage.getItem(DESKTOP_SIDEBAR_WIDTH_STORAGE_KEY);
         const parsed = stored ? Number.parseFloat(stored) : NaN;
@@ -804,6 +808,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         window.localStorage.setItem(MOBILE_SPLIT_STORAGE_KEY, String(mobileSplitRatio));
     }, [isMobileLayout, mobileSplitRatio]);
 
+    React.useEffect(() => {
+        mobileSplitRatioRef.current = mobileSplitRatio;
+    }, [mobileSplitRatio]);
+
     desktopSidebarWidthPxRef.current = desktopSidebarWidthPx;
 
     const setAndStoreDesktopSidebarWidthPx = React.useCallback((width: number | null) => {
@@ -847,7 +855,32 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             }
 
             const ratioDelta = (event.clientY - dragState.startY) / shellRect.height;
-            setMobileSplitRatio(clampMobileSplitRatio(dragState.startRatio + ratioDelta));
+            const nextRatio = clampMobileSplitRatio(dragState.startRatio + ratioDelta);
+            const previousRatio = mobileSplitRatioRef.current;
+            setMobileSplitRatio(nextRatio);
+            mobileSplitRatioRef.current = nextRatio;
+            if (isKibitzBoardSizeDebugEnabled()) {
+                mobileDividerMoveDebugPendingRef.current = {
+                    pointerId: event.pointerId,
+                    clientY: event.clientY,
+                    startY: dragState.startY,
+                    shellRectHeight: shellRect.height,
+                    rawRatioDelta: ratioDelta,
+                    nextRatio,
+                    previousRatio,
+                };
+
+                if (mobileDividerMoveDebugFrameRef.current === null) {
+                    mobileDividerMoveDebugFrameRef.current = window.requestAnimationFrame(() => {
+                        mobileDividerMoveDebugFrameRef.current = null;
+                        const details = mobileDividerMoveDebugPendingRef.current;
+                        mobileDividerMoveDebugPendingRef.current = null;
+                        if (details) {
+                            recordKibitzBoardSizeEvent("mobile-divider:move", details);
+                        }
+                    });
+                }
+            }
             event.preventDefault();
         };
 
@@ -862,6 +895,12 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             }
 
             stopDrag();
+            if (isKibitzBoardSizeDebugEnabled()) {
+                recordKibitzBoardSizeEvent("mobile-divider:pointer-up", {
+                    pointerId: event.pointerId,
+                    finalRatio: mobileSplitRatioRef.current,
+                });
+            }
         };
 
         window.addEventListener("pointermove", onPointerMove, { passive: false });
@@ -869,6 +908,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         window.addEventListener("pointercancel", onPointerUp);
 
         return () => {
+            if (mobileDividerMoveDebugFrameRef.current !== null) {
+                window.cancelAnimationFrame(mobileDividerMoveDebugFrameRef.current);
+                mobileDividerMoveDebugFrameRef.current = null;
+            }
+            mobileDividerMoveDebugPendingRef.current = null;
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);
             window.removeEventListener("pointercancel", onPointerUp);
@@ -2402,6 +2446,16 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 return;
             }
 
+            const shellRect = shell.getBoundingClientRect();
+            if (isKibitzBoardSizeDebugEnabled()) {
+                recordKibitzBoardSizeEvent("mobile-divider:pointer-down", {
+                    pointerId: event.pointerId,
+                    clientY: event.clientY,
+                    startRatio: mobileSplitRatio,
+                    shellRectHeight: shellRect.height,
+                    shellRectWidth: shellRect.width,
+                });
+            }
             event.preventDefault();
             mobileDragStateRef.current = {
                 pointerId: event.pointerId,
