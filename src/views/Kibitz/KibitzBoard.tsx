@@ -26,6 +26,7 @@ import {
     isKibitzBoardSizeDebugEnabled,
     recordKibitzBoardSizeEvent,
 } from "./kibitzBoardSizeDebug";
+import { computeRecenterScale, isKibitzBoardResizeStale } from "./kibitzBoardSizing";
 import { logKibitzVariationDebug, summarizeKibitzMoveTreeNode } from "./kibitzVariationDebug";
 import "./KibitzBoard.css";
 
@@ -53,6 +54,7 @@ interface KibitzBoardProps {
     moveTree?: MoveTreeJson;
     movePath?: string;
     restoreToOfficialTailOnLoad?: boolean;
+    coordinateSafeInput?: boolean;
     onReady?: (controller: GobanController | null) => void;
 }
 
@@ -280,6 +282,7 @@ export function KibitzBoard({
     moveTree,
     movePath,
     restoreToOfficialTailOnLoad = false,
+    coordinateSafeInput = false,
     onReady,
 }: KibitzBoardProps): React.ReactElement {
     const boardHostRef = React.useRef<HTMLDivElement>(null);
@@ -324,6 +327,18 @@ export function KibitzBoard({
     const shouldDeferGobanContainer =
         boardRole === "secondary" && hasExplicitSize && !explicitSizeReady;
     const displaySize = hasExplicitSize && Number.isFinite(size) && size > 0 ? size : undefined;
+    const resizeGenerationRef = React.useRef(0);
+    const latestResizeTargetRef = React.useRef<{
+        displaySize: number | null;
+        size: number | null;
+        fitMode: "native" | "contain";
+        respectContainerBounds: boolean;
+    }>({
+        displaySize: displaySize ?? null,
+        size: size ?? null,
+        fitMode,
+        respectContainerBounds,
+    });
     const boardHostReadinessKey = React.useMemo(
         () =>
             [
@@ -356,6 +371,16 @@ export function KibitzBoard({
         ],
     );
 
+    React.useEffect(() => {
+        latestResizeTargetRef.current = {
+            displaySize: displaySize ?? null,
+            size: size ?? null,
+            fitMode,
+            respectContainerBounds,
+        };
+        resizeGenerationRef.current += 1;
+    }, [coordinateSafeInput, displaySize, fitMode, respectContainerBounds, size]);
+
     const getKibitzBoardMetricsSnapshot = React.useCallback(
         (reason: string): Record<string, unknown> => {
             const host = boardHostRef.current;
@@ -375,6 +400,8 @@ export function KibitzBoard({
                 sizeProp: size ?? null,
                 displaySize: displaySize ?? null,
                 fitMode,
+                coordinateSafeInput,
+                allowCssTransformScaling: fitMode === "contain" && !coordinateSafeInput,
                 respectContainerBounds,
                 host: getKibitzElementMetrics(host),
                 container: getKibitzElementMetrics(container),
@@ -398,6 +425,7 @@ export function KibitzBoard({
             goban,
             interactive,
             isMobile,
+            coordinateSafeInput,
             respectContainerBounds,
             size,
         ],
@@ -744,29 +772,51 @@ export function KibitzBoard({
             const metrics = gobanController.computeMetrics();
             const containerWidth = container.offsetWidth;
             const containerHeight = container.offsetHeight;
-            const scale =
-                fitMode === "contain" && metrics.width > 0 && metrics.height > 0
-                    ? Math.min(containerWidth / metrics.width, containerHeight / metrics.height)
-                    : 1;
-            const scaledWidth = metrics.width * scale;
+            const metricWidth = Number(metrics.width ?? 0);
+            const metricHeight = Number(metrics.height ?? 0);
+            const allowCssTransformScaling = fitMode === "contain" && !coordinateSafeInput;
+            const scale = computeRecenterScale({
+                fitMode,
+                coordinateSafeInput,
+                metricsWidth: metricWidth,
+                metricsHeight: metricHeight,
+                containerWidth,
+                containerHeight,
+            });
+            const visualWidth = allowCssTransformScaling ? metricWidth * scale : metricWidth;
+            const visualHeight = allowCssTransformScaling ? metricHeight * scale : metricHeight;
 
-            gobanElement.style.transformOrigin = "top left";
+            gobanElement.style.transformOrigin = allowCssTransformScaling ? "top left" : "";
             gobanElement.style.transform = scale === 1 ? "" : `scale(${scale})`;
             gobanElement.style.top = "0px";
-            gobanElement.style.left = `${Math.ceil((containerWidth - scaledWidth) / 2)}px`;
+            gobanElement.style.left = `${Math.max(0, Math.floor((containerWidth - visualWidth) / 2))}px`;
+
+            const gobanElementMetrics = getKibitzElementMetrics(gobanElement);
 
             recordKibitzBoardSizeEvent("kibitz-board:metrics:after-recenter", {
                 ...getKibitzBoardMetricsSnapshot("after-recenter"),
+                coordinateSafeInput,
+                allowCssTransformScaling,
                 containerWidth,
                 containerHeight,
-                metricsWidth: metrics.width,
-                metricsHeight: metrics.height,
+                metricsWidth: metricWidth,
+                metricsHeight: metricHeight,
                 scale,
-                scaledWidth,
-                left: Math.ceil((containerWidth - scaledWidth) / 2),
+                scaledWidth: visualWidth,
+                visualWidth,
+                visualHeight,
+                visualToInternalScaleX:
+                    typeof gobanElementMetrics?.rectWidth === "number" && metricWidth > 0
+                        ? gobanElementMetrics.rectWidth / metricWidth
+                        : null,
+                visualToInternalScaleY:
+                    typeof gobanElementMetrics?.rectHeight === "number" && metricHeight > 0
+                        ? gobanElementMetrics.rectHeight / metricHeight
+                        : null,
+                left: Math.max(0, Math.floor((containerWidth - visualWidth) / 2)),
             });
         },
-        [fitMode, getKibitzBoardMetricsSnapshot],
+        [coordinateSafeInput, fitMode, getKibitzBoardMetricsSnapshot],
     );
 
     const onResize = React.useCallback(
@@ -789,6 +839,14 @@ export function KibitzBoard({
             const targetDisplayWidth = respectContainerBounds
                 ? Math.min(containerWidth, containerHeight || containerWidth)
                 : containerWidth;
+            const metrics = gobanController.computeMetrics?.();
+            const metricWidth = Number(metrics?.width ?? NaN);
+            const metricHeight = Number(metrics?.height ?? NaN);
+            const alreadyClose =
+                Number.isFinite(metricWidth) &&
+                Number.isFinite(metricHeight) &&
+                Math.abs(metricWidth - targetDisplayWidth) <= 1 &&
+                Math.abs(metricHeight - targetDisplayWidth) <= 1;
 
             recordKibitzBoardSizeEvent("kibitz-board:resize:start", {
                 ...getKibitzBoardMetricsSnapshot("resize-start"),
@@ -824,6 +882,22 @@ export function KibitzBoard({
             initialResizeRetryCountRef.current = 0;
             cancelPendingInitialResizeRetry();
 
+            if (alreadyClose) {
+                recordKibitzBoardSizeEvent("kibitz-board:resize:already-satisfied", {
+                    ...getKibitzBoardMetricsSnapshot("resize-already-satisfied"),
+                    noDebounce: no_debounce,
+                    containerWidth,
+                    containerHeight,
+                    targetDisplayWidth,
+                    fitMode,
+                    respectContainerBounds,
+                    metricsWidth: metrics?.width ?? null,
+                    metricsHeight: metrics?.height ?? null,
+                });
+                recenterGoban(gobanController);
+                return;
+            }
+
             recordKibitzBoardSizeEvent("kibitz-board:resize:before-resize", {
                 ...getKibitzBoardMetricsSnapshot("resize-before"),
                 noDebounce: no_debounce,
@@ -858,17 +932,79 @@ export function KibitzBoard({
             } else {
                 const scheduledControllerEpoch = controllerEpochRef.current;
                 const scheduledController = gobanController;
+                const scheduledGeneration = resizeGenerationRef.current;
+                const scheduledDisplaySize = latestResizeTargetRef.current.displaySize;
+                const scheduledSize = latestResizeTargetRef.current.size;
+                const scheduledContainerWidth = containerWidth;
+                const scheduledContainerHeight = containerHeight;
+                const scheduledTargetDisplayWidth = targetDisplayWidth;
                 recordKibitzBoardSizeEvent("kibitz-board:resize:debounced", {
                     ...getKibitzBoardMetricsSnapshot("resize-debounced"),
                     noDebounce: no_debounce,
-                    containerWidth,
-                    containerHeight,
-                    targetDisplayWidth,
+                    containerWidth: scheduledContainerWidth,
+                    containerHeight: scheduledContainerHeight,
+                    targetDisplayWidth: scheduledTargetDisplayWidth,
                     fitMode,
                     respectContainerBounds,
                     scheduledControllerEpoch,
+                    scheduledGeneration,
+                    scheduledDisplaySize,
+                    scheduledSize,
                 });
                 resizeDebounceRef.current = setTimeout(() => {
+                    const currentContainerRect = gobanContainerRef.current?.getBoundingClientRect();
+                    const currentTarget = latestResizeTargetRef.current;
+                    const currentTargetDisplayWidth = currentTarget.respectContainerBounds
+                        ? Math.min(
+                              currentContainerRect?.width ?? scheduledContainerWidth,
+                              currentContainerRect?.height ??
+                                  scheduledContainerHeight ??
+                                  scheduledContainerWidth,
+                          )
+                        : (currentContainerRect?.width ?? scheduledContainerWidth);
+                    const stale = isKibitzBoardResizeStale({
+                        scheduledGeneration,
+                        currentGeneration: resizeGenerationRef.current,
+                        scheduledControllerEpoch,
+                        currentControllerEpoch: controllerEpochRef.current,
+                        scheduledDisplaySize,
+                        currentDisplaySize: currentTarget.displaySize,
+                        scheduledSize,
+                        currentSize: currentTarget.size,
+                        scheduledContainerWidth,
+                        scheduledContainerHeight,
+                        currentContainerWidth: currentContainerRect?.width ?? null,
+                        currentContainerHeight: currentContainerRect?.height ?? null,
+                        scheduledFitMode: fitMode,
+                        currentFitMode: currentTarget.fitMode,
+                        scheduledRespectContainerBounds: respectContainerBounds,
+                        currentRespectContainerBounds: currentTarget.respectContainerBounds,
+                    });
+
+                    if (stale) {
+                        recordKibitzBoardSizeEvent("kibitz-board:resize:stale-skip", {
+                            ...getKibitzBoardMetricsSnapshot("resize-stale-skip"),
+                            noDebounce: no_debounce,
+                            scheduledGeneration,
+                            currentGeneration: resizeGenerationRef.current,
+                            scheduledControllerEpoch,
+                            currentControllerEpoch: controllerEpochRef.current,
+                            scheduledDisplaySize,
+                            currentDisplaySize: currentTarget.displaySize,
+                            scheduledSize,
+                            currentSize: currentTarget.size,
+                            scheduledContainerWidth,
+                            scheduledContainerHeight,
+                            currentContainerWidth: currentContainerRect?.width ?? null,
+                            currentContainerHeight: currentContainerRect?.height ?? null,
+                            scheduledTargetDisplayWidth,
+                            currentTargetDisplayWidth,
+                            fitMode,
+                            respectContainerBounds,
+                        });
+                        return;
+                    }
+
                     if (
                         controllerEpochRef.current !== scheduledControllerEpoch ||
                         !isGobanStillUsable(scheduledController) ||
@@ -891,12 +1027,15 @@ export function KibitzBoard({
                     recordKibitzBoardSizeEvent("kibitz-board:resize:debounced-apply", {
                         ...getKibitzBoardMetricsSnapshot("resize-debounced-apply"),
                         noDebounce: no_debounce,
-                        containerWidth,
-                        containerHeight,
-                        targetDisplayWidth,
+                        containerWidth: scheduledContainerWidth,
+                        containerHeight: scheduledContainerHeight,
+                        targetDisplayWidth: scheduledTargetDisplayWidth,
                         fitMode,
                         respectContainerBounds,
                         scheduledControllerEpoch,
+                        scheduledGeneration,
+                        scheduledDisplaySize,
+                        scheduledSize,
                     });
                     onResizeRef.current(true);
                 }, 10);
@@ -905,6 +1044,7 @@ export function KibitzBoard({
         [
             cancelPendingInitialResizeRetry,
             boardRole,
+            getKibitzBoardMetricsSnapshot,
             currentRoomGameId,
             gameId,
             goban,
@@ -912,6 +1052,7 @@ export function KibitzBoard({
             respectContainerBounds,
             scheduleInitialResizeRetry,
             isGobanStillUsable,
+            fitMode,
         ],
     );
 

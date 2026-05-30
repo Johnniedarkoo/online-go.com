@@ -72,6 +72,7 @@ import {
     getKibitzBlockedRoomMessage,
 } from "./kibitzAnalysisPolicyText";
 import { isKibitzBoardSizeDebugEnabled, recordKibitzBoardSizeEvent } from "./kibitzBoardSizeDebug";
+import { shouldCommitMobileSplitRatioUpdate } from "./kibitzBoardSizing";
 import {
     isKibitzVariationDebugEnabled,
     logKibitzVariationDebug,
@@ -707,8 +708,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
         return DEFAULT_MOBILE_SPLIT_RATIO;
     });
-    const mobileSplitRatioRef = React.useRef(mobileSplitRatio);
-    const mobileDividerMoveDebugFrameRef = React.useRef<number | null>(null);
+    const pendingMobileSplitRatioRef = React.useRef<number | null>(null);
+    const mobileSplitRatioRafRef = React.useRef<number | null>(null);
+    const lastCommittedMobileSplitRatioRef = React.useRef(mobileSplitRatio);
     const mobileDividerMoveDebugPendingRef = React.useRef<Record<string, unknown> | null>(null);
     const [desktopSidebarWidthPx, setDesktopSidebarWidthPx] = React.useState<number | null>(() => {
         const stored = window.localStorage.getItem(DESKTOP_SIDEBAR_WIDTH_STORAGE_KEY);
@@ -809,7 +811,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     }, [isMobileLayout, mobileSplitRatio]);
 
     React.useEffect(() => {
-        mobileSplitRatioRef.current = mobileSplitRatio;
+        lastCommittedMobileSplitRatioRef.current = mobileSplitRatio;
     }, [mobileSplitRatio]);
 
     desktopSidebarWidthPxRef.current = desktopSidebarWidthPx;
@@ -841,6 +843,41 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             document.body.style.cursor = "";
         };
 
+        const commitPendingMobileSplitRatio = (reason: "raf" | "pointerup-flush") => {
+            const pending = pendingMobileSplitRatioRef.current;
+            pendingMobileSplitRatioRef.current = null;
+            mobileDividerMoveDebugPendingRef.current = null;
+
+            if (pending == null) {
+                return;
+            }
+
+            const previousRatio = lastCommittedMobileSplitRatioRef.current;
+            if (
+                !shouldCommitMobileSplitRatioUpdate({
+                    currentRatio: previousRatio,
+                    pendingRatio: pending,
+                })
+            ) {
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-divider:raf-skip-same-ratio", {
+                        reason,
+                        previousRatio,
+                        pendingRatio: pending,
+                    });
+                }
+                return;
+            }
+
+            lastCommittedMobileSplitRatioRef.current = pending;
+            recordKibitzBoardSizeEvent("mobile-divider:raf-commit", {
+                reason,
+                previousRatio,
+                nextRatio: pending,
+            });
+            setMobileSplitRatio(pending);
+        };
+
         const onPointerMove = (event: PointerEvent) => {
             const dragState = mobileDragStateRef.current;
             const shell = mobileShellRef.current;
@@ -856,9 +893,25 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
             const ratioDelta = (event.clientY - dragState.startY) / shellRect.height;
             const nextRatio = clampMobileSplitRatio(dragState.startRatio + ratioDelta);
-            const previousRatio = mobileSplitRatioRef.current;
-            setMobileSplitRatio(nextRatio);
-            mobileSplitRatioRef.current = nextRatio;
+            const previousPending =
+                pendingMobileSplitRatioRef.current ?? lastCommittedMobileSplitRatioRef.current;
+            if (
+                !shouldCommitMobileSplitRatioUpdate({
+                    currentRatio: previousPending,
+                    pendingRatio: nextRatio,
+                })
+            ) {
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-divider:raf-skip-same-ratio", {
+                        reason: "pointermove",
+                        previousRatio: previousPending,
+                        pendingRatio: nextRatio,
+                    });
+                }
+                event.preventDefault();
+                return;
+            }
+
             if (isKibitzBoardSizeDebugEnabled()) {
                 mobileDividerMoveDebugPendingRef.current = {
                     pointerId: event.pointerId,
@@ -867,19 +920,22 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     shellRectHeight: shellRect.height,
                     rawRatioDelta: ratioDelta,
                     nextRatio,
-                    previousRatio,
+                    previousRatio: previousPending,
                 };
+            }
 
-                if (mobileDividerMoveDebugFrameRef.current === null) {
-                    mobileDividerMoveDebugFrameRef.current = window.requestAnimationFrame(() => {
-                        mobileDividerMoveDebugFrameRef.current = null;
-                        const details = mobileDividerMoveDebugPendingRef.current;
-                        mobileDividerMoveDebugPendingRef.current = null;
-                        if (details) {
-                            recordKibitzBoardSizeEvent("mobile-divider:move", details);
-                        }
-                    });
-                }
+            pendingMobileSplitRatioRef.current = nextRatio;
+
+            if (mobileSplitRatioRafRef.current === null) {
+                mobileSplitRatioRafRef.current = window.requestAnimationFrame(() => {
+                    mobileSplitRatioRafRef.current = null;
+                    const details = mobileDividerMoveDebugPendingRef.current;
+                    mobileDividerMoveDebugPendingRef.current = null;
+                    if (details) {
+                        recordKibitzBoardSizeEvent("mobile-divider:move", details);
+                    }
+                    commitPendingMobileSplitRatio("raf");
+                });
             }
             event.preventDefault();
         };
@@ -894,11 +950,16 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 mobileDividerRef.current.releasePointerCapture(event.pointerId);
             }
 
+            if (mobileSplitRatioRafRef.current !== null) {
+                window.cancelAnimationFrame(mobileSplitRatioRafRef.current);
+                mobileSplitRatioRafRef.current = null;
+            }
+            commitPendingMobileSplitRatio("pointerup-flush");
             stopDrag();
             if (isKibitzBoardSizeDebugEnabled()) {
                 recordKibitzBoardSizeEvent("mobile-divider:pointer-up", {
                     pointerId: event.pointerId,
-                    finalRatio: mobileSplitRatioRef.current,
+                    finalRatio: lastCommittedMobileSplitRatioRef.current,
                 });
             }
         };
@@ -908,10 +969,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         window.addEventListener("pointercancel", onPointerUp);
 
         return () => {
-            if (mobileDividerMoveDebugFrameRef.current !== null) {
-                window.cancelAnimationFrame(mobileDividerMoveDebugFrameRef.current);
-                mobileDividerMoveDebugFrameRef.current = null;
+            if (mobileSplitRatioRafRef.current !== null) {
+                window.cancelAnimationFrame(mobileSplitRatioRafRef.current);
+                mobileSplitRatioRafRef.current = null;
             }
+            pendingMobileSplitRatioRef.current = null;
             mobileDividerMoveDebugPendingRef.current = null;
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);

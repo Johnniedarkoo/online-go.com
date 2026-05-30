@@ -24,6 +24,11 @@ import {
     restoreToOfficialTail,
     shouldRestoreToOfficialTailForGame,
 } from "./KibitzBoard";
+import {
+    computeRecenterScale,
+    isKibitzBoardResizeStale,
+    shouldCommitMobileSplitRatioUpdate,
+} from "./kibitzBoardSizing";
 
 describe("getMovePathToRestore", () => {
     it("uses the original source path when the current restore path is blank and the source is preferred", () => {
@@ -45,6 +50,77 @@ describe("shouldConnectKibitzBoardToGame", () => {
         expect(shouldConnectKibitzBoardToGame("main", false)).toBe(false);
         expect(shouldConnectKibitzBoardToGame("secondary", true)).toBe(false);
         expect(shouldConnectKibitzBoardToGame("secondary", false)).toBe(false);
+    });
+});
+
+describe("computeRecenterScale", () => {
+    it("keeps coordinate-safe input unscaled", () => {
+        expect(
+            computeRecenterScale({
+                fitMode: "contain",
+                coordinateSafeInput: true,
+                containerWidth: 374,
+                containerHeight: 374,
+                metricsWidth: 357,
+                metricsHeight: 357,
+            }),
+        ).toBe(1);
+    });
+
+    it("still contain-scales non-coordinate-safe boards", () => {
+        expect(
+            computeRecenterScale({
+                fitMode: "contain",
+                coordinateSafeInput: false,
+                containerWidth: 374,
+                containerHeight: 374,
+                metricsWidth: 357,
+                metricsHeight: 357,
+            }),
+        ).toBeCloseTo(374 / 357);
+    });
+});
+
+describe("isKibitzBoardResizeStale", () => {
+    it("flags callbacks whose target state changed before they fire", () => {
+        expect(
+            isKibitzBoardResizeStale({
+                scheduledGeneration: 1,
+                currentGeneration: 2,
+                scheduledControllerEpoch: 1,
+                currentControllerEpoch: 2,
+                scheduledDisplaySize: 366,
+                currentDisplaySize: 369,
+                scheduledSize: 366,
+                currentSize: 369,
+                scheduledContainerWidth: 366,
+                scheduledContainerHeight: 366,
+                currentContainerWidth: 369,
+                currentContainerHeight: 369,
+                scheduledFitMode: "contain",
+                currentFitMode: "contain",
+                scheduledRespectContainerBounds: true,
+                currentRespectContainerBounds: true,
+            }),
+        ).toBe(true);
+    });
+});
+
+describe("shouldCommitMobileSplitRatioUpdate", () => {
+    it("skips repeated clamped divider updates", () => {
+        expect(
+            shouldCommitMobileSplitRatioUpdate({
+                currentRatio: 0.36,
+                pendingRatio: 0.3604,
+            }),
+        ).toBe(false);
+
+        expect(
+            shouldCommitMobileSplitRatioUpdate({
+                currentRatio: 0.36,
+                pendingRatio: 0.37,
+            }),
+        ).toBe(true);
     });
 });
 

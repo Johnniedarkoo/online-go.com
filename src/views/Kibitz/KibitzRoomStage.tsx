@@ -5824,6 +5824,7 @@ export function KibitzRoomStage({
                                                 className="mobile-secondary-board-surface"
                                                 size={mobileBoardSize}
                                                 interactive={true}
+                                                coordinateSafeInput={true}
                                                 fitMode="contain"
                                                 respectContainerBounds={true}
                                                 moveTree={secondaryPane.variation_source_move_tree}
