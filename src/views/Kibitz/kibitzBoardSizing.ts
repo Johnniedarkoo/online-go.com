@@ -52,6 +52,23 @@ export function shouldCommitMobileSplitRatioUpdate({
     return Math.abs(currentRatio - pendingRatio) >= threshold;
 }
 
+export function computeTransientDragVisualBoardSize({
+    shellHeight,
+    nextRatio,
+    boardSlotMaxWidth,
+    reservedBoardVerticalSpace,
+}: {
+    shellHeight: number;
+    nextRatio: number;
+    boardSlotMaxWidth: number;
+    reservedBoardVerticalSpace: number;
+}): number {
+    const topPaneHeight = shellHeight * nextRatio;
+    const usableBoardHeight = topPaneHeight - reservedBoardVerticalSpace;
+
+    return Math.max(0, Math.floor(Math.min(boardSlotMaxWidth, usableBoardHeight)));
+}
+
 export function isKibitzBoardResizeStale({
     scheduledGeneration,
     currentGeneration,

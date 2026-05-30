@@ -26,6 +26,7 @@ import {
 } from "./KibitzBoard";
 import {
     computeRecenterScale,
+    computeTransientDragVisualBoardSize,
     isKibitzBoardResizeStale,
     shouldCommitMobileSplitRatioUpdate,
 } from "./kibitzBoardSizing";
@@ -137,6 +138,19 @@ describe("shouldCommitMobileSplitRatioUpdate", () => {
                 pendingRatio: 0.37,
             }),
         ).toBe(true);
+    });
+});
+
+describe("computeTransientDragVisualBoardSize", () => {
+    it("derives the visual drag board size from the active pointer target", () => {
+        expect(
+            computeTransientDragVisualBoardSize({
+                shellHeight: 600,
+                nextRatio: 0.5,
+                boardSlotMaxWidth: 400,
+                reservedBoardVerticalSpace: 100,
+            }),
+        ).toBe(200);
     });
 });
 

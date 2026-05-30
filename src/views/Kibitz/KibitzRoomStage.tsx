@@ -51,7 +51,7 @@ import type {
     KibitzBoardLoadConfig,
     KibitzCurrentGameBaseSnapshot,
 } from "./kibitzCurrentGameBaseSnapshotTypes";
-import { KibitzBoard } from "./KibitzBoard";
+import { KibitzBoard, type KibitzBoardTransientDragController } from "./KibitzBoard";
 import { KibitzBoardControls } from "./KibitzBoardControls";
 import { KibitzDividerHandle } from "./KibitzDividerHandle";
 import { GobanAnalyzeButtonBar } from "@/components/GobanAnalyzeButtonBar/GobanAnalyzeButtonBar";
@@ -104,6 +104,9 @@ interface KibitzRoomStageProps {
     mobileCompanionPanel?: "chat" | "vote" | "compare";
     mobileHasActiveVote?: boolean;
     mobileDividerDragging?: boolean;
+    onMobileDraftTransientDragControllerChange?: (
+        controller: KibitzBoardTransientDragController | null,
+    ) => void;
     onSelectMobileCompanionPanel?: (panel: "chat" | "vote" | "compare") => void;
     onOpenMobileRooms?: () => void;
     onMobileCompareControllerChange?: (controller: GobanController | null) => void;
@@ -564,6 +567,7 @@ function useSquareFitSize<T extends HTMLElement>(
     layoutKey: string,
     constrainToParentHeight = false,
     debugLabel?: string,
+    paused = false,
 ) {
     const [element, setElement] = React.useState<T | null>(null);
     const [size, setSize] = React.useState(0);
@@ -580,6 +584,10 @@ function useSquareFitSize<T extends HTMLElement>(
         if (!element) {
             setSize(0);
             sizeRef.current = 0;
+            return;
+        }
+
+        if (paused) {
             return;
         }
 
@@ -668,7 +676,7 @@ function useSquareFitSize<T extends HTMLElement>(
             window.removeEventListener("resize", scheduleMeasure);
             resizeObserver.disconnect();
         };
-    }, [constrainToParentHeight, debugLabel, element, layoutKey]);
+    }, [constrainToParentHeight, debugLabel, element, layoutKey, paused]);
 
     return [ref, size] as const;
 }
@@ -2081,6 +2089,7 @@ export function KibitzRoomStage({
     mobileCompanionPanel,
     mobileHasActiveVote = false,
     mobileDividerDragging = false,
+    onMobileDraftTransientDragControllerChange,
     onSelectMobileCompanionPanel,
     onOpenMobileRooms,
     onMobileCompareControllerChange,
@@ -2859,6 +2868,7 @@ export function KibitzRoomStage({
         `mobile-${secondaryPane.variation_id ?? ""}-${secondaryPane.preview_game_id ?? ""}-${secondaryPane.variation_source_game_id ?? ""}-${mobileCompanionPanel ?? ""}`,
         true,
         "mobile-board-slot",
+        mobileDividerDragging,
     );
     const visibleSecondaryBoardSize = isMobileLayout ? mobileBoardSize : secondaryBoardSize;
     const secondaryBoardSizeReady = Number.isFinite(secondaryBoardSize) && secondaryBoardSize > 0;
@@ -5828,6 +5838,9 @@ export function KibitzRoomStage({
                                                 interactive={true}
                                                 coordinateSafeInput={true}
                                                 allowTransientDragScaling={mobileDividerDragging}
+                                                onTransientDragControllerChange={
+                                                    onMobileDraftTransientDragControllerChange
+                                                }
                                                 fitMode="contain"
                                                 respectContainerBounds={true}
                                                 moveTree={secondaryPane.variation_source_move_tree}
