@@ -934,11 +934,40 @@ export function KibitzBoard({
                 pendingTransientDragClearFrameRef.current = null;
             }
 
+            const settleDurationMs = TRANSIENT_DRAG_RELEASE_SETTLE_MS;
+            const contentDelta = Math.abs(toContentSize - fromContentSize);
+            const leftDelta = Math.abs(toLeft - fromLeft);
+
             const host = boardHostRef.current;
             const container = gobanContainerRef.current;
             const gobanElement = gobanDiv.current;
             const transientMetrics = transientDragMetricsRef.current;
             const metricsWidth = transientMetrics?.metricsWidth ?? null;
+
+            if (isKibitzBoardSizeDebugEnabled()) {
+                recordKibitzBoardSizeEvent("kibitz-board:transient-drag-release-settle", {
+                    ...getKibitzBoardMetricsSnapshot("transient-drag-release-settle"),
+                    finalWindowSize,
+                    fromContentSize,
+                    toContentSize,
+                    fromLeft,
+                    toLeft,
+                    currentContentSize: fromContentSize,
+                    currentLeft: fromLeft,
+                    settleElapsedMs: 0,
+                    settleDurationMs,
+                    contentDelta,
+                    leftDelta,
+                    animationProgress: 0,
+                    easedProgress: 0,
+                    settleSkipped: contentDelta < 1 && leftDelta < 0.5,
+                });
+            }
+
+            if (contentDelta < 1 && leftDelta < 0.5) {
+                runFinalNativeResizeAfterSettle(finalWindowSize, toContentSize);
+                return;
+            }
 
             if (!host || !container || !gobanElement || !metricsWidth || metricsWidth <= 0) {
                 runFinalNativeResizeAfterSettle(finalWindowSize, toContentSize);
@@ -946,7 +975,6 @@ export function KibitzBoard({
             }
 
             const startTime = performance.now();
-            const durationMs = TRANSIENT_DRAG_RELEASE_SETTLE_MS;
             let lastLoggedContentSize: number | null = null;
 
             const step = () => {
@@ -956,8 +984,11 @@ export function KibitzBoard({
                 }
 
                 const elapsed = performance.now() - startTime;
-                const linearT = Math.min(1, elapsed / durationMs);
-                const easedT = 1 - Math.pow(1 - linearT, 3);
+                const linearT = Math.min(1, elapsed / settleDurationMs);
+                const easedT =
+                    linearT < 0.5
+                        ? 4 * linearT * linearT * linearT
+                        : 1 - Math.pow(-2 * linearT + 2, 3) / 2;
                 const currentContentSize =
                     fromContentSize + (toContentSize - fromContentSize) * easedT;
                 const currentLeft = fromLeft + (toLeft - fromLeft) * easedT;
@@ -991,6 +1022,10 @@ export function KibitzBoard({
                         currentLeft,
                         animationProgress: linearT,
                         easedProgress: easedT,
+                        settleElapsedMs: elapsed,
+                        settleDurationMs,
+                        contentDelta,
+                        leftDelta,
                     });
                 }
 
