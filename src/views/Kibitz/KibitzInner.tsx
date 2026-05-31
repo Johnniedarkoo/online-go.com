@@ -440,6 +440,20 @@ function clampMobileSplitRatio(value: number): number {
     return Math.min(MAX_MOBILE_SPLIT_RATIO, Math.max(MIN_MOBILE_SPLIT_RATIO, value));
 }
 
+function getHorizontalInsetPx(element: HTMLElement | null): number {
+    if (!element) {
+        return 0;
+    }
+
+    const style = window.getComputedStyle(element);
+    const paddingLeft = Number.parseFloat(style.paddingLeft ?? "0") || 0;
+    const paddingRight = Number.parseFloat(style.paddingRight ?? "0") || 0;
+    const borderLeft = Number.parseFloat(style.borderLeftWidth ?? "0") || 0;
+    const borderRight = Number.parseFloat(style.borderRightWidth ?? "0") || 0;
+
+    return Math.max(0, paddingLeft + paddingRight + borderLeft + borderRight);
+}
+
 function getDesktopSidebarWidthBoundsPx(contentWidth: number): { min: number; max: number } {
     const min =
         contentWidth >= 1100 ? DESKTOP_SIDEBAR_MIN_COMFORTABLE_PX : DESKTOP_SIDEBAR_MIN_NARROW_PX;
@@ -787,9 +801,12 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         startY: number;
         startRatio: number;
         shellHeight: number;
+        outerBoardSlotMaxWidth: number;
         boardSlotMaxWidth: number;
+        transientBoardWindowMaxSize: number;
         reservedBoardVerticalSpace: number;
-        startBoardSize: number;
+        startLayoutSize: number;
+        startWindowSize: number;
         topPaneElement: HTMLDivElement | null;
         boardSlotElement: HTMLDivElement | null;
         boardWindowElement: HTMLElement | null;
@@ -952,10 +969,19 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     pointerId: dragState?.pointerId ?? null,
                     nextRatio,
                     visualBoardSize,
-                    shellHeight: dragState?.shellHeight ?? null,
+                    heightLimitedSize:
+                        dragState != null
+                            ? Math.floor(
+                                  dragState.shellHeight * nextRatio -
+                                      dragState.reservedBoardVerticalSpace,
+                              )
+                            : null,
+                    transientBoardWindowMaxSize: dragState?.transientBoardWindowMaxSize ?? null,
+                    outerBoardSlotMaxWidth: dragState?.outerBoardSlotMaxWidth ?? null,
                     boardSlotMaxWidth: dragState?.boardSlotMaxWidth ?? null,
                     reservedBoardVerticalSpace: dragState?.reservedBoardVerticalSpace ?? null,
-                    startBoardSize: dragState?.startBoardSize ?? null,
+                    startLayoutSize: dragState?.startLayoutSize ?? null,
+                    startWindowSize: dragState?.startWindowSize ?? null,
                     cachedMetricsWidth: dragState?.cachedMetricsWidth ?? null,
                     cachedMetricsHeight: dragState?.cachedMetricsHeight ?? null,
                 });
@@ -987,7 +1013,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const visualBoardSize = computeTransientDragVisualBoardSize({
                 shellHeight: dragState.shellHeight,
                 nextRatio,
-                boardSlotMaxWidth: dragState.boardSlotMaxWidth,
+                boardSlotMaxWidth: dragState.transientBoardWindowMaxSize,
                 reservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
             });
             if (
@@ -1033,7 +1059,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     const visualSize = computeTransientDragVisualBoardSize({
                         shellHeight: dragState.shellHeight,
                         nextRatio: pending,
-                        boardSlotMaxWidth: dragState.boardSlotMaxWidth,
+                        boardSlotMaxWidth: dragState.transientBoardWindowMaxSize,
                         reservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
                     });
                     updateTransientDragVisuals(pending, visualSize);
@@ -2667,21 +2693,38 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     0,
             );
             const boardWindowRect = boardWindowElement?.getBoundingClientRect();
+            const boardHostElement = boardSlotElement?.parentElement as HTMLElement | null;
             const availableSlotWidthCap = Math.max(
                 0,
                 Math.floor(boardSlotElement?.clientWidth ?? outerBoardSlotMaxWidth),
             );
             const boardSlotMaxWidth = availableSlotWidthCap || outerBoardSlotMaxWidth;
             const reservedBoardVerticalSpace = Math.max(0, boardSlotMetrics?.reservedHeight ?? 0);
-            const startBoardSize = Math.max(
+            const horizontalInset = Math.max(
+                0,
+                Math.floor(
+                    getHorizontalInsetPx(boardHostElement) +
+                        getHorizontalInsetPx(boardWindowElement),
+                ),
+            );
+            const transientBoardWindowMaxSize = Math.max(
+                0,
+                outerBoardSlotMaxWidth - horizontalInset,
+            );
+            const startLayoutSize = Math.max(
                 0,
                 boardSlotMaxWidth || boardSlotMetrics?.nextSize || 0,
             );
-            const beginResult =
-                mobileDraftTransientDragControllerRef.current?.beginTransientDrag() ?? {
-                    metricsWidth: null,
-                    metricsHeight: null,
-                };
+            const startWindowSize = Math.max(
+                0,
+                Math.floor(boardWindowRect?.width ?? transientBoardWindowMaxSize),
+            );
+            const beginResult = mobileDraftTransientDragControllerRef.current?.beginTransientDrag(
+                transientBoardWindowMaxSize,
+            ) ?? {
+                metricsWidth: null,
+                metricsHeight: null,
+            };
             if (isKibitzBoardSizeDebugEnabled()) {
                 recordKibitzBoardSizeEvent("mobile-divider:pointer-down", {
                     pointerId: event.pointerId,
@@ -2692,7 +2735,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     boardSlotMaxWidth,
                     outerBoardSlotMaxWidth,
                     availableSlotWidthCap,
-                    startBoardSize,
+                    transientBoardWindowMaxSize,
+                    horizontalInset,
+                    startLayoutSize,
+                    startWindowSize,
                     reservedBoardVerticalSpace,
                     boardWindowRectWidth: boardWindowRect?.width ?? null,
                     boardWindowRectHeight: boardWindowRect?.height ?? null,
@@ -2704,17 +2750,20 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             setMobileDividerDragging(true);
             shell.classList.add("mobile-divider-dragging");
             shell.style.setProperty("--kibitz-mobile-drag-ratio", String(mobileSplitRatio));
-            shell.style.setProperty("--kibitz-mobile-drag-board-size", `${startBoardSize}px`);
+            shell.style.setProperty("--kibitz-mobile-drag-board-size", `${startWindowSize}px`);
             mobileDividerFastVisualLogAtRef.current = 0;
             mobileDragStateRef.current = {
                 pointerId: event.pointerId,
                 startY: event.clientY,
                 startRatio: mobileSplitRatio,
                 shellHeight: shellRect.height,
+                outerBoardSlotMaxWidth,
                 boardSlotMaxWidth,
+                transientBoardWindowMaxSize,
                 boardWindowElement,
                 reservedBoardVerticalSpace,
-                startBoardSize,
+                startLayoutSize,
+                startWindowSize,
                 topPaneElement,
                 boardSlotElement,
                 cachedMetricsWidth: beginResult.metricsWidth,

@@ -71,7 +71,7 @@ interface KibitzBoardProps {
 }
 
 export interface KibitzBoardTransientDragController {
-    beginTransientDrag: () => {
+    beginTransientDrag: (windowMaxSizeHint?: number | null) => {
         metricsWidth: number | null;
         metricsHeight: number | null;
     };
@@ -392,6 +392,7 @@ export function KibitzBoard({
     const transientDragMetricsRef = React.useRef<{
         metricsWidth: number | null;
         metricsHeight: number | null;
+        transientBoardWindowMaxSize: number | null;
         startWindowSize: number | null;
         startContentSize: number | null;
         startGap: number | null;
@@ -507,79 +508,90 @@ export function KibitzBoard({
         ],
     );
 
-    const beginTransientDrag = React.useCallback((): {
-        metricsWidth: number | null;
-        metricsHeight: number | null;
-    } => {
-        if (pendingTransientDragClearFrameRef.current !== null) {
-            window.cancelAnimationFrame(pendingTransientDragClearFrameRef.current);
-            pendingTransientDragClearFrameRef.current = null;
-        }
+    const beginTransientDrag = React.useCallback(
+        (
+            windowMaxSizeHint?: number | null,
+        ): {
+            metricsWidth: number | null;
+            metricsHeight: number | null;
+        } => {
+            if (pendingTransientDragClearFrameRef.current !== null) {
+                window.cancelAnimationFrame(pendingTransientDragClearFrameRef.current);
+                pendingTransientDragClearFrameRef.current = null;
+            }
 
-        pendingTransientDragFinalSizeRef.current = null;
-        transientDragFinalizingRef.current = false;
-        const gobanController = controllerRef.current?.goban;
-        const metrics = gobanController?.computeMetrics?.();
-        const metricsWidth = typeof metrics?.width === "number" ? metrics.width : null;
-        const metricsHeight = typeof metrics?.height === "number" ? metrics.height : null;
-        const host = boardHostRef.current;
-        const gobanElement = gobanDiv.current;
-        const hostRect = host?.getBoundingClientRect();
-        const gobanRect = gobanElement?.getBoundingClientRect();
-        const startWindowSize =
-            hostRect &&
-            Number.isFinite(hostRect.width) &&
-            Number.isFinite(hostRect.height) &&
-            hostRect.width > 0 &&
-            hostRect.height > 0
-                ? Math.min(hostRect.width, hostRect.height)
-                : null;
-        const startContentSize =
-            gobanRect &&
-            Number.isFinite(gobanRect.width) &&
-            Number.isFinite(gobanRect.height) &&
-            gobanRect.width > 0 &&
-            gobanRect.height > 0
-                ? Math.min(gobanRect.width, gobanRect.height)
-                : metricsWidth;
-        const startGap =
-            startWindowSize != null && startContentSize != null
-                ? Math.max(0, startWindowSize - startContentSize)
-                : null;
+            pendingTransientDragFinalSizeRef.current = null;
+            transientDragFinalizingRef.current = false;
+            const gobanController = controllerRef.current?.goban;
+            const metrics = gobanController?.computeMetrics?.();
+            const metricsWidth = typeof metrics?.width === "number" ? metrics.width : null;
+            const metricsHeight = typeof metrics?.height === "number" ? metrics.height : null;
+            const host = boardHostRef.current;
+            const gobanElement = gobanDiv.current;
+            const hostRect = host?.getBoundingClientRect();
+            const gobanRect = gobanElement?.getBoundingClientRect();
+            const startWindowSize =
+                hostRect &&
+                Number.isFinite(hostRect.width) &&
+                Number.isFinite(hostRect.height) &&
+                hostRect.width > 0 &&
+                hostRect.height > 0
+                    ? Math.min(hostRect.width, hostRect.height)
+                    : null;
+            const startContentSize =
+                gobanRect &&
+                Number.isFinite(gobanRect.width) &&
+                Number.isFinite(gobanRect.height) &&
+                gobanRect.width > 0 &&
+                gobanRect.height > 0
+                    ? Math.min(gobanRect.width, gobanRect.height)
+                    : metricsWidth;
+            const transientBoardWindowMaxSize =
+                Number.isFinite(windowMaxSizeHint) && (windowMaxSizeHint ?? 0) > 0
+                    ? Math.floor(windowMaxSizeHint ?? 0)
+                    : null;
+            const startGap =
+                startWindowSize != null && startContentSize != null
+                    ? Math.max(0, startWindowSize - startContentSize)
+                    : null;
 
-        transientDragMetricsRef.current = {
-            metricsWidth,
-            metricsHeight,
-            startWindowSize,
-            startContentSize,
-            startGap,
-            lastWindowSize: startWindowSize,
-            lastContentSize: startContentSize,
-            lastLogAt: 0,
-            active: true,
-        };
-        lastAppliedTransientContentSizeRef.current = startContentSize;
+            transientDragMetricsRef.current = {
+                metricsWidth,
+                metricsHeight,
+                transientBoardWindowMaxSize,
+                startWindowSize,
+                startContentSize,
+                startGap,
+                lastWindowSize: startWindowSize,
+                lastContentSize: startContentSize,
+                lastLogAt: 0,
+                active: true,
+            };
+            lastAppliedTransientContentSizeRef.current = startContentSize;
 
-        recordKibitzBoardSizeEvent("kibitz-board:transient-drag-begin", {
-            role: boardRole,
-            gameId,
-            currentRoomGameId,
-            isMobile,
-            interactive,
-            metricsWidth,
-            metricsHeight,
-            startWindowSize,
-            startContentSize,
-            startGap,
-            host: getKibitzElementMetrics(host),
-            gobanElement: getKibitzElementMetrics(gobanElement),
-        });
+            recordKibitzBoardSizeEvent("kibitz-board:transient-drag-begin", {
+                role: boardRole,
+                gameId,
+                currentRoomGameId,
+                isMobile,
+                interactive,
+                metricsWidth,
+                metricsHeight,
+                startWindowSize,
+                startContentSize,
+                transientBoardWindowMaxSize,
+                startGap,
+                host: getKibitzElementMetrics(host),
+                gobanElement: getKibitzElementMetrics(gobanElement),
+            });
 
-        return {
-            metricsWidth,
-            metricsHeight,
-        };
-    }, [boardRole, currentRoomGameId, gameId, interactive, isMobile]);
+            return {
+                metricsWidth,
+                metricsHeight,
+            };
+        },
+        [boardRole, currentRoomGameId, gameId, interactive, isMobile],
+    );
 
     const applyTransientDragVisualSize = React.useCallback(
         (visualSize: number) => {
@@ -660,6 +672,8 @@ export function KibitzBoard({
                     contentSize,
                     startWindowSize,
                     startContentSize,
+                    transientBoardWindowMaxSize:
+                        transientMetrics.transientBoardWindowMaxSize ?? null,
                     startGap: transientMetrics.startGap,
                     dragScale: visualSize / startWindowSize,
                     cachedMetricsWidth: metricsWidth,
