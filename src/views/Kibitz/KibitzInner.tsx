@@ -1071,7 +1071,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 reservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
             });
             const steadyMeasurement = measureSteadyMobileBoardSize();
-            const finalVisualSize = steadyMeasurement?.steadyMeasuredSize ?? transientVisualSize;
+            const finalWindowSize = steadyMeasurement?.steadyMeasuredSize ?? transientVisualSize;
             if (
                 isKibitzBoardSizeDebugEnabled() &&
                 steadyMeasurement &&
@@ -1082,17 +1082,15 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     finalRatio,
                     transientVisualSize,
                     steadyMeasuredSize: steadyMeasurement.steadyMeasuredSize,
+                    finalWindowSize,
                     transientReservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
                     steadyReservedHeight: steadyMeasurement.metrics?.reservedHeight ?? null,
                     sizePropAtRelease: mobileBoardSizeRef.current,
                     displaySizeAtRelease: mobileBoardSizeRef.current,
                 });
             }
-            if (mobileDragStateRef.current) {
-                updateTransientDragVisuals(finalRatio, finalVisualSize);
-            }
             commitPendingMobileSplitRatio("pointerup-flush");
-            mobileDraftTransientDragControllerRef.current?.finishTransientDrag(finalVisualSize);
+            mobileDraftTransientDragControllerRef.current?.finishTransientDrag(finalWindowSize);
             setMobileDividerDragging(false);
             stopDrag();
             if (isKibitzBoardSizeDebugEnabled()) {
