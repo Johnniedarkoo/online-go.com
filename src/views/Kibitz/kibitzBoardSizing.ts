@@ -80,8 +80,27 @@ export function computeTransientDragScale(visualSize: number, metricsWidth: numb
     return visualSize / metricsWidth;
 }
 
-export function clampTransientPreviewGap(value: number): number {
-    return Math.max(2, Math.min(20, value));
+export function computeMeasuredTransientDragContentSize({
+    visualSize,
+    startWindowSize,
+    startContentSize,
+}: {
+    visualSize: number;
+    startWindowSize: number;
+    startContentSize: number;
+}): number {
+    if (
+        !Number.isFinite(visualSize) ||
+        !Number.isFinite(startWindowSize) ||
+        !Number.isFinite(startContentSize) ||
+        visualSize <= 0 ||
+        startWindowSize <= 0 ||
+        startContentSize <= 0
+    ) {
+        return 0;
+    }
+
+    return Math.max(1, startContentSize * (visualSize / startWindowSize));
 }
 
 export function predictNativeGobanContentSize({

@@ -26,6 +26,7 @@ import {
 } from "./KibitzBoard";
 import {
     computeRecenterScale,
+    computeMeasuredTransientDragContentSize,
     computeTransientDragScale,
     computeTransientDragVisualBoardSize,
     isKibitzBoardResizeStale,
@@ -160,6 +161,18 @@ describe("computeTransientDragScale", () => {
     it("uses the continuous visual size during live drag", () => {
         expect(computeTransientDragScale(269, 210)).toBeCloseTo(269 / 210);
         expect(computeTransientDragScale(233, 210)).toBeCloseTo(233 / 210);
+    });
+});
+
+describe("computeMeasuredTransientDragContentSize", () => {
+    it("scales measured drag content proportionally from the start window", () => {
+        expect(
+            computeMeasuredTransientDragContentSize({
+                visualSize: 227,
+                startWindowSize: 310,
+                startContentSize: 294,
+            }),
+        ).toBeCloseTo(294 * (227 / 310));
     });
 });
 
