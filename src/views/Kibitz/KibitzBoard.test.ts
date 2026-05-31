@@ -253,6 +253,32 @@ describe("computeTransientDragGeometry", () => {
             usingRestingMaxGeometry: true,
         });
     });
+
+    it("preserves the measured max host rect when the drag starts from a tall resting board", () => {
+        expect(
+            computeTransientDragGeometry({
+                visualSize: 378,
+                startWindowWidth: 374,
+                startWindowHeight: 382,
+                startWindowSize: 374,
+                startContentSize: 360,
+                metricsWidth: 360,
+                startedAtHorizontalMax: false,
+                transientBoardWindowMaxSize: 378,
+            }),
+        ).toEqual({
+            hostWidth: 374,
+            hostHeight: 382,
+            containerWidth: 374,
+            containerHeight: 382,
+            contentSize: 360,
+            transformScale: 1,
+            gobanLeft: 7,
+            gobanTop: 0,
+            dragScale: 1,
+            usingRestingMaxGeometry: true,
+        });
+    });
 });
 
 describe("computeTransientDragReleaseGeometry", () => {

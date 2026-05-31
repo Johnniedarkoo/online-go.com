@@ -138,19 +138,16 @@ export function computeTransientDragGeometry({
     transientBoardWindowMaxSize,
 }: TransientDragGeometryInput): TransientDragGeometry {
     const isTallRestingHost = startWindowHeight > startWindowWidth;
-    const contentExceedsHostWidth = startContentSize > startWindowWidth;
+    const isNearMaxRestingHost =
+        transientBoardWindowMaxSize != null &&
+        isTallRestingHost &&
+        startWindowWidth >= transientBoardWindowMaxSize - 4;
     const usingRestingMaxGeometry =
         Boolean(
             startedAtHorizontalMax &&
             transientBoardWindowMaxSize != null &&
             visualSize >= transientBoardWindowMaxSize,
-        ) ||
-        Boolean(
-            transientBoardWindowMaxSize != null &&
-            isTallRestingHost &&
-            contentExceedsHostWidth &&
-            visualSize >= transientBoardWindowMaxSize,
-        );
+        ) || Boolean(isNearMaxRestingHost && visualSize >= transientBoardWindowMaxSize);
     const hostWidth = usingRestingMaxGeometry ? startWindowWidth : visualSize;
     const hostHeight = usingRestingMaxGeometry
         ? startWindowHeight
