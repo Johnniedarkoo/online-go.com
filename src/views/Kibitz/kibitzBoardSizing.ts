@@ -80,6 +80,10 @@ export function computeTransientDragScale(visualSize: number, metricsWidth: numb
     return visualSize / metricsWidth;
 }
 
+export function clampTransientPreviewGap(value: number): number {
+    return Math.max(2, Math.min(20, value));
+}
+
 export function predictNativeGobanContentSize({
     targetSlotSize,
     boardWidth,

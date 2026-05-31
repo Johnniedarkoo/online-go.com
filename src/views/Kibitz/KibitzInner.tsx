@@ -792,6 +792,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         startBoardSize: number;
         topPaneElement: HTMLDivElement | null;
         boardSlotElement: HTMLDivElement | null;
+        boardWindowElement: HTMLElement | null;
         cachedMetricsWidth: number | null;
         cachedMetricsHeight: number | null;
     } | null>(null);
@@ -963,14 +964,12 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
         const measureSteadyMobileBoardSize = () => {
             const boardSlotElement = mobileDragStateRef.current?.boardSlotElement;
-            if (!boardSlotElement) {
-                return null;
-            }
-
-            const metrics = measureSquareFitLayout(boardSlotElement, true);
+            const metrics = boardSlotElement
+                ? measureSquareFitLayout(boardSlotElement, true)
+                : null;
             return {
                 metrics,
-                steadyMeasuredSize: metrics.nextSize,
+                steadyMeasuredSize: metrics?.nextSize ?? null,
             };
         };
 
@@ -1084,7 +1083,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     transientVisualSize,
                     steadyMeasuredSize: steadyMeasurement.steadyMeasuredSize,
                     transientReservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
-                    steadyReservedHeight: steadyMeasurement.metrics.reservedHeight,
+                    steadyReservedHeight: steadyMeasurement.metrics?.reservedHeight ?? null,
                     sizePropAtRelease: mobileBoardSizeRef.current,
                     displaySizeAtRelease: mobileBoardSizeRef.current,
                 });
@@ -2656,18 +2655,30 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const boardSlotElement = shell.querySelector(
                 ".mobile-board-fit-slot",
             ) as HTMLDivElement | null;
+            const boardWindowElement = shell.querySelector(
+                ".mobile-secondary-board-surface",
+            ) as HTMLElement | null;
             const shellRect = shell.getBoundingClientRect();
             const boardSlotMetrics = boardSlotElement
                 ? measureSquareFitLayout(boardSlotElement, true)
                 : null;
-            const boardSlotMaxWidth = Math.floor(
+            const outerBoardSlotMaxWidth = Math.floor(
                 boardSlotMetrics?.slotWidth ??
                     boardSlotElement?.parentElement?.clientWidth ??
                     shellRect.width ??
                     0,
             );
+            const boardWindowRect = boardWindowElement?.getBoundingClientRect();
+            const availableSlotWidthCap = Math.max(
+                0,
+                Math.floor(boardSlotElement?.clientWidth ?? outerBoardSlotMaxWidth),
+            );
+            const boardSlotMaxWidth = availableSlotWidthCap || outerBoardSlotMaxWidth;
             const reservedBoardVerticalSpace = Math.max(0, boardSlotMetrics?.reservedHeight ?? 0);
-            const startBoardSize = Math.max(0, boardSlotMetrics?.nextSize ?? 0);
+            const startBoardSize = Math.max(
+                0,
+                boardSlotMaxWidth || boardSlotMetrics?.nextSize || 0,
+            );
             const beginResult =
                 mobileDraftTransientDragControllerRef.current?.beginTransientDrag() ?? {
                     metricsWidth: null,
@@ -2681,8 +2692,12 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     shellRectHeight: shellRect.height,
                     shellRectWidth: shellRect.width,
                     boardSlotMaxWidth,
+                    outerBoardSlotMaxWidth,
+                    availableSlotWidthCap,
                     startBoardSize,
                     reservedBoardVerticalSpace,
+                    boardWindowRectWidth: boardWindowRect?.width ?? null,
+                    boardWindowRectHeight: boardWindowRect?.height ?? null,
                     currentGobanMetricsWidth: beginResult.metricsWidth,
                     currentGobanMetricsHeight: beginResult.metricsHeight,
                 });
@@ -2699,6 +2714,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 startRatio: mobileSplitRatio,
                 shellHeight: shellRect.height,
                 boardSlotMaxWidth,
+                boardWindowElement,
                 reservedBoardVerticalSpace,
                 startBoardSize,
                 topPaneElement,
