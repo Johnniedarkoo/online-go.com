@@ -805,6 +805,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         boardSlotMaxWidth: number;
         transientBoardWindowMaxSize: number;
         reservedBoardVerticalSpace: number;
+        startWindowWidth: number;
+        startWindowHeight: number;
         startLayoutSize: number;
         startWindowSize: number;
         topPaneElement: HTMLDivElement | null;
@@ -980,6 +982,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     outerBoardSlotMaxWidth: dragState?.outerBoardSlotMaxWidth ?? null,
                     boardSlotMaxWidth: dragState?.boardSlotMaxWidth ?? null,
                     reservedBoardVerticalSpace: dragState?.reservedBoardVerticalSpace ?? null,
+                    startWindowWidth: dragState?.startWindowWidth ?? null,
+                    startWindowHeight: dragState?.startWindowHeight ?? null,
                     startLayoutSize: dragState?.startLayoutSize ?? null,
                     startWindowSize: dragState?.startWindowSize ?? null,
                     cachedMetricsWidth: dragState?.cachedMetricsWidth ?? null,
@@ -2697,6 +2701,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     0,
             );
             const boardWindowRect = boardWindowElement?.getBoundingClientRect();
+            const boardHostRect = boardHostElement?.getBoundingClientRect();
             const availableSlotWidthCap = Math.max(
                 0,
                 Math.floor(boardSlotElement?.clientWidth ?? outerBoardSlotMaxWidth),
@@ -2720,7 +2725,17 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             );
             const startWindowSize = Math.max(
                 0,
-                Math.floor(boardWindowRect?.width ?? transientBoardWindowMaxSize),
+                Math.floor(
+                    boardHostRect?.width ?? boardWindowRect?.width ?? transientBoardWindowMaxSize,
+                ),
+            );
+            const startWindowWidth = Math.max(
+                0,
+                Math.floor(boardHostRect?.width ?? startWindowSize),
+            );
+            const startWindowHeight = Math.max(
+                0,
+                Math.floor(boardHostRect?.height ?? startWindowSize),
             );
             const beginResult = mobileDraftTransientDragControllerRef.current?.beginTransientDrag(
                 transientBoardWindowMaxSize,
@@ -2740,11 +2755,13 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     availableSlotWidthCap,
                     transientBoardWindowMaxSize,
                     horizontalInset,
+                    boardWindowRectWidth: boardWindowRect?.width ?? null,
+                    boardWindowRectHeight: boardWindowRect?.height ?? null,
+                    startWindowWidth,
+                    startWindowHeight,
                     startLayoutSize,
                     startWindowSize,
                     reservedBoardVerticalSpace,
-                    boardWindowRectWidth: boardWindowRect?.width ?? null,
-                    boardWindowRectHeight: boardWindowRect?.height ?? null,
                     currentGobanMetricsWidth: beginResult.metricsWidth,
                     currentGobanMetricsHeight: beginResult.metricsHeight,
                 });
@@ -2765,6 +2782,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 transientBoardWindowMaxSize,
                 boardWindowElement,
                 reservedBoardVerticalSpace,
+                startWindowWidth,
+                startWindowHeight,
                 startLayoutSize,
                 startWindowSize,
                 topPaneElement,

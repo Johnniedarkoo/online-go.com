@@ -93,6 +93,21 @@ function setTransientSquareSize(element: HTMLElement | null, visualSize: number)
     element.style.maxHeight = value;
 }
 
+function setTransientRectSize(element: HTMLElement | null, width: number, height: number): void {
+    if (!element) {
+        return;
+    }
+
+    const widthValue = `${width}px`;
+    const heightValue = `${height}px`;
+    element.style.width = widthValue;
+    element.style.height = heightValue;
+    element.style.minWidth = widthValue;
+    element.style.minHeight = heightValue;
+    element.style.maxWidth = widthValue;
+    element.style.maxHeight = heightValue;
+}
+
 function recordKibitzLifecycleEvent(message: string, details: Record<string, unknown> = {}): void {
     if (typeof window === "undefined") {
         return;
@@ -393,6 +408,8 @@ export function KibitzBoard({
         metricsWidth: number | null;
         metricsHeight: number | null;
         transientBoardWindowMaxSize: number | null;
+        startWindowWidth: number | null;
+        startWindowHeight: number | null;
         startWindowSize: number | null;
         startContentSize: number | null;
         startGap: number | null;
@@ -530,14 +547,15 @@ export function KibitzBoard({
             const gobanElement = gobanDiv.current;
             const hostRect = host?.getBoundingClientRect();
             const gobanRect = gobanElement?.getBoundingClientRect();
-            const startWindowSize =
-                hostRect &&
-                Number.isFinite(hostRect.width) &&
-                Number.isFinite(hostRect.height) &&
-                hostRect.width > 0 &&
-                hostRect.height > 0
-                    ? Math.min(hostRect.width, hostRect.height)
+            const startWindowWidth =
+                hostRect && Number.isFinite(hostRect.width) && hostRect.width > 0
+                    ? Math.floor(hostRect.width)
                     : null;
+            const startWindowHeight =
+                hostRect && Number.isFinite(hostRect.height) && hostRect.height > 0
+                    ? Math.floor(hostRect.height)
+                    : null;
+            const startWindowSize = startWindowWidth;
             const startContentSize =
                 gobanRect &&
                 Number.isFinite(gobanRect.width) &&
@@ -559,6 +577,8 @@ export function KibitzBoard({
                 metricsWidth,
                 metricsHeight,
                 transientBoardWindowMaxSize,
+                startWindowWidth,
+                startWindowHeight,
                 startWindowSize,
                 startContentSize,
                 startGap,
@@ -577,6 +597,8 @@ export function KibitzBoard({
                 interactive,
                 metricsWidth,
                 metricsHeight,
+                startWindowWidth,
+                startWindowHeight,
                 startWindowSize,
                 startContentSize,
                 transientBoardWindowMaxSize,
@@ -605,6 +627,8 @@ export function KibitzBoard({
             const metricsWidth = transientMetrics?.metricsWidth ?? null;
             const metricsHeight = transientMetrics?.metricsHeight ?? null;
             const startWindowSize = transientMetrics?.startWindowSize ?? null;
+            const startWindowWidth = transientMetrics?.startWindowWidth ?? null;
+            const startWindowHeight = transientMetrics?.startWindowHeight ?? null;
             const startContentSize = transientMetrics?.startContentSize ?? null;
             if (
                 !transientMetrics ||
@@ -612,6 +636,8 @@ export function KibitzBoard({
                 !metricsWidth ||
                 !metricsHeight ||
                 !startWindowSize ||
+                !startWindowWidth ||
+                !startWindowHeight ||
                 !startContentSize ||
                 !host ||
                 !container
@@ -633,7 +659,8 @@ export function KibitzBoard({
                 return;
             }
 
-            setTransientSquareSize(host, visualSize);
+            const heightDelta = Math.max(0, startWindowHeight - startWindowWidth);
+            setTransientRectSize(host, visualSize, visualSize + heightDelta);
             setTransientSquareSize(container, visualSize);
             const scale = computeTransientDragScale(contentSize, metricsWidth);
             gobanElement.style.transformOrigin = "top left";
@@ -670,6 +697,8 @@ export function KibitzBoard({
                             transientDragFinalizingRef.current),
                     visualSize,
                     contentSize,
+                    startWindowWidth,
+                    startWindowHeight,
                     startWindowSize,
                     startContentSize,
                     transientBoardWindowMaxSize:
