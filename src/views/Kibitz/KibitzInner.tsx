@@ -74,6 +74,12 @@ import {
 } from "./kibitzAnalysisPolicyText";
 import { isKibitzBoardSizeDebugEnabled, recordKibitzBoardSizeEvent } from "./kibitzBoardSizeDebug";
 import {
+    describeBoardSurfaceFromHostRect,
+    describeGobanContainerFromContainerRect,
+    describeGobanContentFromMetrics,
+    describeMobileResizeDividerGeometry,
+    describeMobileResizeGeometrySnapshot,
+    describeMobileResizeShellGeometry,
     computeTransientDragVisualBoardSize,
     measureSquareFitLayout,
     shouldCommitMobileSplitRatioUpdate,
@@ -107,6 +113,37 @@ interface PendingPostedVariation {
     from?: number;
     moves?: string;
     title?: string;
+}
+
+function buildMobileResizeGeometrySnapshot(params: {
+    shellRect?: Pick<DOMRect, "width" | "height"> | null;
+    boardSurfaceRect?: Pick<DOMRect, "width" | "height"> | null;
+    gobanContainerRect?: Pick<DOMRect, "width" | "height"> | null;
+    gobanMetrics?: { width: number; height: number } | null;
+    dividerRatio?: number | null;
+    startDividerRatio?: number | null;
+    targetDividerRatio?: number | null;
+}) {
+    // Legacy fields still exist alongside this block; this is the explicit vocabulary.
+    return describeMobileResizeGeometrySnapshot({
+        shell:
+            params.shellRect != null
+                ? describeMobileResizeShellGeometry(params.shellRect.width, params.shellRect.height)
+                : undefined,
+        boardSurface: describeBoardSurfaceFromHostRect(params.boardSurfaceRect ?? null),
+        gobanContainer: describeGobanContainerFromContainerRect(params.gobanContainerRect ?? null),
+        gobanContent: describeGobanContentFromMetrics(params.gobanMetrics ?? null),
+        divider:
+            params.dividerRatio != null ||
+            params.startDividerRatio != null ||
+            params.targetDividerRatio != null
+                ? describeMobileResizeDividerGeometry({
+                      dividerRatio: params.dividerRatio ?? null,
+                      startDividerRatio: params.startDividerRatio ?? null,
+                      targetDividerRatio: params.targetDividerRatio ?? null,
+                  })
+                : undefined,
+    });
 }
 
 export interface VisibleMainBoardHydrationState {
@@ -800,6 +837,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         pointerId: number;
         startY: number;
         startRatio: number;
+        shellWidth: number;
         shellHeight: number;
         outerBoardSlotMaxWidth: number;
         boardSlotMaxWidth: number;
@@ -994,6 +1032,38 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     startWindowSize: dragState?.startWindowSize ?? null,
                     cachedMetricsWidth: dragState?.cachedMetricsWidth ?? null,
                     cachedMetricsHeight: dragState?.cachedMetricsHeight ?? null,
+                    geometry: buildMobileResizeGeometrySnapshot({
+                        shellRect:
+                            dragState?.shellWidth != null && dragState.shellHeight != null
+                                ? {
+                                      width: dragState.shellWidth,
+                                      height: dragState.shellHeight,
+                                  }
+                                : null,
+                        boardSurfaceRect:
+                            dragState?.startWindowWidth != null &&
+                            dragState.startWindowHeight != null
+                                ? {
+                                      width: dragState.startWindowWidth,
+                                      height: dragState.startWindowHeight,
+                                  }
+                                : null,
+                        gobanContainerRect: {
+                            width: visualBoardSize,
+                            height: visualBoardSize,
+                        },
+                        gobanMetrics:
+                            dragState?.cachedMetricsWidth != null &&
+                            dragState.cachedMetricsHeight != null
+                                ? {
+                                      width: dragState.cachedMetricsWidth,
+                                      height: dragState.cachedMetricsHeight,
+                                  }
+                                : null,
+                        dividerRatio: nextRatio,
+                        startDividerRatio: dragState?.startRatio ?? null,
+                        targetDividerRatio: nextRatio,
+                    }),
                 });
             }
         };
@@ -1124,6 +1194,38 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     steadyReservedHeight: steadyMeasurement.metrics?.reservedHeight ?? null,
                     sizePropAtRelease: mobileBoardSizeRef.current,
                     displaySizeAtRelease: mobileBoardSizeRef.current,
+                    geometry: buildMobileResizeGeometrySnapshot({
+                        shellRect:
+                            dragState.shellWidth != null && dragState.shellHeight != null
+                                ? {
+                                      width: dragState.shellWidth,
+                                      height: dragState.shellHeight,
+                                  }
+                                : null,
+                        boardSurfaceRect:
+                            dragState.startWindowWidth != null &&
+                            dragState.startWindowHeight != null
+                                ? {
+                                      width: dragState.startWindowWidth,
+                                      height: dragState.startWindowHeight,
+                                  }
+                                : null,
+                        gobanContainerRect: {
+                            width: transientVisualSize,
+                            height: transientVisualSize,
+                        },
+                        gobanMetrics:
+                            dragState.cachedMetricsWidth != null &&
+                            dragState.cachedMetricsHeight != null
+                                ? {
+                                      width: dragState.cachedMetricsWidth,
+                                      height: dragState.cachedMetricsHeight,
+                                  }
+                                : null,
+                        dividerRatio: finalRatio,
+                        startDividerRatio: dragState.startRatio,
+                        targetDividerRatio: finalRatio,
+                    }),
                 });
             }
             commitPendingMobileSplitRatio("pointerup-flush");
@@ -2775,6 +2877,20 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     reservedBoardVerticalSpace,
                     currentGobanMetricsWidth: beginResult.metricsWidth,
                     currentGobanMetricsHeight: beginResult.metricsHeight,
+                    geometry: buildMobileResizeGeometrySnapshot({
+                        shellRect,
+                        boardSurfaceRect: boardHostRect ?? null,
+                        gobanContainerRect: boardWindowRect ?? null,
+                        gobanMetrics:
+                            beginResult.metricsWidth != null && beginResult.metricsHeight != null
+                                ? {
+                                      width: beginResult.metricsWidth,
+                                      height: beginResult.metricsHeight,
+                                  }
+                                : null,
+                        dividerRatio: mobileSplitRatio,
+                        startDividerRatio: mobileSplitRatio,
+                    }),
                 });
             }
             event.preventDefault();
@@ -2787,6 +2903,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 pointerId: event.pointerId,
                 startY: event.clientY,
                 startRatio: mobileSplitRatio,
+                shellWidth: shellRect.width,
                 shellHeight: shellRect.height,
                 outerBoardSlotMaxWidth,
                 boardSlotMaxWidth,

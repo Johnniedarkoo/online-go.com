@@ -25,6 +25,12 @@ import {
     shouldRestoreToOfficialTailForGame,
 } from "./KibitzBoard";
 import {
+    describeBoardSurfaceFromHostRect,
+    describeGobanContainerFromContainerRect,
+    describeGobanContentFromMetrics,
+    describeMobileResizeDividerGeometry,
+    describeMobileResizeGeometrySnapshot,
+    describeMobileResizeShellGeometry,
     computeRecenterScale,
     computeMeasuredTransientDragContentSize,
     computeTransientDragGeometry,
@@ -175,6 +181,62 @@ describe("computeMeasuredTransientDragContentSize", () => {
                 startContentSize: 294,
             }),
         ).toBeCloseTo(294 * (227 / 310));
+    });
+});
+
+describe("mobile resize geometry terminology", () => {
+    it("maps the current DOM measurements into named geometry fields", () => {
+        const shell = describeMobileResizeShellGeometry(390, 640);
+        const boardSurface = describeBoardSurfaceFromHostRect({
+            width: 374,
+            height: 382,
+        } as Pick<DOMRect, "width" | "height">);
+        const gobanContainer = describeGobanContainerFromContainerRect({
+            width: 374,
+            height: 374,
+        } as Pick<DOMRect, "width" | "height">);
+        const gobanContent = describeGobanContentFromMetrics({
+            width: 360,
+            height: 360,
+        });
+        const divider = describeMobileResizeDividerGeometry({
+            dividerRatio: 0.42,
+            startDividerRatio: 0.4,
+            targetDividerRatio: 0.45,
+        });
+
+        expect(
+            describeMobileResizeGeometrySnapshot({
+                shell,
+                boardSurface,
+                gobanContainer,
+                gobanContent,
+                divider,
+            }),
+        ).toEqual({
+            shell: {
+                shellWidth: 390,
+                shellHeight: 640,
+            },
+            boardSurface: {
+                boardSurfaceWidth: 374,
+                boardSurfaceHeight: 382,
+            },
+            gobanContainer: {
+                gobanContainerWidth: 374,
+                gobanContainerHeight: 374,
+            },
+            gobanContent: {
+                gobanContentWidth: 360,
+                gobanContentHeight: 360,
+                gobanContentSize: 360,
+            },
+            divider: {
+                dividerRatio: 0.42,
+                startDividerRatio: 0.4,
+                targetDividerRatio: 0.45,
+            },
+        });
     });
 });
 

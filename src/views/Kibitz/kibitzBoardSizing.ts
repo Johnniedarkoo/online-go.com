@@ -103,6 +103,141 @@ export function computeMeasuredTransientDragContentSize({
     return Math.max(1, startContentSize * (visualSize / startWindowSize));
 }
 
+/**
+ * Mobile resize geometry terminology:
+ *
+ * shell:
+ *   The mobile layout area used for divider ratio math.
+ *
+ * board surface:
+ *   The actual rectangular host occupied by the board component.
+ *   This can be non-square.
+ *
+ * goban container:
+ *   The square internal container in which the Goban element is positioned.
+ *
+ * goban content:
+ *   The actual Goban element/content size, either native or CSS-previewed.
+ *
+ * Important:
+ *   React sizeProp/displaySize and square-fit values are layout inputs/outputs,
+ *   not necessarily the same as the measured board surface or Goban content.
+ */
+export type MobileResizeShellGeometry = {
+    shellWidth: number | null;
+    shellHeight: number | null;
+};
+
+export type MobileResizeBoardSurfaceGeometry = {
+    boardSurfaceWidth: number | null;
+    boardSurfaceHeight: number | null;
+};
+
+export type MobileResizeGobanContainerGeometry = {
+    gobanContainerWidth: number | null;
+    gobanContainerHeight: number | null;
+};
+
+export type MobileResizeGobanContentGeometry = {
+    gobanContentWidth: number | null;
+    gobanContentHeight: number | null;
+    gobanContentSize: number | null;
+};
+
+export type MobileResizeDividerGeometry = {
+    dividerRatio?: number | null;
+    startDividerRatio?: number | null;
+    targetDividerRatio?: number | null;
+};
+
+export type MobileResizeGeometrySnapshot = {
+    shell?: MobileResizeShellGeometry;
+    boardSurface: MobileResizeBoardSurfaceGeometry;
+    gobanContainer: MobileResizeGobanContainerGeometry;
+    gobanContent: MobileResizeGobanContentGeometry;
+    divider?: MobileResizeDividerGeometry;
+};
+
+export function describeBoardSurfaceFromHostRect(
+    rect: Pick<DOMRect, "width" | "height"> | null,
+): MobileResizeBoardSurfaceGeometry {
+    return {
+        boardSurfaceWidth: rect?.width ?? null,
+        boardSurfaceHeight: rect?.height ?? null,
+    };
+}
+
+export function describeGobanContainerFromContainerRect(
+    rect: Pick<DOMRect, "width" | "height"> | null,
+): MobileResizeGobanContainerGeometry {
+    return {
+        gobanContainerWidth: rect?.width ?? null,
+        gobanContainerHeight: rect?.height ?? null,
+    };
+}
+
+export function describeGobanContentFromMetrics(
+    metrics: {
+        width: number;
+        height: number;
+    } | null,
+): MobileResizeGobanContentGeometry {
+    const gobanContentWidth = metrics?.width ?? null;
+    const gobanContentHeight = metrics?.height ?? null;
+    const gobanContentSize =
+        metrics != null && Math.abs(metrics.width - metrics.height) <= 1 ? metrics.width : null;
+
+    return {
+        gobanContentWidth,
+        gobanContentHeight,
+        gobanContentSize,
+    };
+}
+
+export function describeMobileResizeShellGeometry(
+    shellWidth: number | null,
+    shellHeight: number | null,
+): MobileResizeShellGeometry {
+    return {
+        shellWidth,
+        shellHeight,
+    };
+}
+
+export function describeMobileResizeDividerGeometry({
+    dividerRatio,
+    startDividerRatio,
+    targetDividerRatio,
+}: MobileResizeDividerGeometry): MobileResizeDividerGeometry {
+    return {
+        dividerRatio,
+        startDividerRatio,
+        targetDividerRatio,
+    };
+}
+
+export function describeMobileResizeGeometrySnapshot({
+    shell,
+    boardSurface,
+    gobanContainer,
+    gobanContent,
+    divider,
+}: {
+    shell?: MobileResizeShellGeometry;
+    boardSurface: MobileResizeBoardSurfaceGeometry;
+    gobanContainer: MobileResizeGobanContainerGeometry;
+    gobanContent: MobileResizeGobanContentGeometry;
+    divider?: MobileResizeDividerGeometry;
+}): MobileResizeGeometrySnapshot {
+    return {
+        shell,
+        boardSurface,
+        gobanContainer,
+        gobanContent,
+        divider,
+    };
+}
+
 export interface TransientDragGeometryInput {
     visualSize: number;
     startWindowWidth: number;

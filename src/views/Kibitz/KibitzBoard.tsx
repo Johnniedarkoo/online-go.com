@@ -27,6 +27,10 @@ import {
     recordKibitzBoardSizeEvent,
 } from "./kibitzBoardSizeDebug";
 import {
+    describeBoardSurfaceFromHostRect,
+    describeGobanContainerFromContainerRect,
+    describeGobanContentFromMetrics,
+    describeMobileResizeGeometrySnapshot,
     computeRecenterScale,
     computeTransientDragGeometry,
     computeTransientDragReleaseGeometry,
@@ -458,6 +462,7 @@ export function KibitzBoard({
 
     const getKibitzBoardMetricsSnapshot = React.useCallback(
         (reason: string): Record<string, unknown> => {
+            // Legacy fields remain for comparison while the new geometry block names the boxes.
             const host = boardHostRef.current;
             const container = gobanContainerRef.current;
             const gobanElement = gobanDiv.current;
@@ -468,6 +473,20 @@ export function KibitzBoard({
             const coordinateSafeInputActive =
                 coordinateSafeInputRef.current &&
                 (!allowTransientDragScalingRef.current || transientDragFinalizingRef.current);
+            const boardSurface = describeBoardSurfaceFromHostRect(
+                host?.getBoundingClientRect() ?? null,
+            );
+            const gobanContainer = describeGobanContainerFromContainerRect(
+                container?.getBoundingClientRect() ?? null,
+            );
+            const gobanContent = describeGobanContentFromMetrics(
+                metrics
+                    ? {
+                          width: metrics.width,
+                          height: metrics.height,
+                      }
+                    : null,
+            );
 
             return {
                 reason,
@@ -498,6 +517,11 @@ export function KibitzBoard({
                           height: metrics.height,
                       }
                     : null,
+                geometry: describeMobileResizeGeometrySnapshot({
+                    boardSurface,
+                    gobanContainer,
+                    gobanContent,
+                }),
                 devicePixelRatio: window.devicePixelRatio,
             };
         },
