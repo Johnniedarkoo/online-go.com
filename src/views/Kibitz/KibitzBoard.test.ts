@@ -226,6 +226,32 @@ describe("computeTransientDragGeometry", () => {
         expect(geometry.gobanLeft).toBe(0);
         expect(geometry.transformScale).toBeCloseTo(geometry.contentSize / 375);
     });
+
+    it("uses resting max geometry for the real max-start runtime inputs", () => {
+        expect(
+            computeTransientDragGeometry({
+                visualSize: 378,
+                startWindowWidth: 374,
+                startWindowHeight: 378,
+                startWindowSize: 374,
+                startContentSize: 375,
+                metricsWidth: 375,
+                startedAtHorizontalMax: false,
+                transientBoardWindowMaxSize: 378,
+            }),
+        ).toEqual({
+            hostWidth: 374,
+            hostHeight: 378,
+            containerWidth: 374,
+            containerHeight: 378,
+            contentSize: 375,
+            transformScale: 1,
+            gobanLeft: 0,
+            gobanTop: 0,
+            dragScale: 1,
+            usingRestingMaxGeometry: true,
+        });
+    });
 });
 
 describe("predictNativeGobanContentSize", () => {

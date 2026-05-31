@@ -137,23 +137,36 @@ export function computeTransientDragGeometry({
     startedAtHorizontalMax,
     transientBoardWindowMaxSize,
 }: TransientDragGeometryInput): TransientDragGeometry {
-    const usingRestingMaxGeometry = Boolean(
-        startedAtHorizontalMax &&
-        transientBoardWindowMaxSize != null &&
-        visualSize >= transientBoardWindowMaxSize,
-    );
-    const contentSize = computeMeasuredTransientDragContentSize({
-        visualSize,
-        startWindowSize,
-        startContentSize,
-    });
+    const isTallRestingHost = startWindowHeight > startWindowWidth;
+    const contentExceedsHostWidth = startContentSize > startWindowWidth;
+    const usingRestingMaxGeometry =
+        Boolean(
+            startedAtHorizontalMax &&
+            transientBoardWindowMaxSize != null &&
+            visualSize >= transientBoardWindowMaxSize,
+        ) ||
+        Boolean(
+            transientBoardWindowMaxSize != null &&
+            isTallRestingHost &&
+            contentExceedsHostWidth &&
+            visualSize >= transientBoardWindowMaxSize,
+        );
     const hostWidth = usingRestingMaxGeometry ? startWindowWidth : visualSize;
     const hostHeight = usingRestingMaxGeometry
         ? startWindowHeight
         : visualSize + Math.max(0, startWindowHeight - startWindowWidth);
     const containerWidth = usingRestingMaxGeometry ? startWindowWidth : visualSize;
     const containerHeight = usingRestingMaxGeometry ? startWindowHeight : visualSize;
-    const transformScale = computeTransientDragScale(contentSize, metricsWidth);
+    const contentSize = usingRestingMaxGeometry
+        ? startContentSize
+        : computeMeasuredTransientDragContentSize({
+              visualSize,
+              startWindowSize,
+              startContentSize,
+          });
+    const transformScale = usingRestingMaxGeometry
+        ? 1
+        : computeTransientDragScale(contentSize, metricsWidth);
     const gobanLeft = Math.max(0, Math.floor((hostWidth - contentSize) / 2));
 
     return {
