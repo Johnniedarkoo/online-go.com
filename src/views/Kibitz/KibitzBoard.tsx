@@ -917,13 +917,17 @@ export function KibitzBoard({
 
     const startTransientReleaseSettle = React.useCallback(
         ({
+            fromWindowSize,
             finalWindowSize,
+            toWindowSize,
             fromContentSize,
             toContentSize,
             fromLeft,
             toLeft,
         }: {
+            fromWindowSize: number;
             finalWindowSize: number;
+            toWindowSize: number;
             fromContentSize: number;
             toContentSize: number;
             fromLeft: number;
@@ -937,6 +941,7 @@ export function KibitzBoard({
             const settleDurationMs = TRANSIENT_DRAG_RELEASE_SETTLE_MS;
             const contentDelta = Math.abs(toContentSize - fromContentSize);
             const leftDelta = Math.abs(toLeft - fromLeft);
+            const windowDelta = Math.abs(toWindowSize - fromWindowSize);
 
             const host = boardHostRef.current;
             const container = gobanContainerRef.current;
@@ -952,19 +957,22 @@ export function KibitzBoard({
                     toContentSize,
                     fromLeft,
                     toLeft,
+                    fromWindowSize,
+                    toWindowSize,
                     currentContentSize: fromContentSize,
                     currentLeft: fromLeft,
                     settleElapsedMs: 0,
                     settleDurationMs,
                     contentDelta,
                     leftDelta,
+                    windowDelta,
                     animationProgress: 0,
                     easedProgress: 0,
-                    settleSkipped: contentDelta < 1 && leftDelta < 0.5,
+                    settleSkipped: contentDelta < 1 && leftDelta < 0.5 && windowDelta < 1,
                 });
             }
 
-            if (contentDelta < 1 && leftDelta < 0.5) {
+            if (contentDelta < 1 && leftDelta < 0.5 && windowDelta < 1) {
                 runFinalNativeResizeAfterSettle(finalWindowSize, toContentSize);
                 return;
             }
@@ -992,9 +1000,10 @@ export function KibitzBoard({
                 const currentContentSize =
                     fromContentSize + (toContentSize - fromContentSize) * easedT;
                 const currentLeft = fromLeft + (toLeft - fromLeft) * easedT;
+                const currentWindowSize = fromWindowSize + (toWindowSize - fromWindowSize) * easedT;
 
-                setTransientSquareSize(host, finalWindowSize);
-                setTransientSquareSize(container, finalWindowSize);
+                setTransientSquareSize(host, currentWindowSize);
+                setTransientSquareSize(container, currentWindowSize);
 
                 gobanElement.style.transformOrigin = "top left";
                 gobanElement.style.transform = `scale(${currentContentSize / metricsWidth})`;
@@ -1020,12 +1029,16 @@ export function KibitzBoard({
                         fromLeft,
                         toLeft,
                         currentLeft,
+                        fromWindowSize,
+                        toWindowSize,
+                        currentWindowSize,
                         animationProgress: linearT,
                         easedProgress: easedT,
                         settleElapsedMs: elapsed,
                         settleDurationMs,
                         contentDelta,
                         leftDelta,
+                        windowDelta,
                     });
                 }
 
@@ -1064,9 +1077,6 @@ export function KibitzBoard({
 
             pendingTransientDragFinalSizeRef.current = finalWindowSize;
             transientDragFinalizingRef.current = true;
-
-            setTransientSquareSize(host, finalWindowSize);
-            setTransientSquareSize(container, finalWindowSize);
             gobanElement.style.pointerEvents = "none";
 
             const finalNativeContentSize = predictNativeGobanContentSize({
@@ -1075,19 +1085,29 @@ export function KibitzBoard({
                 boardHeight: height,
                 showLabels,
             });
-            const fromContentSize =
+            const lastVisibleWindowSize =
+                transientMetrics.lastWindowSize ??
+                transientMetrics.startWindowSize ??
+                finalWindowSize;
+            const lastVisibleContentSize =
                 transientMetrics.lastContentSize ??
                 lastAppliedTransientContentSizeRef.current ??
                 transientMetrics.startContentSize ??
                 finalNativeContentSize;
-            const fromLeft = Math.max(0, Math.floor((finalWindowSize - fromContentSize) / 2));
+            const inlineLeft = Number.parseFloat(gobanElement.style.left);
+            const lastVisibleLeft = Number.isFinite(inlineLeft)
+                ? inlineLeft
+                : Math.max(0, (lastVisibleWindowSize - lastVisibleContentSize) / 2);
+            const fromLeft = lastVisibleLeft;
             const toLeft = Math.max(0, Math.floor((finalWindowSize - finalNativeContentSize) / 2));
 
             recordKibitzBoardSizeEvent("kibitz-board:transient-drag-release-start", {
                 ...getKibitzBoardMetricsSnapshot("transient-drag-release-start"),
                 finalWindowSize,
                 finalNativeContentSize,
-                fromContentSize,
+                lastVisibleWindowSize,
+                lastVisibleContentSize,
+                lastVisibleLeft,
                 fromLeft,
                 toLeft,
                 startWindowSize: transientMetrics.startWindowSize,
@@ -1096,8 +1116,10 @@ export function KibitzBoard({
             });
 
             startTransientReleaseSettle({
+                fromWindowSize: lastVisibleWindowSize,
                 finalWindowSize,
-                fromContentSize,
+                toWindowSize: finalWindowSize,
+                fromContentSize: lastVisibleContentSize,
                 toContentSize: finalNativeContentSize,
                 fromLeft,
                 toLeft,
