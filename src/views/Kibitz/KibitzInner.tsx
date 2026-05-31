@@ -115,6 +115,18 @@ interface PendingPostedVariation {
     title?: string;
 }
 
+export const MOBILE_DIVIDER_DRAG_START_THRESHOLD_PX = 3;
+
+export function shouldActivateMobileDividerDrag(deltaY: number): boolean {
+    return Math.abs(deltaY) >= MOBILE_DIVIDER_DRAG_START_THRESHOLD_PX;
+}
+
+export function isMobileDividerPointerUpNoop(
+    activeGestureState: "armed" | "active" | null,
+): boolean {
+    return activeGestureState !== "active";
+}
+
 function buildMobileResizeGeometrySnapshot(params: {
     shellRect?: Pick<DOMRect, "width" | "height"> | null;
     boardSurfaceRect?: Pick<DOMRect, "width" | "height"> | null;
@@ -837,6 +849,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         pointerId: number;
         startY: number;
         startRatio: number;
+        gestureState: "armed" | "active";
         shellWidth: number;
         shellHeight: number;
         outerBoardSlotMaxWidth: number;
@@ -904,11 +917,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
     React.useEffect(() => {
         const wasDragging = previousMobileDividerDraggingRef.current;
-        if (!wasDragging && mobileDividerDragging) {
-            recordKibitzBoardSizeEvent("mobile-divider:drag-active-start", {
-                mobileDividerDragging,
-            });
-        } else if (wasDragging && !mobileDividerDragging) {
+        if (wasDragging && !mobileDividerDragging) {
             const shell = mobileShellRef.current;
             shell?.classList.remove("mobile-divider-dragging");
             shell?.style.removeProperty("--kibitz-mobile-drag-ratio");
@@ -1086,7 +1095,95 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 return;
             }
 
-            const ratioDelta = (event.clientY - dragState.startY) / dragState.shellHeight;
+            const deltaY = event.clientY - dragState.startY;
+            if (dragState.gestureState !== "active") {
+                if (!shouldActivateMobileDividerDrag(deltaY)) {
+                    if (isKibitzBoardSizeDebugEnabled()) {
+                        recordKibitzBoardSizeEvent("mobile-divider:armed-move-ignored", {
+                            pointerId: event.pointerId,
+                            deltaY,
+                            thresholdPx: MOBILE_DIVIDER_DRAG_START_THRESHOLD_PX,
+                            gestureState: "armed",
+                        });
+                    }
+                    event.preventDefault();
+                    return;
+                }
+
+                const beginResult =
+                    mobileDraftTransientDragControllerRef.current?.beginTransientDrag(
+                        dragState.transientBoardWindowMaxSize,
+                    ) ?? {
+                        metricsWidth: null,
+                        metricsHeight: null,
+                    };
+                dragState.gestureState = "active";
+                dragState.cachedMetricsWidth = beginResult.metricsWidth;
+                dragState.cachedMetricsHeight = beginResult.metricsHeight;
+                setMobileDividerDragging(true);
+                const shell = mobileShellRef.current;
+                shell?.classList.add("mobile-divider-dragging");
+                shell?.style.setProperty(
+                    "--kibitz-mobile-drag-ratio",
+                    String(dragState.startRatio),
+                );
+                shell?.style.setProperty(
+                    "--kibitz-mobile-drag-board-size",
+                    `${dragState.startWindowSize}px`,
+                );
+                mobileDividerFastVisualLogAtRef.current = 0;
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-divider:drag-active-start", {
+                        pointerId: event.pointerId,
+                        deltaY,
+                        thresholdPx: MOBILE_DIVIDER_DRAG_START_THRESHOLD_PX,
+                        startDividerRatio: dragState.startRatio,
+                        targetDividerRatio: clampMobileSplitRatio(
+                            dragState.startRatio + deltaY / dragState.shellHeight,
+                        ),
+                        gestureState: "active",
+                        geometry: buildMobileResizeGeometrySnapshot({
+                            shellRect:
+                                dragState.shellWidth != null && dragState.shellHeight != null
+                                    ? {
+                                          width: dragState.shellWidth,
+                                          height: dragState.shellHeight,
+                                      }
+                                    : null,
+                            boardSurfaceRect:
+                                dragState.startWindowWidth != null &&
+                                dragState.startWindowHeight != null
+                                    ? {
+                                          width: dragState.startWindowWidth,
+                                          height: dragState.startWindowHeight,
+                                      }
+                                    : null,
+                            gobanContainerRect:
+                                dragState.startWindowSize != null
+                                    ? {
+                                          width: dragState.startWindowSize,
+                                          height: dragState.startWindowSize,
+                                      }
+                                    : null,
+                            gobanMetrics:
+                                beginResult.metricsWidth != null &&
+                                beginResult.metricsHeight != null
+                                    ? {
+                                          width: beginResult.metricsWidth,
+                                          height: beginResult.metricsHeight,
+                                      }
+                                    : null,
+                            dividerRatio: dragState.startRatio,
+                            startDividerRatio: dragState.startRatio,
+                            targetDividerRatio: clampMobileSplitRatio(
+                                dragState.startRatio + deltaY / dragState.shellHeight,
+                            ),
+                        }),
+                    });
+                }
+            }
+
+            const ratioDelta = deltaY / dragState.shellHeight;
             const nextRatio = clampMobileSplitRatio(dragState.startRatio + ratioDelta);
             const previousPending =
                 pendingMobileSplitRatioRef.current ?? lastCommittedMobileSplitRatioRef.current;
@@ -1168,6 +1265,61 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 window.cancelAnimationFrame(mobileSplitRatioRafRef.current);
                 mobileSplitRatioRafRef.current = null;
             }
+
+            if (isMobileDividerPointerUpNoop(dragState.gestureState)) {
+                mobileDragStateRef.current = null;
+                pendingMobileSplitRatioRef.current = null;
+                mobileDividerMoveDebugPendingRef.current = null;
+                mobileDividerFastVisualLogAtRef.current = 0;
+                mobileDividerFinalCompareLogAtRef.current = 0;
+                document.body.style.userSelect = "";
+                document.body.style.cursor = "";
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-divider:pointer-up-noop", {
+                        pointerId: event.pointerId,
+                        startDividerRatio: dragState.startRatio,
+                        finalDividerRatio: dragState.startRatio,
+                        gestureState: "armed",
+                        reason: "no-active-drag",
+                        geometry: buildMobileResizeGeometrySnapshot({
+                            shellRect:
+                                dragState.shellWidth != null && dragState.shellHeight != null
+                                    ? {
+                                          width: dragState.shellWidth,
+                                          height: dragState.shellHeight,
+                                      }
+                                    : null,
+                            boardSurfaceRect:
+                                dragState.startWindowWidth != null &&
+                                dragState.startWindowHeight != null
+                                    ? {
+                                          width: dragState.startWindowWidth,
+                                          height: dragState.startWindowHeight,
+                                      }
+                                    : null,
+                            gobanContainerRect:
+                                dragState.startWindowSize != null
+                                    ? {
+                                          width: dragState.startWindowSize,
+                                          height: dragState.startWindowSize,
+                                      }
+                                    : null,
+                            gobanMetrics:
+                                dragState.cachedMetricsWidth != null &&
+                                dragState.cachedMetricsHeight != null
+                                    ? {
+                                          width: dragState.cachedMetricsWidth,
+                                          height: dragState.cachedMetricsHeight,
+                                      }
+                                    : null,
+                            dividerRatio: dragState.startRatio,
+                            startDividerRatio: dragState.startRatio,
+                        }),
+                    });
+                }
+                return;
+            }
+
             const finalRatio =
                 pendingMobileSplitRatioRef.current ?? lastCommittedMobileSplitRatioRef.current;
             const transientVisualSize = computeTransientDragVisualBoardSize({
@@ -1189,6 +1341,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     transientVisualSize,
                     steadyMeasuredSize: steadyMeasurement.steadyMeasuredSize,
                     finalWindowSize,
+                    gestureState: "active",
+                    hadActiveDrag: true,
                     transientBoardWindowMaxSize: dragState.transientBoardWindowMaxSize,
                     transientReservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
                     steadyReservedHeight: steadyMeasurement.metrics?.reservedHeight ?? null,
@@ -1236,6 +1390,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 recordKibitzBoardSizeEvent("mobile-divider:pointer-up", {
                     pointerId: event.pointerId,
                     finalRatio: lastCommittedMobileSplitRatioRef.current,
+                    gestureState: "active",
+                    hadActiveDrag: true,
                 });
             }
         };
@@ -2845,21 +3001,24 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 0,
                 Math.floor(boardHostRect?.height ?? startWindowSize),
             );
+            const metricsWidth = Math.max(
+                0,
+                Math.floor(boardWindowRect?.width ?? startWindowWidth),
+            );
+            const metricsHeight = Math.max(
+                0,
+                Math.floor(boardWindowRect?.height ?? startWindowHeight),
+            );
             const startedAtHorizontalMax =
                 transientBoardWindowMaxSize != null &&
                 Math.abs(startWindowWidth - transientBoardWindowMaxSize) <= 1 &&
                 startWindowHeight > startWindowWidth;
-            const beginResult = mobileDraftTransientDragControllerRef.current?.beginTransientDrag(
-                transientBoardWindowMaxSize,
-            ) ?? {
-                metricsWidth: null,
-                metricsHeight: null,
-            };
             if (isKibitzBoardSizeDebugEnabled()) {
                 recordKibitzBoardSizeEvent("mobile-divider:pointer-down", {
                     pointerId: event.pointerId,
-                    clientY: event.clientY,
-                    startRatio: mobileSplitRatio,
+                    startClientY: event.clientY,
+                    startDividerRatio: mobileSplitRatio,
+                    gestureState: "armed",
                     shellRectHeight: shellRect.height,
                     shellRectWidth: shellRect.width,
                     boardSlotMaxWidth,
@@ -2875,17 +3034,17 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     startWindowSize,
                     startedAtHorizontalMax,
                     reservedBoardVerticalSpace,
-                    currentGobanMetricsWidth: beginResult.metricsWidth,
-                    currentGobanMetricsHeight: beginResult.metricsHeight,
+                    currentGobanMetricsWidth: metricsWidth,
+                    currentGobanMetricsHeight: metricsHeight,
                     geometry: buildMobileResizeGeometrySnapshot({
                         shellRect,
                         boardSurfaceRect: boardHostRect ?? null,
                         gobanContainerRect: boardWindowRect ?? null,
                         gobanMetrics:
-                            beginResult.metricsWidth != null && beginResult.metricsHeight != null
+                            metricsWidth != null && metricsHeight != null
                                 ? {
-                                      width: beginResult.metricsWidth,
-                                      height: beginResult.metricsHeight,
+                                      width: metricsWidth,
+                                      height: metricsHeight,
                                   }
                                 : null,
                         dividerRatio: mobileSplitRatio,
@@ -2894,15 +3053,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 });
             }
             event.preventDefault();
-            setMobileDividerDragging(true);
-            shell.classList.add("mobile-divider-dragging");
-            shell.style.setProperty("--kibitz-mobile-drag-ratio", String(mobileSplitRatio));
-            shell.style.setProperty("--kibitz-mobile-drag-board-size", `${startWindowSize}px`);
-            mobileDividerFastVisualLogAtRef.current = 0;
             mobileDragStateRef.current = {
                 pointerId: event.pointerId,
                 startY: event.clientY,
                 startRatio: mobileSplitRatio,
+                gestureState: "armed",
                 shellWidth: shellRect.width,
                 shellHeight: shellRect.height,
                 outerBoardSlotMaxWidth,
@@ -2917,8 +3072,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 startedAtHorizontalMax,
                 topPaneElement,
                 boardSlotElement,
-                cachedMetricsWidth: beginResult.metricsWidth,
-                cachedMetricsHeight: beginResult.metricsHeight,
+                cachedMetricsWidth: metricsWidth,
+                cachedMetricsHeight: metricsHeight,
             };
             event.currentTarget.setPointerCapture?.(event.pointerId);
             document.body.style.userSelect = "none";
