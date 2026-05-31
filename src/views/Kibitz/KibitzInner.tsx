@@ -1093,7 +1093,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const transientVisualSize = computeTransientDragVisualBoardSize({
                 shellHeight: dragState.shellHeight,
                 nextRatio: finalRatio,
-                boardSlotMaxWidth: dragState.boardSlotMaxWidth,
+                boardSlotMaxWidth: dragState.transientBoardWindowMaxSize,
                 reservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
             });
             const steadyMeasurement = measureSteadyMobileBoardSize();
@@ -1109,6 +1109,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     transientVisualSize,
                     steadyMeasuredSize: steadyMeasurement.steadyMeasuredSize,
                     finalWindowSize,
+                    transientBoardWindowMaxSize: dragState.transientBoardWindowMaxSize,
                     transientReservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
                     steadyReservedHeight: steadyMeasurement.metrics?.reservedHeight ?? null,
                     sizePropAtRelease: mobileBoardSizeRef.current,
@@ -2682,6 +2683,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const boardWindowElement = shell.querySelector(
                 ".mobile-secondary-board-surface",
             ) as HTMLElement | null;
+            const boardHostElement = shell.querySelector(
+                ".Kibitz-mobile-board-host",
+            ) as HTMLElement | null;
             const shellRect = shell.getBoundingClientRect();
             const boardSlotMetrics = boardSlotElement
                 ? measureSquareFitLayout(boardSlotElement, true)
@@ -2693,7 +2697,6 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     0,
             );
             const boardWindowRect = boardWindowElement?.getBoundingClientRect();
-            const boardHostElement = boardSlotElement?.parentElement as HTMLElement | null;
             const availableSlotWidthCap = Math.max(
                 0,
                 Math.floor(boardSlotElement?.clientWidth ?? outerBoardSlotMaxWidth),
