@@ -809,6 +809,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         startWindowHeight: number;
         startLayoutSize: number;
         startWindowSize: number;
+        startedAtHorizontalMax: boolean;
         topPaneElement: HTMLDivElement | null;
         boardSlotElement: HTMLDivElement | null;
         boardWindowElement: HTMLElement | null;
@@ -971,6 +972,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     pointerId: dragState?.pointerId ?? null,
                     nextRatio,
                     visualBoardSize,
+                    usingRestingMaxGeometry: Boolean(
+                        dragState?.startedAtHorizontalMax &&
+                        dragState?.transientBoardWindowMaxSize != null &&
+                        visualBoardSize >= dragState.transientBoardWindowMaxSize,
+                    ),
                     heightLimitedSize:
                         dragState != null
                             ? Math.floor(
@@ -2737,6 +2743,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 0,
                 Math.floor(boardHostRect?.height ?? startWindowSize),
             );
+            const startedAtHorizontalMax =
+                transientBoardWindowMaxSize != null &&
+                Math.abs(startWindowWidth - transientBoardWindowMaxSize) <= 1 &&
+                startWindowHeight > startWindowWidth;
             const beginResult = mobileDraftTransientDragControllerRef.current?.beginTransientDrag(
                 transientBoardWindowMaxSize,
             ) ?? {
@@ -2761,6 +2771,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     startWindowHeight,
                     startLayoutSize,
                     startWindowSize,
+                    startedAtHorizontalMax,
                     reservedBoardVerticalSpace,
                     currentGobanMetricsWidth: beginResult.metricsWidth,
                     currentGobanMetricsHeight: beginResult.metricsHeight,
@@ -2786,6 +2797,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 startWindowHeight,
                 startLayoutSize,
                 startWindowSize,
+                startedAtHorizontalMax,
                 topPaneElement,
                 boardSlotElement,
                 cachedMetricsWidth: beginResult.metricsWidth,

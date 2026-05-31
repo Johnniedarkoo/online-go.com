@@ -27,6 +27,7 @@ import {
 import {
     computeRecenterScale,
     computeMeasuredTransientDragContentSize,
+    computeTransientDragGeometry,
     computeTransientDragScale,
     computeTransientDragVisualBoardSize,
     isKibitzBoardResizeStale,
@@ -173,6 +174,57 @@ describe("computeMeasuredTransientDragContentSize", () => {
                 startContentSize: 294,
             }),
         ).toBeCloseTo(294 * (227 / 310));
+    });
+});
+
+describe("computeTransientDragGeometry", () => {
+    it("keeps normal upsizing on the active visual geometry path", () => {
+        expect(
+            computeTransientDragGeometry({
+                visualSize: 300,
+                startWindowWidth: 250,
+                startWindowHeight: 254,
+                startWindowSize: 250,
+                startContentSize: 200,
+                metricsWidth: 200,
+                startedAtHorizontalMax: false,
+                transientBoardWindowMaxSize: 378,
+            }),
+        ).toEqual({
+            hostWidth: 300,
+            hostHeight: 304,
+            containerWidth: 300,
+            containerHeight: 300,
+            contentSize: 240,
+            transformScale: 1.2,
+            gobanLeft: 30,
+            gobanTop: 0,
+            dragScale: 1.2,
+            usingRestingMaxGeometry: false,
+        });
+    });
+
+    it("preserves the resting max geometry when the drag begins at the stable max", () => {
+        const geometry = computeTransientDragGeometry({
+            visualSize: 378,
+            startWindowWidth: 374,
+            startWindowHeight: 378,
+            startWindowSize: 374,
+            startContentSize: 375,
+            metricsWidth: 375,
+            startedAtHorizontalMax: true,
+            transientBoardWindowMaxSize: 374,
+        });
+
+        expect(geometry.usingRestingMaxGeometry).toBe(true);
+        expect(geometry.hostWidth).toBe(374);
+        expect(geometry.hostHeight).toBe(378);
+        expect(geometry.containerWidth).toBe(374);
+        expect(geometry.containerHeight).toBe(378);
+        expect(geometry.dragScale).toBe(1);
+        expect(geometry.gobanTop).toBe(0);
+        expect(geometry.gobanLeft).toBe(0);
+        expect(geometry.transformScale).toBeCloseTo(geometry.contentSize / 375);
     });
 });
 

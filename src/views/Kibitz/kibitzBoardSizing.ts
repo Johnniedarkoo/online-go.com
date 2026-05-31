@@ -103,6 +103,73 @@ export function computeMeasuredTransientDragContentSize({
     return Math.max(1, startContentSize * (visualSize / startWindowSize));
 }
 
+export interface TransientDragGeometryInput {
+    visualSize: number;
+    startWindowWidth: number;
+    startWindowHeight: number;
+    startWindowSize: number;
+    startContentSize: number;
+    metricsWidth: number;
+    startedAtHorizontalMax: boolean;
+    transientBoardWindowMaxSize: number | null;
+}
+
+export interface TransientDragGeometry {
+    hostWidth: number;
+    hostHeight: number;
+    containerWidth: number;
+    containerHeight: number;
+    contentSize: number;
+    transformScale: number;
+    gobanLeft: number;
+    gobanTop: number;
+    dragScale: number;
+    usingRestingMaxGeometry: boolean;
+}
+
+export function computeTransientDragGeometry({
+    visualSize,
+    startWindowWidth,
+    startWindowHeight,
+    startWindowSize,
+    startContentSize,
+    metricsWidth,
+    startedAtHorizontalMax,
+    transientBoardWindowMaxSize,
+}: TransientDragGeometryInput): TransientDragGeometry {
+    const usingRestingMaxGeometry = Boolean(
+        startedAtHorizontalMax &&
+        transientBoardWindowMaxSize != null &&
+        visualSize >= transientBoardWindowMaxSize,
+    );
+    const contentSize = computeMeasuredTransientDragContentSize({
+        visualSize,
+        startWindowSize,
+        startContentSize,
+    });
+    const hostWidth = usingRestingMaxGeometry ? startWindowWidth : visualSize;
+    const hostHeight = usingRestingMaxGeometry
+        ? startWindowHeight
+        : visualSize + Math.max(0, startWindowHeight - startWindowWidth);
+    const containerWidth = usingRestingMaxGeometry ? startWindowWidth : visualSize;
+    const containerHeight = usingRestingMaxGeometry ? startWindowHeight : visualSize;
+    const transformScale = computeTransientDragScale(contentSize, metricsWidth);
+    const gobanLeft = Math.max(0, Math.floor((hostWidth - contentSize) / 2));
+
+    return {
+        hostWidth,
+        hostHeight,
+        containerWidth,
+        containerHeight,
+        contentSize,
+        transformScale,
+        gobanLeft,
+        gobanTop: 0,
+        dragScale: hostWidth / startWindowSize,
+        usingRestingMaxGeometry,
+    };
+}
+
 export function predictNativeGobanContentSize({
     targetSlotSize,
     boardWidth,

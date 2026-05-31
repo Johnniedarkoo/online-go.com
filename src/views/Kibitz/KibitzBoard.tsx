@@ -27,9 +27,8 @@ import {
     recordKibitzBoardSizeEvent,
 } from "./kibitzBoardSizeDebug";
 import {
-    computeMeasuredTransientDragContentSize,
     computeRecenterScale,
-    computeTransientDragScale,
+    computeTransientDragGeometry,
     isKibitzBoardResizeStale,
     predictNativeGobanContentSize,
 } from "./kibitzBoardSizing";
@@ -412,6 +411,7 @@ export function KibitzBoard({
         startWindowHeight: number | null;
         startWindowSize: number | null;
         startContentSize: number | null;
+        startedAtHorizontalMax: boolean;
         startGap: number | null;
         lastWindowSize: number | null;
         lastContentSize: number | null;
@@ -568,6 +568,13 @@ export function KibitzBoard({
                 Number.isFinite(windowMaxSizeHint) && (windowMaxSizeHint ?? 0) > 0
                     ? Math.floor(windowMaxSizeHint ?? 0)
                     : null;
+            const startedAtHorizontalMax = Boolean(
+                transientBoardWindowMaxSize != null &&
+                startWindowWidth != null &&
+                startWindowHeight != null &&
+                Math.abs(startWindowWidth - transientBoardWindowMaxSize) <= 1 &&
+                startWindowHeight > startWindowWidth,
+            );
             const startGap =
                 startWindowSize != null && startContentSize != null
                     ? Math.max(0, startWindowSize - startContentSize)
@@ -581,6 +588,7 @@ export function KibitzBoard({
                 startWindowHeight,
                 startWindowSize,
                 startContentSize,
+                startedAtHorizontalMax,
                 startGap,
                 lastWindowSize: startWindowSize,
                 lastContentSize: startContentSize,
@@ -603,6 +611,7 @@ export function KibitzBoard({
                 startContentSize,
                 transientBoardWindowMaxSize,
                 startGap,
+                startedAtHorizontalMax,
                 host: getKibitzElementMetrics(host),
                 gobanElement: getKibitzElementMetrics(gobanElement),
             });
@@ -630,6 +639,9 @@ export function KibitzBoard({
             const startWindowWidth = transientMetrics?.startWindowWidth ?? null;
             const startWindowHeight = transientMetrics?.startWindowHeight ?? null;
             const startContentSize = transientMetrics?.startContentSize ?? null;
+            const startedAtHorizontalMax = Boolean(transientMetrics?.startedAtHorizontalMax);
+            const transientBoardWindowMaxSize =
+                transientMetrics?.transientBoardWindowMaxSize ?? startWindowWidth;
             if (
                 !transientMetrics ||
                 !transientMetrics.active ||
@@ -650,27 +662,33 @@ export function KibitzBoard({
                 return;
             }
 
-            const contentSize = computeMeasuredTransientDragContentSize({
+            const geometry = computeTransientDragGeometry({
                 visualSize,
+                startWindowWidth,
+                startWindowHeight,
                 startWindowSize,
                 startContentSize,
+                metricsWidth,
+                startedAtHorizontalMax,
+                transientBoardWindowMaxSize,
             });
-            if (contentSize <= 0) {
+            if (geometry.contentSize <= 0) {
                 return;
             }
 
-            const heightDelta = Math.max(0, startWindowHeight - startWindowWidth);
-            setTransientRectSize(host, visualSize, visualSize + heightDelta);
-            setTransientSquareSize(container, visualSize);
-            const scale = computeTransientDragScale(contentSize, metricsWidth);
+            setTransientRectSize(host, geometry.hostWidth, geometry.hostHeight);
+            setTransientRectSize(container, geometry.containerWidth, geometry.containerHeight);
             gobanElement.style.transformOrigin = "top left";
-            gobanElement.style.transform = `scale(${scale})`;
-            gobanElement.style.left = `${Math.max(0, Math.floor((visualSize - contentSize) / 2))}px`;
+            gobanElement.style.transform = `scale(${geometry.transformScale})`;
+            gobanElement.style.left = `${geometry.gobanLeft}px`;
             gobanElement.style.top = "0px";
             gobanElement.style.pointerEvents = "none";
-            transientMetrics.lastWindowSize = visualSize;
-            transientMetrics.lastContentSize = contentSize;
-            lastAppliedTransientContentSizeRef.current = contentSize;
+            transientMetrics.startedAtHorizontalMax = startedAtHorizontalMax;
+            transientMetrics.lastWindowSize = geometry.usingRestingMaxGeometry
+                ? startWindowWidth
+                : visualSize;
+            transientMetrics.lastContentSize = geometry.contentSize;
+            lastAppliedTransientContentSizeRef.current = geometry.contentSize;
 
             const now = Date.now();
             if (isKibitzBoardSizeDebugEnabled() && now - transientMetrics.lastLogAt >= 120) {
@@ -696,18 +714,19 @@ export function KibitzBoard({
                         (allowTransientDragScalingRef.current ||
                             transientDragFinalizingRef.current),
                     visualSize,
-                    contentSize,
+                    contentSize: geometry.contentSize,
                     startWindowWidth,
                     startWindowHeight,
                     startWindowSize,
                     startContentSize,
-                    transientBoardWindowMaxSize:
-                        transientMetrics.transientBoardWindowMaxSize ?? null,
+                    startedAtHorizontalMax,
+                    usingRestingMaxGeometry: geometry.usingRestingMaxGeometry,
+                    transientBoardWindowMaxSize,
                     startGap: transientMetrics.startGap,
-                    dragScale: visualSize / startWindowSize,
+                    dragScale: geometry.dragScale,
                     cachedMetricsWidth: metricsWidth,
                     cachedMetricsHeight: metricsHeight,
-                    transformScale: scale,
+                    transformScale: geometry.transformScale,
                 });
                 recordKibitzBoardSizeEvent("kibitz-board:drag-fast-layout", {
                     role: boardRole,
@@ -722,12 +741,16 @@ export function KibitzBoard({
                     containerRectHeight: containerMetrics?.rectHeight ?? null,
                     gobanRectWidth: gobanMetrics?.rectWidth ?? null,
                     gobanRectHeight: gobanMetrics?.rectHeight ?? null,
-                    contentSize,
+                    contentSize: geometry.contentSize,
+                    startWindowWidth,
+                    startWindowHeight,
                     startWindowSize,
                     startContentSize,
+                    startedAtHorizontalMax,
+                    usingRestingMaxGeometry: geometry.usingRestingMaxGeometry,
                     startGap: transientMetrics.startGap,
-                    dragScale: visualSize / startWindowSize,
-                    transformScale: scale,
+                    dragScale: geometry.dragScale,
+                    transformScale: geometry.transformScale,
                     gobanLeft: gobanElement.style.left,
                     gobanTop: gobanElement.style.top,
                     transform: gobanElement.style.transform,
