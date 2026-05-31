@@ -28,6 +28,7 @@ import {
     computeRecenterScale,
     computeMeasuredTransientDragContentSize,
     computeTransientDragGeometry,
+    computeTransientDragReleaseGeometry,
     computeTransientDragScale,
     computeTransientDragVisualBoardSize,
     isKibitzBoardResizeStale,
@@ -250,6 +251,26 @@ describe("computeTransientDragGeometry", () => {
             gobanTop: 0,
             dragScale: 1,
             usingRestingMaxGeometry: true,
+        });
+    });
+});
+
+describe("computeTransientDragReleaseGeometry", () => {
+    it("preserves the resting max rect during release from the real max-start runtime inputs", () => {
+        expect(
+            computeTransientDragReleaseGeometry({
+                finalWindowSize: 378,
+                lastVisibleWindowSize: 374,
+                startWindowWidth: 374,
+                startWindowHeight: 378,
+                usingRestingMaxGeometry: true,
+            }),
+        ).toEqual({
+            settleWindowWidth: 374,
+            settleWindowHeight: 378,
+            fromWindowSize: 374,
+            toWindowSize: 374,
+            preserveRestingRect: true,
         });
     });
 });

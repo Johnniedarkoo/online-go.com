@@ -183,6 +183,53 @@ export function computeTransientDragGeometry({
     };
 }
 
+export interface TransientDragReleaseGeometryInput {
+    finalWindowSize: number;
+    lastVisibleWindowSize: number;
+    startWindowWidth: number | null;
+    startWindowHeight: number | null;
+    usingRestingMaxGeometry: boolean;
+}
+
+export interface TransientDragReleaseGeometry {
+    settleWindowWidth: number;
+    settleWindowHeight: number;
+    fromWindowSize: number;
+    toWindowSize: number;
+    preserveRestingRect: boolean;
+}
+
+export function computeTransientDragReleaseGeometry({
+    finalWindowSize,
+    lastVisibleWindowSize,
+    startWindowWidth,
+    startWindowHeight,
+    usingRestingMaxGeometry,
+}: TransientDragReleaseGeometryInput): TransientDragReleaseGeometry {
+    const preserveRestingRect =
+        usingRestingMaxGeometry &&
+        Number.isFinite(startWindowWidth) &&
+        Number.isFinite(startWindowHeight) &&
+        (startWindowWidth ?? 0) > 0 &&
+        (startWindowHeight ?? 0) > 0;
+    const settleWindowWidth = preserveRestingRect
+        ? (startWindowWidth ?? finalWindowSize)
+        : finalWindowSize;
+    const settleWindowHeight = preserveRestingRect
+        ? (startWindowHeight ?? finalWindowSize)
+        : finalWindowSize;
+    const fromWindowSize = preserveRestingRect ? settleWindowWidth : lastVisibleWindowSize;
+    const toWindowSize = preserveRestingRect ? settleWindowWidth : finalWindowSize;
+
+    return {
+        settleWindowWidth,
+        settleWindowHeight,
+        fromWindowSize,
+        toWindowSize,
+        preserveRestingRect,
+    };
+}
+
 export function predictNativeGobanContentSize({
     targetSlotSize,
     boardWidth,
