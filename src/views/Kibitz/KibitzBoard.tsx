@@ -35,6 +35,8 @@ import {
 import { logKibitzVariationDebug, summarizeKibitzMoveTreeNode } from "./kibitzVariationDebug";
 import "./KibitzBoard.css";
 
+const TRANSIENT_DRAG_PREVIEW_INSET_PX = 4;
+
 declare global {
     interface Window {
         __kibitzLifecycleRing?: Array<Record<string, unknown>>;
@@ -549,11 +551,12 @@ export function KibitzBoard({
 
             setTransientSquareSize(host, visualSize);
             setTransientSquareSize(container, visualSize);
-            lastAppliedTransientContentSizeRef.current = visualSize;
-            const scale = computeTransientDragScale(visualSize, metricsWidth);
+            const contentSize = Math.max(1, visualSize - TRANSIENT_DRAG_PREVIEW_INSET_PX);
+            lastAppliedTransientContentSizeRef.current = contentSize;
+            const scale = computeTransientDragScale(contentSize, metricsWidth);
             gobanElement.style.transformOrigin = "top left";
             gobanElement.style.transform = `scale(${scale})`;
-            gobanElement.style.left = "0px";
+            gobanElement.style.left = `${Math.max(0, Math.floor((visualSize - contentSize) / 2))}px`;
             gobanElement.style.top = "0px";
             gobanElement.style.pointerEvents = "none";
 
@@ -581,6 +584,8 @@ export function KibitzBoard({
                         (allowTransientDragScalingRef.current ||
                             transientDragFinalizingRef.current),
                     visualSize,
+                    contentSize,
+                    transientPreviewInsetPx: TRANSIENT_DRAG_PREVIEW_INSET_PX,
                     cachedMetricsWidth: metricsWidth,
                     cachedMetricsHeight: metricsHeight,
                     scale,
@@ -598,6 +603,8 @@ export function KibitzBoard({
                     containerRectHeight: containerMetrics?.rectHeight ?? null,
                     gobanRectWidth: gobanMetrics?.rectWidth ?? null,
                     gobanRectHeight: gobanMetrics?.rectHeight ?? null,
+                    contentSize,
+                    transientPreviewInsetPx: TRANSIENT_DRAG_PREVIEW_INSET_PX,
                     gobanLeft: gobanElement.style.left,
                     gobanTop: gobanElement.style.top,
                     transform: gobanElement.style.transform,
@@ -740,8 +747,11 @@ export function KibitzBoard({
                 pendingTransientDragClearFrameRef.current = null;
             }
 
+            const startTime = performance.now();
+            const durationMs = 100;
             let attempts = 0;
             let timeoutLogged = false;
+            let lastLoggedContentSize: number | null = null;
 
             const check = () => {
                 if (pendingTransientDragFinalSizeRef.current == null) {
@@ -759,8 +769,50 @@ export function KibitzBoard({
                     boardHeight: height,
                     showLabels,
                 });
+                const currentContentSize =
+                    lastAppliedTransientContentSizeRef.current ?? finalSizeHint;
+                const animationProgress = Math.min(1, (performance.now() - startTime) / durationMs);
+                const settleContentSize = Math.round(
+                    currentContentSize +
+                        (predictedNativeContentSize - currentContentSize) * animationProgress,
+                );
+                const currentLeft = Math.max(
+                    0,
+                    Math.floor((finalSizeHint - settleContentSize) / 2),
+                );
 
-                if (isNativeFinalResizeReady(finalSizeHint)) {
+                if (
+                    gobanDiv.current &&
+                    Number.isFinite(metrics?.width ?? NaN) &&
+                    (metrics?.width ?? 0) > 0
+                ) {
+                    const scale = settleContentSize / Number(metrics?.width ?? 0);
+                    gobanDiv.current.style.transformOrigin = "top left";
+                    gobanDiv.current.style.transform = `scale(${scale})`;
+                    gobanDiv.current.style.left = `${currentLeft}px`;
+                    gobanDiv.current.style.top = "0px";
+                    gobanDiv.current.style.pointerEvents = "none";
+                }
+
+                if (
+                    lastLoggedContentSize == null ||
+                    Math.abs(lastLoggedContentSize - settleContentSize) >= 1
+                ) {
+                    lastLoggedContentSize = settleContentSize;
+                    recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-animate", {
+                        ...getKibitzBoardMetricsSnapshot("transient-drag-final-animate"),
+                        finalSizeHint,
+                        predictedNativeContentSize,
+                        metricsWidth: metrics?.width ?? null,
+                        metricsHeight: metrics?.height ?? null,
+                        currentContentSize: settleContentSize,
+                        currentLeft,
+                        animationProgress,
+                        attempts,
+                    });
+                }
+
+                if (animationProgress >= 1 && isNativeFinalResizeReady(finalSizeHint)) {
                     const hostRect = boardHostRef.current?.getBoundingClientRect();
                     const containerRect = gobanContainerRef.current?.getBoundingClientRect();
                     const gobanRect = gobanDiv.current.getBoundingClientRect();
