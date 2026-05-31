@@ -262,6 +262,23 @@ export interface TransientDragGeometry {
     usingRestingMaxGeometry: boolean;
 }
 
+export interface MobileResizeAppliedTarget {
+    dividerRatio: number;
+    boardSurfaceWidth: number;
+    boardSurfaceHeight: number;
+    gobanContainerWidth: number;
+    gobanContainerHeight: number;
+    previewGobanContentSize: number;
+    predictedNativeGobanContentSize: number | null;
+    legacyVisualSize: number;
+    legacyFinalWindowSize: number | null;
+    usingRestingMaxGeometry: boolean;
+    transformScale: number;
+    dragScale: number;
+    gobanLeft: number;
+    gobanTop: number;
+}
+
 export function computeTransientDragGeometry({
     visualSize,
     startWindowWidth,
@@ -312,6 +329,70 @@ export function computeTransientDragGeometry({
         gobanTop: 0,
         dragScale: hostWidth / startWindowSize,
         usingRestingMaxGeometry,
+    };
+}
+
+export interface TransientDragReleaseGeometryFromAppliedTargetInput {
+    target: MobileResizeAppliedTarget;
+    lastVisibleContentSize: number;
+    lastVisibleLeft: number;
+    boardWidth: number;
+    boardHeight: number;
+    showLabels: boolean;
+}
+
+export interface TransientDragReleaseGeometryFromAppliedTarget {
+    boardSurfaceWidth: number;
+    boardSurfaceHeight: number;
+    gobanContainerWidth: number;
+    gobanContainerHeight: number;
+    finalNativeContentSize: number;
+    fromContentSize: number;
+    toContentSize: number;
+    fromLeft: number;
+    toLeft: number;
+    contentDelta: number;
+    windowDelta: number;
+    targetSource: "last-applied-target";
+    boardSurfacePreserved: true;
+}
+
+export function computeTransientDragReleaseGeometryFromAppliedTarget({
+    target,
+    lastVisibleContentSize,
+    lastVisibleLeft,
+    boardWidth,
+    boardHeight,
+    showLabels,
+}: TransientDragReleaseGeometryFromAppliedTargetInput): TransientDragReleaseGeometryFromAppliedTarget {
+    const finalNativeContentSize =
+        target.predictedNativeGobanContentSize ??
+        predictNativeGobanContentSize({
+            targetSlotSize: target.gobanContainerWidth,
+            boardWidth,
+            boardHeight,
+            showLabels,
+        });
+    const toLeft = Math.max(
+        0,
+        Math.floor((target.gobanContainerWidth - finalNativeContentSize) / 2),
+    );
+    const contentDelta = Math.abs(finalNativeContentSize - lastVisibleContentSize);
+
+    return {
+        boardSurfaceWidth: target.boardSurfaceWidth,
+        boardSurfaceHeight: target.boardSurfaceHeight,
+        gobanContainerWidth: target.gobanContainerWidth,
+        gobanContainerHeight: target.gobanContainerHeight,
+        finalNativeContentSize,
+        fromContentSize: lastVisibleContentSize,
+        toContentSize: finalNativeContentSize,
+        fromLeft: lastVisibleLeft,
+        toLeft,
+        contentDelta,
+        windowDelta: 0,
+        targetSource: "last-applied-target",
+        boardSurfacePreserved: true,
     };
 }
 

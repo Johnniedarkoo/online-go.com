@@ -83,6 +83,7 @@ import {
     computeTransientDragVisualBoardSize,
     measureSquareFitLayout,
     shouldCommitMobileSplitRatioUpdate,
+    type MobileResizeAppliedTarget,
 } from "./kibitzBoardSizing";
 import {
     isKibitzVariationDebugEnabled,
@@ -869,8 +870,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     } | null>(null);
     const mobileDraftTransientDragControllerRef =
         React.useRef<KibitzBoardTransientDragController | null>(null);
+    const lastAppliedMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
     const mobileDividerFastVisualLogAtRef = React.useRef(0);
-    const mobileDividerFinalCompareLogAtRef = React.useRef(0);
     const mobileBoardSizeRef = React.useRef<number | null>(null);
     const handleMobileDraftTransientDragControllerChange = React.useCallback(
         (controller: KibitzBoardTransientDragController | null) => {
@@ -997,15 +998,45 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         const updateTransientDragVisuals = (nextRatio: number, visualBoardSize: number) => {
             const shell = mobileShellRef.current;
             if (!shell) {
-                return;
+                return null;
             }
 
             shell.style.setProperty("--kibitz-mobile-drag-ratio", String(nextRatio));
             shell.style.setProperty("--kibitz-mobile-drag-board-size", `${visualBoardSize}px`);
 
             const controller = mobileDraftTransientDragControllerRef.current;
+            let appliedTarget: MobileResizeAppliedTarget | null = null;
             if (controller) {
-                controller.applyTransientDragVisualSize(visualBoardSize);
+                appliedTarget = controller.applyTransientDragVisualSize(visualBoardSize, nextRatio);
+            }
+
+            if (appliedTarget) {
+                lastAppliedMobileResizeTargetRef.current = appliedTarget;
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-divider:drag-target-applied", {
+                        pointerId: mobileDragStateRef.current?.pointerId ?? null,
+                        dividerRatio: appliedTarget.dividerRatio,
+                        geometry: {
+                            boardSurface: {
+                                boardSurfaceWidth: appliedTarget.boardSurfaceWidth,
+                                boardSurfaceHeight: appliedTarget.boardSurfaceHeight,
+                            },
+                            gobanContainer: {
+                                gobanContainerWidth: appliedTarget.gobanContainerWidth,
+                                gobanContainerHeight: appliedTarget.gobanContainerHeight,
+                            },
+                            gobanContent: {
+                                previewGobanContentSize: appliedTarget.previewGobanContentSize,
+                                predictedNativeGobanContentSize:
+                                    appliedTarget.predictedNativeGobanContentSize,
+                            },
+                        },
+                        legacy: {
+                            visualSize: appliedTarget.legacyVisualSize,
+                            usingRestingMaxGeometry: appliedTarget.usingRestingMaxGeometry,
+                        },
+                    });
+                }
             }
 
             const now = Date.now();
@@ -1075,6 +1106,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     }),
                 });
             }
+
+            return appliedTarget;
         };
 
         const measureSteadyMobileBoardSize = () => {
@@ -1268,10 +1301,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
             if (isMobileDividerPointerUpNoop(dragState.gestureState)) {
                 mobileDragStateRef.current = null;
+                lastAppliedMobileResizeTargetRef.current = null;
                 pendingMobileSplitRatioRef.current = null;
                 mobileDividerMoveDebugPendingRef.current = null;
                 mobileDividerFastVisualLogAtRef.current = 0;
-                mobileDividerFinalCompareLogAtRef.current = 0;
                 document.body.style.userSelect = "";
                 document.body.style.cursor = "";
                 if (isKibitzBoardSizeDebugEnabled()) {
@@ -1320,76 +1353,73 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 return;
             }
 
-            const finalRatio =
-                pendingMobileSplitRatioRef.current ?? lastCommittedMobileSplitRatioRef.current;
-            const transientVisualSize = computeTransientDragVisualBoardSize({
-                shellHeight: dragState.shellHeight,
-                nextRatio: finalRatio,
-                boardSlotMaxWidth: dragState.transientBoardWindowMaxSize,
-                reservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
-            });
+            const appliedTarget = lastAppliedMobileResizeTargetRef.current;
+            if (!appliedTarget) {
+                mobileDragStateRef.current = null;
+                lastAppliedMobileResizeTargetRef.current = null;
+                pendingMobileSplitRatioRef.current = null;
+                mobileDividerMoveDebugPendingRef.current = null;
+                mobileDividerFastVisualLogAtRef.current = 0;
+                document.body.style.userSelect = "";
+                document.body.style.cursor = "";
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-divider:pointer-up-missing-target", {
+                        pointerId: event.pointerId,
+                        hadActiveDrag: true,
+                        reason: "missing-last-applied-target",
+                    });
+                }
+                stopDrag();
+                return;
+            }
+
             const steadyMeasurement = measureSteadyMobileBoardSize();
-            const finalWindowSize = steadyMeasurement?.steadyMeasuredSize ?? transientVisualSize;
-            if (
-                isKibitzBoardSizeDebugEnabled() &&
-                steadyMeasurement &&
-                Date.now() - mobileDividerFinalCompareLogAtRef.current >= 120
-            ) {
-                mobileDividerFinalCompareLogAtRef.current = Date.now();
-                recordKibitzBoardSizeEvent("mobile-divider:final-size-compare", {
-                    finalRatio,
-                    transientVisualSize,
+            if (isKibitzBoardSizeDebugEnabled() && steadyMeasurement) {
+                recordKibitzBoardSizeEvent("mobile-divider:release-measurement-diagnostic", {
+                    pointerId: event.pointerId,
+                    usedAsAuthority: false,
                     steadyMeasuredSize: steadyMeasurement.steadyMeasuredSize,
-                    finalWindowSize,
-                    gestureState: "active",
-                    hadActiveDrag: true,
-                    transientBoardWindowMaxSize: dragState.transientBoardWindowMaxSize,
-                    transientReservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
-                    steadyReservedHeight: steadyMeasurement.metrics?.reservedHeight ?? null,
-                    sizePropAtRelease: mobileBoardSizeRef.current,
-                    displaySizeAtRelease: mobileBoardSizeRef.current,
-                    geometry: buildMobileResizeGeometrySnapshot({
-                        shellRect:
-                            dragState.shellWidth != null && dragState.shellHeight != null
-                                ? {
-                                      width: dragState.shellWidth,
-                                      height: dragState.shellHeight,
-                                  }
-                                : null,
-                        boardSurfaceRect:
-                            dragState.startWindowWidth != null &&
-                            dragState.startWindowHeight != null
-                                ? {
-                                      width: dragState.startWindowWidth,
-                                      height: dragState.startWindowHeight,
-                                  }
-                                : null,
-                        gobanContainerRect: {
-                            width: transientVisualSize,
-                            height: transientVisualSize,
+                    targetBoardSurfaceWidth: appliedTarget.boardSurfaceWidth,
+                    targetBoardSurfaceHeight: appliedTarget.boardSurfaceHeight,
+                    deltaWidth:
+                        (steadyMeasurement.steadyMeasuredSize ?? 0) -
+                        appliedTarget.boardSurfaceWidth,
+                });
+            }
+
+            if (isKibitzBoardSizeDebugEnabled()) {
+                recordKibitzBoardSizeEvent("mobile-divider:pointer-up-commit-target", {
+                    pointerId: event.pointerId,
+                    dividerRatio: appliedTarget.dividerRatio,
+                    source: "last-applied-target",
+                    geometry: {
+                        boardSurface: {
+                            boardSurfaceWidth: appliedTarget.boardSurfaceWidth,
+                            boardSurfaceHeight: appliedTarget.boardSurfaceHeight,
                         },
-                        gobanMetrics:
-                            dragState.cachedMetricsWidth != null &&
-                            dragState.cachedMetricsHeight != null
-                                ? {
-                                      width: dragState.cachedMetricsWidth,
-                                      height: dragState.cachedMetricsHeight,
-                                  }
-                                : null,
-                        dividerRatio: finalRatio,
-                        startDividerRatio: dragState.startRatio,
-                        targetDividerRatio: finalRatio,
-                    }),
+                        gobanContainer: {
+                            gobanContainerWidth: appliedTarget.gobanContainerWidth,
+                            gobanContainerHeight: appliedTarget.gobanContainerHeight,
+                        },
+                        gobanContent: {
+                            previewGobanContentSize: appliedTarget.previewGobanContentSize,
+                            predictedNativeGobanContentSize:
+                                appliedTarget.predictedNativeGobanContentSize ?? null,
+                        },
+                    },
                 });
             }
             commitPendingMobileSplitRatio("pointerup-flush");
-            mobileDraftTransientDragControllerRef.current?.finishTransientDrag(finalWindowSize);
+            mobileDraftTransientDragControllerRef.current?.finishTransientDragFromAppliedTarget(
+                appliedTarget,
+            );
+            lastAppliedMobileResizeTargetRef.current = null;
             setMobileDividerDragging(false);
             stopDrag();
             if (isKibitzBoardSizeDebugEnabled()) {
                 recordKibitzBoardSizeEvent("mobile-divider:pointer-up", {
                     pointerId: event.pointerId,
-                    finalRatio: lastCommittedMobileSplitRatioRef.current,
+                    finalRatio: appliedTarget.dividerRatio,
                     gestureState: "active",
                     hadActiveDrag: true,
                 });
@@ -1408,6 +1438,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             pendingMobileSplitRatioRef.current = null;
             mobileDividerMoveDebugPendingRef.current = null;
             mobileDividerFastVisualLogAtRef.current = 0;
+            lastAppliedMobileResizeTargetRef.current = null;
             setMobileDividerDragging(false);
             window.removeEventListener("pointermove", onPointerMove);
             window.removeEventListener("pointerup", onPointerUp);
@@ -3053,6 +3084,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 });
             }
             event.preventDefault();
+            lastAppliedMobileResizeTargetRef.current = null;
             mobileDragStateRef.current = {
                 pointerId: event.pointerId,
                 startY: event.clientY,

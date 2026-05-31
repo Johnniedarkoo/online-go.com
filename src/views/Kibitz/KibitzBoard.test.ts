@@ -34,6 +34,7 @@ import {
     computeRecenterScale,
     computeMeasuredTransientDragContentSize,
     computeTransientDragGeometry,
+    computeTransientDragReleaseGeometryFromAppliedTarget,
     computeTransientDragReleaseGeometry,
     computeTransientDragScale,
     computeTransientDragVisualBoardSize,
@@ -359,6 +360,50 @@ describe("computeTransientDragReleaseGeometry", () => {
             fromWindowSize: 374,
             toWindowSize: 374,
             preserveRestingRect: true,
+        });
+    });
+});
+
+describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
+    it("commits the last applied target without remeasuring a new release window", () => {
+        expect(
+            computeTransientDragReleaseGeometryFromAppliedTarget({
+                target: {
+                    dividerRatio: 0.5,
+                    boardSurfaceWidth: 374,
+                    boardSurfaceHeight: 382,
+                    gobanContainerWidth: 374,
+                    gobanContainerHeight: 382,
+                    previewGobanContentSize: 360,
+                    predictedNativeGobanContentSize: 360,
+                    legacyVisualSize: 378,
+                    legacyFinalWindowSize: 378,
+                    usingRestingMaxGeometry: true,
+                    transformScale: 1,
+                    dragScale: 1,
+                    gobanLeft: 7,
+                    gobanTop: 0,
+                },
+                lastVisibleContentSize: 360,
+                lastVisibleLeft: 7,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: true,
+            }),
+        ).toEqual({
+            boardSurfaceWidth: 374,
+            boardSurfaceHeight: 382,
+            gobanContainerWidth: 374,
+            gobanContainerHeight: 382,
+            finalNativeContentSize: 360,
+            fromContentSize: 360,
+            toContentSize: 360,
+            fromLeft: 7,
+            toLeft: 7,
+            contentDelta: 0,
+            windowDelta: 0,
+            targetSource: "last-applied-target",
+            boardSurfacePreserved: true,
         });
     });
 });
