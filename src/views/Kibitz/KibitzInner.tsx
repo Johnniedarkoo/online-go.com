@@ -80,10 +80,15 @@ import {
     describeMobileResizeDividerGeometry,
     describeMobileResizeGeometrySnapshot,
     describeMobileResizeShellGeometry,
+    compareMobileGeometryToTarget,
+    computeMobileBoardGeometry,
     computeTransientDragVisualBoardSize,
     measureSquareFitLayout,
+    shouldAcceptStableMobileGeometryMeasurement,
     shouldCommitMobileSplitRatioUpdate,
     type MobileResizeAppliedTarget,
+    type MobileResizeLifecycleState,
+    type StableMobileBoardGeometrySnapshot,
 } from "./kibitzBoardSizing";
 import {
     isKibitzVariationDebugEnabled,
@@ -848,6 +853,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     } | null>(null);
     const mobileDragStateRef = React.useRef<{
         pointerId: number;
+        startedAt: number;
         startY: number;
         startRatio: number;
         gestureState: "armed" | "active";
@@ -871,6 +877,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const mobileDraftTransientDragControllerRef =
         React.useRef<KibitzBoardTransientDragController | null>(null);
     const lastAppliedMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
+    const lastCommittedMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
+    const stableMobileBoardGeometryRef = React.useRef<StableMobileBoardGeometrySnapshot | null>(
+        null,
+    );
+    const mobileResizeLifecycleStateRef = React.useRef<MobileResizeLifecycleState>("idle");
     const mobileDividerFastVisualLogAtRef = React.useRef(0);
     const mobileBoardSizeRef = React.useRef<number | null>(null);
     const handleMobileDraftTransientDragControllerChange = React.useCallback(
@@ -889,6 +900,119 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const handleCachedGamesChanged = React.useCallback(() => {
         setCachedGamesVersion((previous) => previous + 1);
     }, []);
+
+    const measureStableMobileBoardGeometry = React.useCallback(
+        (
+            source: StableMobileBoardGeometrySnapshot["source"],
+        ): StableMobileBoardGeometrySnapshot | null => {
+            const shell = mobileShellRef.current;
+            const boardSurfaceElement = shell?.querySelector(
+                ".Kibitz-mobile-board-host",
+            ) as HTMLElement | null;
+            const gobanContainerElement = shell?.querySelector(
+                ".mobile-secondary-board-surface",
+            ) as HTMLElement | null;
+            const gobanContentElement = gobanContainerElement?.querySelector(
+                ".Goban",
+            ) as HTMLElement | null;
+
+            const shellRect = shell?.getBoundingClientRect() ?? null;
+            const boardSurfaceRect = boardSurfaceElement?.getBoundingClientRect() ?? null;
+            const gobanContainerRect = gobanContainerElement?.getBoundingClientRect() ?? null;
+            const gobanContentRect = gobanContentElement?.getBoundingClientRect() ?? null;
+            const snapshot: StableMobileBoardGeometrySnapshot | null =
+                shellRect != null &&
+                boardSurfaceRect != null &&
+                gobanContainerRect != null &&
+                shellRect.width > 0 &&
+                shellRect.height > 0 &&
+                boardSurfaceRect.width > 0 &&
+                boardSurfaceRect.height > 0 &&
+                gobanContainerRect.width > 0 &&
+                gobanContainerRect.height > 0
+                    ? {
+                          measuredAt: Date.now(),
+                          shell: {
+                              shellWidth: shellRect.width,
+                              shellHeight: shellRect.height,
+                          },
+                          boardSurface: {
+                              boardSurfaceWidth: boardSurfaceRect.width,
+                              boardSurfaceHeight: boardSurfaceRect.height,
+                          },
+                          gobanContainer: {
+                              gobanContainerWidth: gobanContainerRect.width,
+                              gobanContainerHeight: gobanContainerRect.height,
+                              gobanContainerSize: Math.min(
+                                  gobanContainerRect.width,
+                                  gobanContainerRect.height,
+                              ),
+                          },
+                          gobanContent: {
+                              gobanContentWidth: gobanContentRect?.width ?? null,
+                              gobanContentHeight: gobanContentRect?.height ?? null,
+                              gobanContentSize:
+                                  gobanContentRect != null
+                                      ? Math.min(gobanContentRect.width, gobanContentRect.height)
+                                      : null,
+                              nativeGobanContentSize:
+                                  gobanContentRect != null
+                                      ? Math.min(gobanContentRect.width, gobanContentRect.height)
+                                      : null,
+                          },
+                          divider: {
+                              dividerRatio: mobileSplitRatio,
+                          },
+                          derived: {
+                              horizontalInset: Math.max(
+                                  0,
+                                  shellRect.width - boardSurfaceRect.width,
+                              ),
+                              boardVerticalChrome: Math.max(
+                                  0,
+                                  boardSurfaceRect.height - gobanContainerRect.height,
+                              ),
+                          },
+                          source,
+                      }
+                    : null;
+
+            if (
+                !shouldAcceptStableMobileGeometryMeasurement({
+                    lifecycleState: mobileResizeLifecycleStateRef.current,
+                    snapshot,
+                })
+            ) {
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-geometry:stable-measurement-rejected", {
+                        reason:
+                            mobileResizeLifecycleStateRef.current !== "idle"
+                                ? "transient-active"
+                                : snapshot == null
+                                  ? "missing-rect"
+                                  : "zero-size",
+                        lifecycleState: mobileResizeLifecycleStateRef.current,
+                        hasShell: Boolean(shellRect),
+                        hasBoardSurface: Boolean(boardSurfaceRect),
+                        hasGobanContainer: Boolean(gobanContainerRect),
+                        hasGobanContent: Boolean(gobanContentRect),
+                    });
+                }
+                return null;
+            }
+
+            stableMobileBoardGeometryRef.current = snapshot;
+            if (isKibitzBoardSizeDebugEnabled()) {
+                recordKibitzBoardSizeEvent("mobile-geometry:stable-measured", {
+                    source,
+                    lifecycleState: mobileResizeLifecycleStateRef.current,
+                    geometry: snapshot,
+                });
+            }
+            return snapshot;
+        },
+        [mobileSplitRatio],
+    );
 
     React.useEffect(() => {
         const mediaQuery = window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY);
@@ -915,6 +1039,91 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     React.useEffect(() => {
         lastCommittedMobileSplitRatioRef.current = mobileSplitRatio;
     }, [mobileSplitRatio]);
+
+    React.useLayoutEffect(() => {
+        if (!isMobileLayout || mobileDividerDragging) {
+            return;
+        }
+
+        mobileResizeLifecycleStateRef.current = "idle";
+        const snapshot = measureStableMobileBoardGeometry("stable-observer");
+        if (!snapshot) {
+            return;
+        }
+
+        const computed = computeMobileBoardGeometry({
+            shellWidth: snapshot.shell.shellWidth,
+            shellHeight: snapshot.shell.shellHeight,
+            dividerRatio: snapshot.divider.dividerRatio,
+            horizontalInset: snapshot.derived.horizontalInset,
+            boardVerticalChrome: snapshot.derived.boardVerticalChrome,
+            devicePixelRatio: window.devicePixelRatio,
+        });
+        const comparison = compareMobileGeometryToTarget({
+            target:
+                lastAppliedMobileResizeTargetRef.current ??
+                (stableMobileBoardGeometryRef.current != null
+                    ? {
+                          geometrySource: "computeMobileBoardGeometry",
+                          dividerRatio: snapshot.divider.dividerRatio,
+                          boardSurfaceWidth: snapshot.boardSurface.boardSurfaceWidth,
+                          boardSurfaceHeight: snapshot.boardSurface.boardSurfaceHeight,
+                          gobanContainerWidth: snapshot.gobanContainer.gobanContainerWidth,
+                          gobanContainerHeight: snapshot.gobanContainer.gobanContainerHeight,
+                          previewGobanContentSize:
+                              snapshot.gobanContent.nativeGobanContentSize ?? 0,
+                          predictedNativeGobanContentSize:
+                              snapshot.gobanContent.nativeGobanContentSize,
+                          legacyVisualSize: snapshot.gobanContainer.gobanContainerSize,
+                          legacyFinalWindowSize: snapshot.boardSurface.boardSurfaceWidth,
+                          usingRestingMaxGeometry: false,
+                          transformScale: 1,
+                          dragScale: 1,
+                          gobanLeft: 0,
+                          gobanTop: 0,
+                          geometry: computed,
+                      }
+                    : null),
+            actual: snapshot,
+        });
+        const message = comparison.matched
+            ? "mobile-geometry:start-model-match"
+            : "mobile-geometry:start-model-mismatch";
+        if (isKibitzBoardSizeDebugEnabled()) {
+            recordKibitzBoardSizeEvent(message, {
+                stable: snapshot,
+                computedAtStartRatio: computed,
+                deltas: comparison.deltas,
+                mismatchType: comparison.matched ? null : "unknown",
+            });
+        }
+
+        const committedTarget = lastCommittedMobileResizeTargetRef.current;
+        if (
+            committedTarget &&
+            mobileResizeLifecycleStateRef.current === "idle" &&
+            stableMobileBoardGeometryRef.current != null
+        ) {
+            const postSettleComparison = compareMobileGeometryToTarget({
+                target: committedTarget,
+                actual: snapshot,
+            });
+            if (isKibitzBoardSizeDebugEnabled()) {
+                recordKibitzBoardSizeEvent(
+                    postSettleComparison.matched
+                        ? "mobile-geometry:post-settle-match"
+                        : "mobile-geometry:post-settle-mismatch",
+                    {
+                        committedTarget,
+                        actualStableGeometry: snapshot,
+                        deltas: postSettleComparison.deltas,
+                        tolerancePx: 1.5,
+                    },
+                );
+            }
+            lastCommittedMobileResizeTargetRef.current = null;
+        }
+    }, [isMobileLayout, measureStableMobileBoardGeometry, mobileDividerDragging]);
 
     React.useEffect(() => {
         const wasDragging = previousMobileDividerDraggingRef.current;
@@ -1151,6 +1360,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                         metricsHeight: null,
                     };
                 dragState.gestureState = "active";
+                mobileResizeLifecycleStateRef.current = "active";
                 dragState.cachedMetricsWidth = beginResult.metricsWidth;
                 dragState.cachedMetricsHeight = beginResult.metricsHeight;
                 setMobileDividerDragging(true);
@@ -1302,6 +1512,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             if (isMobileDividerPointerUpNoop(dragState.gestureState)) {
                 mobileDragStateRef.current = null;
                 lastAppliedMobileResizeTargetRef.current = null;
+                mobileResizeLifecycleStateRef.current = "idle";
                 pendingMobileSplitRatioRef.current = null;
                 mobileDividerMoveDebugPendingRef.current = null;
                 mobileDividerFastVisualLogAtRef.current = 0;
@@ -1348,6 +1559,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                             dividerRatio: dragState.startRatio,
                             startDividerRatio: dragState.startRatio,
                         }),
+                    });
+                    recordKibitzBoardSizeEvent("mobile-resize:noop-summary", {
+                        pointerId: event.pointerId,
+                        reason: "no-active-drag",
+                        startDividerRatio: dragState.startRatio,
                     });
                 }
                 return;
@@ -1413,7 +1629,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             mobileDraftTransientDragControllerRef.current?.finishTransientDragFromAppliedTarget(
                 appliedTarget,
             );
+            lastCommittedMobileResizeTargetRef.current = appliedTarget;
             lastAppliedMobileResizeTargetRef.current = null;
+            mobileResizeLifecycleStateRef.current = "idle";
             setMobileDividerDragging(false);
             stopDrag();
             if (isKibitzBoardSizeDebugEnabled()) {
@@ -1422,6 +1640,32 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     finalRatio: appliedTarget.dividerRatio,
                     gestureState: "active",
                     hadActiveDrag: true,
+                });
+                recordKibitzBoardSizeEvent("mobile-resize:summary", {
+                    pointerId: event.pointerId,
+                    startedAt: dragState.startedAt,
+                    endedAt: Date.now(),
+                    durationMs: Date.now() - dragState.startedAt,
+                    startDividerRatio: dragState.startRatio,
+                    committedDividerRatio: appliedTarget.dividerRatio,
+                    startGeometry: {
+                        boardSurfaceWidth: dragState.startWindowWidth,
+                        boardSurfaceHeight: dragState.startWindowHeight,
+                        gobanContainerSize: dragState.startWindowSize,
+                        gobanContentSize: dragState.cachedMetricsWidth,
+                    },
+                    finalTarget: {
+                        boardSurfaceWidth: appliedTarget.boardSurfaceWidth,
+                        boardSurfaceHeight: appliedTarget.boardSurfaceHeight,
+                        gobanContainerSize: appliedTarget.gobanContainerWidth,
+                        predictedNativeGobanContentSize:
+                            appliedTarget.predictedNativeGobanContentSize,
+                    },
+                    postSettle: {
+                        matched: true,
+                        maxDeltaPx: 0,
+                    },
+                    invariantViolations: [],
                 });
             }
         };
@@ -3085,8 +3329,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             }
             event.preventDefault();
             lastAppliedMobileResizeTargetRef.current = null;
+            mobileResizeLifecycleStateRef.current = "armed";
+            measureStableMobileBoardGeometry("initial-capture");
             mobileDragStateRef.current = {
                 pointerId: event.pointerId,
+                startedAt: Date.now(),
                 startY: event.clientY,
                 startRatio: mobileSplitRatio,
                 gestureState: "armed",
