@@ -152,6 +152,10 @@ export type MobileResizeDividerGeometry = {
 
 export type MobileResizeGeometrySnapshot = {
     shell?: MobileResizeShellGeometry;
+    boardSizingSlot?: {
+        boardSizingSlotWidth: number | null;
+        boardSizingSlotHeight: number | null;
+    };
     boardSurface: MobileResizeBoardSurfaceGeometry;
     gobanContainer: MobileResizeGobanContainerGeometry;
     gobanContent: MobileResizeGobanContentGeometry;
@@ -163,6 +167,10 @@ export type StableMobileBoardGeometrySnapshot = {
     shell: {
         shellWidth: number;
         shellHeight: number;
+    };
+    boardSizingSlot?: {
+        boardSizingSlotWidth: number;
+        boardSizingSlotHeight: number;
     };
     boardSurface: {
         boardSurfaceWidth: number;
@@ -223,6 +231,15 @@ export function shouldAcceptStableMobileGeometryMeasurement({
     );
 }
 
+export type MobileGeometryMismatchType =
+    | "horizontal-inset"
+    | "vertical-chrome"
+    | "surface-container-confusion"
+    | "content-prediction"
+    | "wrong-shell-basis"
+    | "unknown"
+    | null;
+
 export function compareMobileGeometryToTarget({
     target,
     actual,
@@ -234,6 +251,7 @@ export function compareMobileGeometryToTarget({
 }): {
     matched: boolean;
     maxDeltaPx: number;
+    mismatchType: MobileGeometryMismatchType;
     deltas: {
         boardSurfaceWidth: number | null;
         boardSurfaceHeight: number | null;
@@ -246,6 +264,7 @@ export function compareMobileGeometryToTarget({
         return {
             matched: false,
             maxDeltaPx: Number.POSITIVE_INFINITY,
+            mismatchType: null,
             deltas: {
                 boardSurfaceWidth: null,
                 boardSurfaceHeight: null,
@@ -279,10 +298,23 @@ export function compareMobileGeometryToTarget({
         gobanContainerHeightDelta,
         gobanContentSizeDelta ?? 0,
     );
+    const mismatchType = classifyMobileGeometryMismatch({
+        target,
+        actual,
+        tolerancePx,
+        deltas: {
+            boardSurfaceWidth: boardSurfaceWidthDelta,
+            boardSurfaceHeight: boardSurfaceHeightDelta,
+            gobanContainerWidth: gobanContainerWidthDelta,
+            gobanContainerHeight: gobanContainerHeightDelta,
+            gobanContentSize: gobanContentSizeDelta,
+        },
+    });
 
     return {
         matched: maxDeltaPx <= tolerancePx,
         maxDeltaPx,
+        mismatchType,
         deltas: {
             boardSurfaceWidth: boardSurfaceWidthDelta,
             boardSurfaceHeight: boardSurfaceHeightDelta,
@@ -291,6 +323,100 @@ export function compareMobileGeometryToTarget({
             gobanContentSize: gobanContentSizeDelta,
         },
     };
+}
+
+export function classifyMobileGeometryMismatch({
+    target,
+    actual,
+    tolerancePx = 1.5,
+    deltas,
+}: {
+    target: MobileResizeAppliedTarget | null;
+    actual: StableMobileBoardGeometrySnapshot | null;
+    tolerancePx?: number;
+    deltas?: {
+        boardSurfaceWidth: number | null;
+        boardSurfaceHeight: number | null;
+        gobanContainerWidth: number | null;
+        gobanContainerHeight: number | null;
+        gobanContentSize: number | null;
+    };
+}): MobileGeometryMismatchType {
+    if (!target || !actual) {
+        return null;
+    }
+
+    const boardSurfaceWidthDelta =
+        deltas?.boardSurfaceWidth ??
+        Math.abs(actual.boardSurface.boardSurfaceWidth - target.boardSurfaceWidth);
+    const boardSurfaceHeightDelta =
+        deltas?.boardSurfaceHeight ??
+        Math.abs(actual.boardSurface.boardSurfaceHeight - target.boardSurfaceHeight);
+    const gobanContainerWidthDelta =
+        deltas?.gobanContainerWidth ??
+        Math.abs(actual.gobanContainer.gobanContainerWidth - target.gobanContainerWidth);
+    const gobanContainerHeightDelta =
+        deltas?.gobanContainerHeight ??
+        Math.abs(actual.gobanContainer.gobanContainerHeight - target.gobanContainerHeight);
+    const gobanContentSizeDelta =
+        deltas?.gobanContentSize ??
+        (actual.gobanContent.nativeGobanContentSize != null
+            ? Math.abs(actual.gobanContent.nativeGobanContentSize - target.previewGobanContentSize)
+            : null);
+
+    if (
+        boardSurfaceWidthDelta <= tolerancePx &&
+        boardSurfaceHeightDelta <= tolerancePx &&
+        gobanContainerWidthDelta <= tolerancePx &&
+        gobanContainerHeightDelta <= tolerancePx
+    ) {
+        return gobanContentSizeDelta != null && gobanContentSizeDelta > tolerancePx
+            ? "content-prediction"
+            : null;
+    }
+
+    if (
+        boardSurfaceWidthDelta > tolerancePx &&
+        boardSurfaceHeightDelta <= tolerancePx &&
+        gobanContainerWidthDelta > tolerancePx &&
+        gobanContainerHeightDelta <= tolerancePx
+    ) {
+        return "horizontal-inset";
+    }
+
+    if (
+        boardSurfaceHeightDelta > tolerancePx &&
+        boardSurfaceWidthDelta <= tolerancePx &&
+        gobanContainerHeightDelta > tolerancePx &&
+        gobanContainerWidthDelta <= tolerancePx
+    ) {
+        return "vertical-chrome";
+    }
+
+    if (
+        boardSurfaceWidthDelta > tolerancePx &&
+        boardSurfaceHeightDelta > tolerancePx &&
+        gobanContainerWidthDelta > tolerancePx &&
+        gobanContainerHeightDelta > tolerancePx &&
+        Math.abs(boardSurfaceWidthDelta - gobanContainerWidthDelta) <= tolerancePx &&
+        Math.abs(boardSurfaceHeightDelta - gobanContainerHeightDelta) <= tolerancePx
+    ) {
+        return "surface-container-confusion";
+    }
+
+    if (
+        boardSurfaceWidthDelta > tolerancePx &&
+        boardSurfaceHeightDelta > tolerancePx &&
+        actual.shell.shellWidth > target.boardSurfaceWidth + tolerancePx
+    ) {
+        return "wrong-shell-basis";
+    }
+
+    if (gobanContentSizeDelta != null && gobanContentSizeDelta > tolerancePx) {
+        return "content-prediction";
+    }
+
+    return "unknown";
 }
 
 export function describeBoardSurfaceFromHostRect(
@@ -353,12 +479,17 @@ export function describeMobileResizeDividerGeometry({
 
 export function describeMobileResizeGeometrySnapshot({
     shell,
+    boardSizingSlot,
     boardSurface,
     gobanContainer,
     gobanContent,
     divider,
 }: {
     shell?: MobileResizeShellGeometry;
+    boardSizingSlot?: {
+        boardSizingSlotWidth: number | null;
+        boardSizingSlotHeight: number | null;
+    };
     boardSurface: MobileResizeBoardSurfaceGeometry;
     gobanContainer: MobileResizeGobanContainerGeometry;
     gobanContent: MobileResizeGobanContentGeometry;
@@ -366,6 +497,7 @@ export function describeMobileResizeGeometrySnapshot({
 }): MobileResizeGeometrySnapshot {
     return {
         shell,
+        boardSizingSlot,
         boardSurface,
         gobanContainer,
         gobanContent,
@@ -401,6 +533,8 @@ export interface MobileBoardGeometryInput {
     shellWidth: number;
     shellHeight: number;
     dividerRatio: number;
+    boardSizingSlotWidth?: number;
+    boardSizingSlotHeight?: number;
     horizontalInset: number;
     boardVerticalChrome: number;
     minBoardPaneHeight?: number;
@@ -417,6 +551,10 @@ export interface MobileBoardGeometry {
     shell: {
         shellWidth: number;
         shellHeight: number;
+    };
+    boardSizingSlot: {
+        boardSizingSlotWidth: number;
+        boardSizingSlotHeight: number;
     };
     divider: {
         dividerRatio: number;
@@ -453,6 +591,8 @@ export function computeMobileBoardGeometry({
     shellWidth,
     shellHeight,
     dividerRatio,
+    boardSizingSlotWidth,
+    boardSizingSlotHeight,
     horizontalInset,
     boardVerticalChrome,
     minBoardPaneHeight = 0,
@@ -465,6 +605,14 @@ export function computeMobileBoardGeometry({
 }: MobileBoardGeometryInput): MobileBoardGeometry {
     const safeShellWidth = Math.max(0, shellWidth);
     const safeShellHeight = Math.max(0, shellHeight);
+    const safeBoardSizingSlotWidth = Math.max(
+        0,
+        Math.floor(boardSizingSlotWidth ?? safeShellWidth),
+    );
+    const safeBoardSizingSlotHeight = Math.max(
+        0,
+        Math.floor(boardSizingSlotHeight ?? safeShellHeight),
+    );
     const safeDividerRatio = clampMobileRatio(dividerRatio);
     const safeHorizontalInset = Math.max(0, horizontalInset);
     const safeBoardVerticalChrome = Math.max(0, boardVerticalChrome);
@@ -477,7 +625,10 @@ export function computeMobileBoardGeometry({
             ),
         ),
     );
-    const boardSurfaceWidth = Math.max(0, Math.floor(safeShellWidth - safeHorizontalInset));
+    const boardSurfaceWidth = Math.max(
+        0,
+        Math.floor(safeBoardSizingSlotWidth - safeHorizontalInset),
+    );
     const boardSurfaceHeight = boardPaneHeight;
     const availableContainerHeight = Math.max(0, boardSurfaceHeight - safeBoardVerticalChrome);
     const gobanContainerSize = Math.max(
@@ -505,6 +656,10 @@ export function computeMobileBoardGeometry({
         shell: {
             shellWidth: safeShellWidth,
             shellHeight: safeShellHeight,
+        },
+        boardSizingSlot: {
+            boardSizingSlotWidth: safeBoardSizingSlotWidth,
+            boardSizingSlotHeight: safeBoardSizingSlotHeight,
         },
         divider: {
             dividerRatio: safeDividerRatio,
@@ -549,6 +704,11 @@ export interface MobileResizeAppliedTarget {
     geometry: MobileBoardGeometry;
 }
 
+/**
+ * Compatibility adapter only.
+ * Authoritative mobile resize geometry comes from computeMobileBoardGeometry(...).
+ * Keep this helper stable for legacy tests, but do not route new behavior through it.
+ */
 export function computeTransientDragGeometry({
     visualSize,
     startWindowWidth,

@@ -32,12 +32,14 @@ import {
     describeMobileResizeGeometrySnapshot,
     describeMobileResizeShellGeometry,
     computeRecenterScale,
+    computeMobileBoardGeometry,
     computeMeasuredTransientDragContentSize,
     computeTransientDragGeometry,
     computeTransientDragReleaseGeometryFromAppliedTarget,
     computeTransientDragReleaseGeometry,
     computeTransientDragScale,
     computeTransientDragVisualBoardSize,
+    compareMobileGeometryToTarget,
     isKibitzBoardResizeStale,
     predictNativeGobanContentSize,
     shouldCommitMobileSplitRatioUpdate,
@@ -188,6 +190,10 @@ describe("computeMeasuredTransientDragContentSize", () => {
 describe("mobile resize geometry terminology", () => {
     it("maps the current DOM measurements into named geometry fields", () => {
         const shell = describeMobileResizeShellGeometry(390, 640);
+        const boardSizingSlot = {
+            boardSizingSlotWidth: 382,
+            boardSizingSlotHeight: 640,
+        };
         const boardSurface = describeBoardSurfaceFromHostRect({
             width: 374,
             height: 382,
@@ -209,6 +215,7 @@ describe("mobile resize geometry terminology", () => {
         expect(
             describeMobileResizeGeometrySnapshot({
                 shell,
+                boardSizingSlot,
                 boardSurface,
                 gobanContainer,
                 gobanContent,
@@ -218,6 +225,10 @@ describe("mobile resize geometry terminology", () => {
             shell: {
                 shellWidth: 390,
                 shellHeight: 640,
+            },
+            boardSizingSlot: {
+                boardSizingSlotWidth: 382,
+                boardSizingSlotHeight: 640,
             },
             boardSurface: {
                 boardSurfaceWidth: 374,
@@ -344,6 +355,142 @@ describe("computeTransientDragGeometry", () => {
     });
 });
 
+describe("computeMobileBoardGeometry", () => {
+    it("keeps the board surface rectangular while the goban container remains square", () => {
+        const geometry = computeMobileBoardGeometry({
+            shellWidth: 394,
+            shellHeight: 640,
+            boardSizingSlotWidth: 382,
+            dividerRatio: 0.609375,
+            horizontalInset: 8,
+            boardVerticalChrome: 16,
+            boardWidth: 18,
+            boardHeight: 18,
+            showLabels: true,
+        });
+
+        expect(geometry.boardSizingSlot).toEqual({
+            boardSizingSlotWidth: 382,
+            boardSizingSlotHeight: 640,
+        });
+        expect(geometry.boardSurface).toEqual({
+            boardSurfaceWidth: 374,
+            boardSurfaceHeight: 390,
+        });
+        expect(geometry.gobanContainer).toEqual({
+            gobanContainerWidth: 374,
+            gobanContainerHeight: 374,
+            gobanContainerSize: 374,
+            gobanContainerLeft: 0,
+            gobanContainerTop: 0,
+        });
+        expect(geometry.gobanContent.predictedNativeGobanContentSize).toBe(360);
+    });
+
+    it("grows monotonically from a smaller board without freezing at the start size", () => {
+        const smaller = computeMobileBoardGeometry({
+            shellWidth: 394,
+            shellHeight: 640,
+            boardSizingSlotWidth: 382,
+            dividerRatio: 0.4,
+            horizontalInset: 8,
+            boardVerticalChrome: 16,
+            boardWidth: 18,
+            boardHeight: 18,
+            showLabels: true,
+        });
+        const larger = computeMobileBoardGeometry({
+            shellWidth: 394,
+            shellHeight: 640,
+            boardSizingSlotWidth: 382,
+            dividerRatio: 0.55,
+            horizontalInset: 8,
+            boardVerticalChrome: 16,
+            boardWidth: 18,
+            boardHeight: 18,
+            showLabels: true,
+        });
+
+        expect(larger.boardSurface.boardSurfaceWidth).toBe(smaller.boardSurface.boardSurfaceWidth);
+        expect(larger.boardSurface.boardSurfaceHeight).toBeGreaterThan(
+            smaller.boardSurface.boardSurfaceHeight,
+        );
+        expect(larger.gobanContainer.gobanContainerSize).toBeGreaterThan(
+            smaller.gobanContainer.gobanContainerSize,
+        );
+    });
+});
+
+describe("mobile geometry mismatch classification", () => {
+    it("classifies a vertical chrome mismatch", () => {
+        const target = {
+            geometrySource: "computeMobileBoardGeometry",
+            dividerRatio: 0.609375,
+            boardSurfaceWidth: 374,
+            boardSurfaceHeight: 390,
+            gobanContainerWidth: 374,
+            gobanContainerHeight: 374,
+            previewGobanContentSize: 360,
+            predictedNativeGobanContentSize: 360,
+            legacyVisualSize: 374,
+            legacyFinalWindowSize: 374,
+            usingRestingMaxGeometry: false,
+            transformScale: 1,
+            dragScale: 1,
+            gobanLeft: 0,
+            gobanTop: 0,
+            geometry: computeMobileBoardGeometry({
+                shellWidth: 394,
+                shellHeight: 640,
+                boardSizingSlotWidth: 382,
+                dividerRatio: 0.609375,
+                horizontalInset: 8,
+                boardVerticalChrome: 16,
+                boardWidth: 18,
+                boardHeight: 18,
+                showLabels: true,
+            }),
+        };
+        const actual = {
+            measuredAt: 1,
+            shell: {
+                shellWidth: 394,
+                shellHeight: 640,
+            },
+            boardSurface: {
+                boardSurfaceWidth: 374,
+                boardSurfaceHeight: 394,
+            },
+            gobanContainer: {
+                gobanContainerWidth: 374,
+                gobanContainerHeight: 378,
+                gobanContainerSize: 374,
+            },
+            gobanContent: {
+                gobanContentWidth: 360,
+                gobanContentHeight: 360,
+                gobanContentSize: 360,
+                nativeGobanContentSize: 360,
+            },
+            divider: {
+                dividerRatio: 0.609375,
+            },
+            derived: {
+                horizontalInset: 8,
+                boardVerticalChrome: 16,
+            },
+            source: "stable-observer" as const,
+        };
+
+        const comparison = compareMobileGeometryToTarget({
+            target: target as Parameters<typeof compareMobileGeometryToTarget>[0]["target"],
+            actual: actual as Parameters<typeof compareMobileGeometryToTarget>[0]["actual"],
+        });
+
+        expect(comparison.mismatchType).toBe("vertical-chrome");
+    });
+});
+
 describe("computeTransientDragReleaseGeometry", () => {
     it("preserves the resting max rect during release from the real max-start runtime inputs", () => {
         expect(
@@ -389,6 +536,10 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                         shell: {
                             shellWidth: 382,
                             shellHeight: 640,
+                        },
+                        boardSizingSlot: {
+                            boardSizingSlotWidth: 382,
+                            boardSizingSlotHeight: 640,
                         },
                         divider: {
                             dividerRatio: 0.5,

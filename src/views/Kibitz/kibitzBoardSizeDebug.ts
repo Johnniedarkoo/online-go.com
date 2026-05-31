@@ -58,6 +58,25 @@ export function isKibitzBoardSizeDebugEnabled(): boolean {
     return stored === "1";
 }
 
+export function isKibitzBoardSizeVerboseDebugEnabled(): boolean {
+    if (!isKibitzBoardSizeDebugEnabled() || typeof window === "undefined") {
+        return false;
+    }
+
+    const debugWindow = window as KibitzBoardSizeDebugWindow;
+    const debugConfig = debugWindow.debug as
+        | {
+              kibitz_board_size_verbose?: boolean;
+          }
+        | undefined;
+    if (debugConfig?.kibitz_board_size_verbose === true) {
+        return true;
+    }
+
+    const stored = debugWindow.localStorage?.getItem("ogs.debug.kibitz_board_size.verbose");
+    return stored === "1";
+}
+
 export function getKibitzElementMetrics(
     element: HTMLElement | null,
 ): Record<string, unknown> | null {

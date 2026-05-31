@@ -24,6 +24,7 @@ import * as preferences from "@/lib/preferences";
 import {
     getKibitzElementMetrics,
     isKibitzBoardSizeDebugEnabled,
+    isKibitzBoardSizeVerboseDebugEnabled,
     recordKibitzBoardSizeEvent,
 } from "./kibitzBoardSizeDebug";
 import {
@@ -695,6 +696,8 @@ export function KibitzBoard({
                     transientMetrics.shellHeight != null && transientMetrics.shellHeight > 0
                         ? visualSize / transientMetrics.shellHeight
                         : 0,
+                boardSizingSlotWidth: startWindowWidth,
+                boardSizingSlotHeight: startWindowHeight,
                 horizontalInset: Math.max(
                     0,
                     (transientMetrics.shellWidth ?? startWindowWidth) - startWindowWidth,
@@ -762,9 +765,12 @@ export function KibitzBoard({
                     input: {
                         shellWidth: geometry.shell.shellWidth,
                         shellHeight: geometry.shell.shellHeight,
+                        boardSizingSlotWidth: geometry.boardSizingSlot.boardSizingSlotWidth,
+                        boardSizingSlotHeight: geometry.boardSizingSlot.boardSizingSlotHeight,
                         horizontalInset: Math.max(
                             0,
-                            geometry.shell.shellWidth - geometry.boardSurface.boardSurfaceWidth,
+                            geometry.boardSizingSlot.boardSizingSlotWidth -
+                                geometry.boardSurface.boardSurfaceWidth,
                         ),
                         boardVerticalChrome: Math.max(
                             0,
@@ -777,6 +783,8 @@ export function KibitzBoard({
                             typeof window !== "undefined" ? window.devicePixelRatio : 1,
                     },
                     output: {
+                        boardSizingSlotWidth: geometry.boardSizingSlot.boardSizingSlotWidth,
+                        boardSizingSlotHeight: geometry.boardSizingSlot.boardSizingSlotHeight,
                         boardSurfaceWidth: geometry.boardSurface.boardSurfaceWidth,
                         boardSurfaceHeight: geometry.boardSurface.boardSurfaceHeight,
                         gobanContainerSize: geometry.gobanContainer.gobanContainerSize,
@@ -788,7 +796,11 @@ export function KibitzBoard({
             }
 
             const now = Date.now();
-            if (isKibitzBoardSizeDebugEnabled() && now - transientMetrics.lastLogAt >= 120) {
+            if (
+                isKibitzBoardSizeDebugEnabled() &&
+                isKibitzBoardSizeVerboseDebugEnabled() &&
+                now - transientMetrics.lastLogAt >= 120
+            ) {
                 transientMetrics.lastLogAt = now;
                 const hostMetrics = getKibitzElementMetrics(host);
                 const containerMetrics = getKibitzElementMetrics(container);
@@ -796,6 +808,8 @@ export function KibitzBoard({
                 recordKibitzBoardSizeEvent("mobile-geometry:applied-target", {
                     source: "computeMobileBoardGeometry",
                     pointerId: null,
+                    boardSizingSlotWidth: target.geometry.boardSizingSlot.boardSizingSlotWidth,
+                    boardSizingSlotHeight: target.geometry.boardSizingSlot.boardSizingSlotHeight,
                     boardSurfaceWidth: target.boardSurfaceWidth,
                     boardSurfaceHeight: target.boardSurfaceHeight,
                     gobanContainerWidth: target.gobanContainerWidth,
