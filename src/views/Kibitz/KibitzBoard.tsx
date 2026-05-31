@@ -27,7 +27,6 @@ import {
     recordKibitzBoardSizeEvent,
 } from "./kibitzBoardSizeDebug";
 import {
-    clampTransientPreviewGap,
     computeRecenterScale,
     computeTransientDragScale,
     isKibitzBoardResizeStale,
@@ -386,7 +385,6 @@ export function KibitzBoard({
     const scheduleFinalTransientClearWhenNativeReadyRef = React.useRef<
         (finalSizeHint: number) => void
     >(() => {});
-    const transientPreviewGapRef = React.useRef<number | null>(null);
     const lastAppliedTransientContentSizeRef = React.useRef<number | null>(null);
     const transientDragMetricsRef = React.useRef<{
         metricsWidth: number | null;
@@ -514,15 +512,6 @@ export function KibitzBoard({
         const metrics = gobanController?.computeMetrics?.();
         const metricsWidth = typeof metrics?.width === "number" ? metrics.width : null;
         const metricsHeight = typeof metrics?.height === "number" ? metrics.height : null;
-        const hostRect = boardHostRef.current?.getBoundingClientRect();
-        const currentWindowSize = Math.max(
-            0,
-            Math.floor(Math.min(hostRect?.width ?? 0, hostRect?.height ?? 0)),
-        );
-        const startGap =
-            metricsWidth != null && currentWindowSize > 0
-                ? clampTransientPreviewGap(Math.max(0, currentWindowSize - metricsWidth))
-                : null;
 
         transientDragMetricsRef.current = {
             metricsWidth,
@@ -530,7 +519,6 @@ export function KibitzBoard({
             lastLogAt: 0,
             active: true,
         };
-        transientPreviewGapRef.current = startGap;
         lastAppliedTransientContentSizeRef.current = metricsWidth;
 
         return {
@@ -561,24 +549,11 @@ export function KibitzBoard({
 
             setTransientSquareSize(host, visualSize);
             setTransientSquareSize(container, visualSize);
-            const predictedNativeContentSize = predictNativeGobanContentSize({
-                targetSlotSize: visualSize,
-                boardWidth: width,
-                boardHeight: height,
-                showLabels,
-            });
-            const exactNativeGap = Math.max(0, visualSize - predictedNativeContentSize);
-            const previousPreviewGap = transientPreviewGapRef.current ?? exactNativeGap;
-            const previewGap = clampTransientPreviewGap(
-                previousPreviewGap + (exactNativeGap - previousPreviewGap) * 0.25,
-            );
-            transientPreviewGapRef.current = previewGap;
-            const contentSize = Math.max(1, visualSize - previewGap);
-            lastAppliedTransientContentSizeRef.current = contentSize;
-            const scale = computeTransientDragScale(contentSize, metricsWidth);
+            lastAppliedTransientContentSizeRef.current = visualSize;
+            const scale = computeTransientDragScale(visualSize, metricsWidth);
             gobanElement.style.transformOrigin = "top left";
             gobanElement.style.transform = `scale(${scale})`;
-            gobanElement.style.left = `${Math.max(0, Math.floor((visualSize - contentSize) / 2))}px`;
+            gobanElement.style.left = "0px";
             gobanElement.style.top = "0px";
             gobanElement.style.pointerEvents = "none";
 
@@ -606,12 +581,8 @@ export function KibitzBoard({
                         (allowTransientDragScalingRef.current ||
                             transientDragFinalizingRef.current),
                     visualSize,
-                    contentSize,
-                    previewGap,
                     cachedMetricsWidth: metricsWidth,
                     cachedMetricsHeight: metricsHeight,
-                    predictedNativeContentSize,
-                    exactNativeGap,
                     scale,
                 });
                 recordKibitzBoardSizeEvent("kibitz-board:drag-fast-layout", {
@@ -627,10 +598,6 @@ export function KibitzBoard({
                     containerRectHeight: containerMetrics?.rectHeight ?? null,
                     gobanRectWidth: gobanMetrics?.rectWidth ?? null,
                     gobanRectHeight: gobanMetrics?.rectHeight ?? null,
-                    contentSize,
-                    previewGap,
-                    predictedNativeContentSize,
-                    exactNativeGap,
                     gobanLeft: gobanElement.style.left,
                     gobanTop: gobanElement.style.top,
                     transform: gobanElement.style.transform,
@@ -719,7 +686,6 @@ export function KibitzBoard({
             gobanElement.style.pointerEvents = "";
         }
         transientDragMetricsRef.current = null;
-        transientPreviewGapRef.current = null;
         lastAppliedTransientContentSizeRef.current = null;
     }, [displaySize, size]);
 
@@ -774,11 +740,8 @@ export function KibitzBoard({
                 pendingTransientDragClearFrameRef.current = null;
             }
 
-            const startTime = performance.now();
-            const durationMs = 110;
             let attempts = 0;
             let timeoutLogged = false;
-            let lastLoggedContentSize: number | null = null;
 
             const check = () => {
                 if (pendingTransientDragFinalSizeRef.current == null) {
@@ -790,38 +753,14 @@ export function KibitzBoard({
 
                 const gobanController = controllerRef.current?.goban;
                 const metrics = gobanController?.computeMetrics?.();
-                const metricWidth = Number(metrics?.width ?? NaN);
                 const predictedNativeContentSize = predictNativeGobanContentSize({
                     targetSlotSize: finalSizeHint,
                     boardWidth: width,
                     boardHeight: height,
                     showLabels,
                 });
-                const animationProgress = Math.min(1, (performance.now() - startTime) / durationMs);
-                const easedProgress = 1 - Math.pow(1 - animationProgress, 2);
-                const fromContentSize = lastAppliedTransientContentSizeRef.current ?? finalSizeHint;
-                const currentContentSize = Math.round(
-                    fromContentSize +
-                        (predictedNativeContentSize - fromContentSize) * easedProgress,
-                );
-                const currentLeft = Math.max(
-                    0,
-                    Math.floor((finalSizeHint - currentContentSize) / 2),
-                );
 
-                if (Number.isFinite(metricWidth) && metricWidth > 0 && gobanDiv.current) {
-                    const scale = currentContentSize / metricWidth;
-                    gobanDiv.current.style.transformOrigin = "top left";
-                    gobanDiv.current.style.transform = `scale(${scale})`;
-                    gobanDiv.current.style.left = `${currentLeft}px`;
-                    gobanDiv.current.style.top = "0px";
-                    gobanDiv.current.style.pointerEvents = "none";
-                }
-
-                if (
-                    Math.abs(animationProgress - 1) <= 0.001 &&
-                    isNativeFinalResizeReady(finalSizeHint)
-                ) {
+                if (isNativeFinalResizeReady(finalSizeHint)) {
                     const hostRect = boardHostRef.current?.getBoundingClientRect();
                     const containerRect = gobanContainerRef.current?.getBoundingClientRect();
                     const gobanRect = gobanDiv.current.getBoundingClientRect();
@@ -852,24 +791,6 @@ export function KibitzBoard({
                         attempts,
                     });
                     return;
-                }
-
-                if (
-                    lastLoggedContentSize == null ||
-                    Math.abs(lastLoggedContentSize - currentContentSize) >= 1
-                ) {
-                    lastLoggedContentSize = currentContentSize;
-                    recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-animate", {
-                        ...getKibitzBoardMetricsSnapshot("transient-drag-final-animate"),
-                        finalSizeHint,
-                        predictedNativeContentSize,
-                        metricsWidth: metrics?.width ?? null,
-                        metricsHeight: metrics?.height ?? null,
-                        currentContentSize,
-                        currentLeft,
-                        animationProgress,
-                        attempts,
-                    });
                 }
 
                 if (attempts > 30 && !timeoutLogged) {
