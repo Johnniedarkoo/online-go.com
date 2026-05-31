@@ -19,6 +19,7 @@ export function computeRecenterScale({
     fitMode,
     coordinateSafeInput,
     allowTransientDragScaling = false,
+    coordinateSafeInputActiveOverride,
     metricsWidth,
     metricsHeight,
     containerWidth,
@@ -27,12 +28,14 @@ export function computeRecenterScale({
     fitMode: "native" | "contain";
     coordinateSafeInput: boolean;
     allowTransientDragScaling?: boolean;
+    coordinateSafeInputActiveOverride?: boolean;
     metricsWidth: number;
     metricsHeight: number;
     containerWidth: number;
     containerHeight: number;
 }): number {
-    const coordinateSafeInputActive = coordinateSafeInput && !allowTransientDragScaling;
+    const coordinateSafeInputActive =
+        coordinateSafeInputActiveOverride ?? (coordinateSafeInput && !allowTransientDragScaling);
     const allowCssTransformScaling = fitMode === "contain" && !coordinateSafeInputActive;
 
     return allowCssTransformScaling && metricsWidth > 0 && metricsHeight > 0
@@ -67,6 +70,94 @@ export function computeTransientDragVisualBoardSize({
     const usableBoardHeight = topPaneHeight - reservedBoardVerticalSpace;
 
     return Math.max(0, Math.floor(Math.min(boardSlotMaxWidth, usableBoardHeight)));
+}
+
+export interface SquareFitLayoutMetrics {
+    slotWidth: number;
+    slotHeight: number;
+    parentClientHeight: number;
+    reservedHeight: number;
+    visibleChildrenCount: number;
+    rowGap: number;
+    fallbackHeight: number;
+    usableHeight: number;
+    nextSize: number;
+}
+
+export function computeSquareFitSizeFromMetrics({
+    slotWidth,
+    slotHeight,
+    parentClientHeight,
+    reservedHeight,
+    visibleChildrenCount,
+    rowGap,
+    constrainToParentHeight,
+}: {
+    slotWidth: number;
+    slotHeight: number;
+    parentClientHeight: number;
+    reservedHeight: number;
+    visibleChildrenCount: number;
+    rowGap: number;
+    constrainToParentHeight: boolean;
+}): SquareFitLayoutMetrics {
+    const fallbackHeight = Math.max(
+        0,
+        parentClientHeight - reservedHeight - rowGap * Math.max(0, visibleChildrenCount - 1),
+    );
+    const usableHeight = constrainToParentHeight
+        ? fallbackHeight > 0
+            ? Math.min(slotHeight || fallbackHeight, fallbackHeight)
+            : slotHeight
+        : Math.max(slotHeight, fallbackHeight);
+    const nextSize = Math.max(0, Math.floor(Math.min(slotWidth, usableHeight)));
+
+    return {
+        slotWidth,
+        slotHeight,
+        parentClientHeight,
+        reservedHeight,
+        visibleChildrenCount,
+        rowGap,
+        fallbackHeight,
+        usableHeight,
+        nextSize,
+    };
+}
+
+export function measureSquareFitLayout(
+    element: HTMLElement,
+    constrainToParentHeight: boolean,
+): SquareFitLayoutMetrics {
+    const parent = element.parentElement;
+    const parentStyle = parent ? window.getComputedStyle(parent) : null;
+    const rowGap = Number.parseFloat(parentStyle?.rowGap ?? parentStyle?.gap ?? "0") || 0;
+    const visibleChildren = parent
+        ? Array.from(parent.children).filter(
+              (child): child is HTMLElement =>
+                  child instanceof HTMLElement && child.offsetParent !== null,
+          )
+        : [];
+    const reservedHeight = visibleChildren.reduce((total, child) => {
+        if (child === element || child.classList.contains("board-content-spacer")) {
+            return total;
+        }
+
+        return total + child.getBoundingClientRect().height;
+    }, 0);
+    const slotRect = element.getBoundingClientRect();
+    const slotWidth = Math.floor(slotRect.width || element.clientWidth || 0);
+    const slotHeight = Math.floor(slotRect.height || element.clientHeight || 0);
+
+    return computeSquareFitSizeFromMetrics({
+        slotWidth,
+        slotHeight,
+        parentClientHeight: parent?.clientHeight ?? 0,
+        reservedHeight,
+        visibleChildrenCount: visibleChildren.length,
+        rowGap,
+        constrainToParentHeight,
+    });
 }
 
 export function isKibitzBoardResizeStale({

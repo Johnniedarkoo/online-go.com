@@ -47,6 +47,7 @@ import {
     hydrateMainBoardFromRoomBaseSnapshot,
     restoreMainBoardToOfficialTail,
 } from "./kibitzCurrentGameBaseSnapshot";
+import { measureSquareFitLayout } from "./kibitzBoardSizing";
 import type {
     KibitzBoardLoadConfig,
     KibitzCurrentGameBaseSnapshot,
@@ -107,6 +108,7 @@ interface KibitzRoomStageProps {
     onMobileDraftTransientDragControllerChange?: (
         controller: KibitzBoardTransientDragController | null,
     ) => void;
+    onMobileBoardSizeChange?: (size: number | null) => void;
     onSelectMobileCompanionPanel?: (panel: "chat" | "vote" | "compare") => void;
     onOpenMobileRooms?: () => void;
     onMobileCompareControllerChange?: (controller: GobanController | null) => void;
@@ -594,50 +596,21 @@ function useSquareFitSize<T extends HTMLElement>(
         let raf = 0;
 
         const measure = () => {
-            const parent = element.parentElement;
-            const parentStyle = parent ? window.getComputedStyle(parent) : null;
-            const rowGap = Number.parseFloat(parentStyle?.rowGap ?? parentStyle?.gap ?? "0") || 0;
-            const visibleChildren = parent
-                ? Array.from(parent.children).filter(
-                      (child): child is HTMLElement =>
-                          child instanceof HTMLElement && child.offsetParent !== null,
-                  )
-                : [];
-            const reservedHeight = visibleChildren.reduce((total, child) => {
-                if (child === element || child.classList.contains("board-content-spacer")) {
-                    return total;
-                }
-
-                return total + child.getBoundingClientRect().height;
-            }, 0);
-            const fallbackHeight = Math.max(
-                0,
-                (parent?.clientHeight ?? 0) -
-                    reservedHeight -
-                    rowGap * Math.max(0, visibleChildren.length - 1),
-            );
-            const slotRect = element.getBoundingClientRect();
-            const slotWidth = Math.floor(slotRect.width || element.clientWidth || 0);
-            const slotHeight = Math.floor(slotRect.height || element.clientHeight || 0);
-            const usableHeight = constrainToParentHeight
-                ? fallbackHeight > 0
-                    ? Math.min(slotHeight || fallbackHeight, fallbackHeight)
-                    : slotHeight
-                : Math.max(slotHeight, fallbackHeight);
-            const nextSize = Math.max(0, Math.floor(Math.min(slotWidth, usableHeight)));
+            const metrics = measureSquareFitLayout(element, constrainToParentHeight);
+            const nextSize = metrics.nextSize;
             const previousSize = sizeRef.current;
             if (isKibitzBoardSizeDebugEnabled()) {
                 recordKibitzBoardSizeEvent("square-fit:measure", {
                     debugLabel: debugLabel ?? null,
                     layoutKey,
                     constrainToParentHeight,
-                    slotWidth,
-                    slotHeight,
-                    parentClientHeight: parent?.clientHeight ?? 0,
-                    reservedHeight,
-                    rowGap,
-                    fallbackHeight,
-                    usableHeight,
+                    slotWidth: metrics.slotWidth,
+                    slotHeight: metrics.slotHeight,
+                    parentClientHeight: metrics.parentClientHeight,
+                    reservedHeight: metrics.reservedHeight,
+                    rowGap: metrics.rowGap,
+                    fallbackHeight: metrics.fallbackHeight,
+                    usableHeight: metrics.usableHeight,
                     previousSize,
                     nextSize,
                     changed: previousSize !== nextSize,
@@ -2090,6 +2063,7 @@ export function KibitzRoomStage({
     mobileHasActiveVote = false,
     mobileDividerDragging = false,
     onMobileDraftTransientDragControllerChange,
+    onMobileBoardSizeChange,
     onSelectMobileCompanionPanel,
     onOpenMobileRooms,
     onMobileCompareControllerChange,
@@ -2927,6 +2901,9 @@ export function KibitzRoomStage({
         secondaryBoardRemountNonce,
     ]);
     const mobileCompareActive = Boolean(isMobileLayout && mobileCompanionPanel === "compare");
+    React.useEffect(() => {
+        onMobileBoardSizeChange?.(mobileBoardSize);
+    }, [mobileBoardSize, onMobileBoardSizeChange]);
     const mobileSecondaryOwnerRequested = React.useMemo<
         "draft" | "preview" | "variation" | "none"
     >(() => {
