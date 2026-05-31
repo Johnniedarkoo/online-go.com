@@ -369,6 +369,7 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
         expect(
             computeTransientDragReleaseGeometryFromAppliedTarget({
                 target: {
+                    geometrySource: "computeMobileBoardGeometry",
                     dividerRatio: 0.5,
                     boardSurfaceWidth: 374,
                     boardSurfaceHeight: 382,
@@ -383,6 +384,34 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                     dragScale: 1,
                     gobanLeft: 7,
                     gobanTop: 0,
+                    geometry: {
+                        modelVersion: "phase-6-corrected",
+                        shell: {
+                            shellWidth: 382,
+                            shellHeight: 640,
+                        },
+                        divider: {
+                            dividerRatio: 0.5,
+                            boardPaneHeight: 320,
+                        },
+                        boardSurface: {
+                            boardSurfaceWidth: 374,
+                            boardSurfaceHeight: 382,
+                        },
+                        gobanContainer: {
+                            gobanContainerWidth: 374,
+                            gobanContainerHeight: 374,
+                            gobanContainerSize: 374,
+                            gobanContainerLeft: 0,
+                            gobanContainerTop: 0,
+                        },
+                        gobanContent: {
+                            predictedNativeGobanContentSize: 360,
+                            previewGobanContentSize: 360,
+                            gobanContentLeft: 7,
+                            gobanContentTop: 7,
+                        },
+                    },
                 },
                 lastVisibleContentSize: 360,
                 lastVisibleLeft: 7,

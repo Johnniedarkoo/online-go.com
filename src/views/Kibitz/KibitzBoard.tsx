@@ -32,7 +32,7 @@ import {
     describeGobanContentFromMetrics,
     describeMobileResizeGeometrySnapshot,
     computeRecenterScale,
-    computeTransientDragGeometry,
+    computeMobileBoardGeometry,
     computeTransientDragReleaseGeometryFromAppliedTarget,
     isKibitzBoardResizeStale,
     type MobileResizeAppliedTarget,
@@ -403,6 +403,8 @@ export function KibitzBoard({
         metricsWidth: number | null;
         metricsHeight: number | null;
         transientBoardWindowMaxSize: number | null;
+        shellWidth: number | null;
+        shellHeight: number | null;
         startWindowWidth: number | null;
         startWindowHeight: number | null;
         startWindowSize: number | null;
@@ -601,6 +603,8 @@ export function KibitzBoard({
                 metricsWidth,
                 metricsHeight,
                 transientBoardWindowMaxSize,
+                shellWidth: startWindowWidth,
+                shellHeight: startWindowHeight,
                 startWindowWidth,
                 startWindowHeight,
                 startWindowSize,
@@ -684,54 +688,104 @@ export function KibitzBoard({
                 return null;
             }
 
-            const geometry = computeTransientDragGeometry({
-                visualSize,
-                startWindowWidth,
-                startWindowHeight,
-                startWindowSize,
-                startContentSize,
-                metricsWidth,
-                startedAtHorizontalMax,
-                transientBoardWindowMaxSize,
-            });
-            if (geometry.contentSize <= 0) {
-                return null;
-            }
-
-            setTransientRectSize(host, geometry.hostWidth, geometry.hostHeight);
-            setTransientRectSize(container, geometry.containerWidth, geometry.containerHeight);
-            gobanElement.style.transformOrigin = "top left";
-            gobanElement.style.transform = `scale(${geometry.transformScale})`;
-            gobanElement.style.left = `${geometry.gobanLeft}px`;
-            gobanElement.style.top = "0px";
-            gobanElement.style.pointerEvents = "none";
-            transientMetrics.startedAtHorizontalMax = startedAtHorizontalMax;
-            transientMetrics.usingRestingMaxGeometry = geometry.usingRestingMaxGeometry;
-            transientMetrics.lastWindowSize = geometry.containerWidth;
-            transientMetrics.lastContentSize = geometry.contentSize;
-            lastAppliedTransientContentSizeRef.current = geometry.contentSize;
-            const predictedNativeGobanContentSize = predictNativeGobanContentSize({
-                targetSlotSize: geometry.containerWidth,
+            const geometry = computeMobileBoardGeometry({
+                shellWidth: transientMetrics.shellWidth ?? startWindowWidth,
+                shellHeight: transientMetrics.shellHeight ?? startWindowHeight,
+                dividerRatio:
+                    transientMetrics.shellHeight != null && transientMetrics.shellHeight > 0
+                        ? visualSize / transientMetrics.shellHeight
+                        : 0,
+                horizontalInset: Math.max(
+                    0,
+                    (transientMetrics.shellWidth ?? startWindowWidth) - startWindowWidth,
+                ),
+                boardVerticalChrome: Math.max(0, startWindowHeight - startContentSize),
+                minGobanContainerSize: 0,
+                devicePixelRatio: typeof window !== "undefined" ? window.devicePixelRatio : 1,
                 boardWidth: width,
                 boardHeight: height,
                 showLabels,
             });
+            if (geometry.gobanContent.previewGobanContentSize <= 0) {
+                return null;
+            }
+
+            setTransientRectSize(
+                host,
+                geometry.boardSurface.boardSurfaceWidth,
+                geometry.boardSurface.boardSurfaceHeight,
+            );
+            setTransientRectSize(
+                container,
+                geometry.gobanContainer.gobanContainerWidth,
+                geometry.gobanContainer.gobanContainerHeight,
+            );
+            gobanElement.style.transformOrigin = "top left";
+            gobanElement.style.transform = `scale(${
+                geometry.gobanContent.previewGobanContentSize / Math.max(1, metricsWidth)
+            })`;
+            gobanElement.style.left = `${geometry.gobanContainer.gobanContainerLeft}px`;
+            gobanElement.style.top = "0px";
+            gobanElement.style.pointerEvents = "none";
+            transientMetrics.startedAtHorizontalMax = startedAtHorizontalMax;
+            transientMetrics.usingRestingMaxGeometry = false;
+            transientMetrics.lastWindowSize = geometry.boardSurface.boardSurfaceWidth;
+            transientMetrics.lastContentSize = geometry.gobanContent.previewGobanContentSize;
+            lastAppliedTransientContentSizeRef.current =
+                geometry.gobanContent.previewGobanContentSize;
             const target: MobileResizeAppliedTarget = {
+                geometrySource: "computeMobileBoardGeometry",
                 dividerRatio: dividerRatio ?? 0,
-                boardSurfaceWidth: geometry.hostWidth,
-                boardSurfaceHeight: geometry.hostHeight,
-                gobanContainerWidth: geometry.containerWidth,
-                gobanContainerHeight: geometry.containerHeight,
-                previewGobanContentSize: geometry.contentSize,
-                predictedNativeGobanContentSize,
+                boardSurfaceWidth: geometry.boardSurface.boardSurfaceWidth,
+                boardSurfaceHeight: geometry.boardSurface.boardSurfaceHeight,
+                gobanContainerWidth: geometry.gobanContainer.gobanContainerWidth,
+                gobanContainerHeight: geometry.gobanContainer.gobanContainerHeight,
+                previewGobanContentSize: geometry.gobanContent.previewGobanContentSize,
+                predictedNativeGobanContentSize:
+                    geometry.gobanContent.predictedNativeGobanContentSize,
                 legacyVisualSize: visualSize,
-                legacyFinalWindowSize: geometry.containerWidth,
-                usingRestingMaxGeometry: geometry.usingRestingMaxGeometry,
-                transformScale: geometry.transformScale,
-                dragScale: geometry.dragScale,
-                gobanLeft: geometry.gobanLeft,
-                gobanTop: geometry.gobanTop,
+                legacyFinalWindowSize: geometry.gobanContainer.gobanContainerWidth,
+                usingRestingMaxGeometry: false,
+                transformScale:
+                    geometry.gobanContent.previewGobanContentSize / Math.max(1, metricsWidth),
+                dragScale: geometry.boardSurface.boardSurfaceWidth / Math.max(1, startWindowSize),
+                gobanLeft: geometry.gobanContainer.gobanContainerLeft,
+                gobanTop: geometry.gobanContainer.gobanContainerTop,
+                geometry,
             };
+
+            if (isKibitzBoardSizeDebugEnabled()) {
+                recordKibitzBoardSizeEvent("mobile-geometry:computed-target", {
+                    source: "computeMobileBoardGeometry",
+                    pointerId: null,
+                    dividerRatio: target.dividerRatio,
+                    input: {
+                        shellWidth: geometry.shell.shellWidth,
+                        shellHeight: geometry.shell.shellHeight,
+                        horizontalInset: Math.max(
+                            0,
+                            geometry.shell.shellWidth - geometry.boardSurface.boardSurfaceWidth,
+                        ),
+                        boardVerticalChrome: Math.max(
+                            0,
+                            geometry.boardSurface.boardSurfaceHeight -
+                                geometry.gobanContainer.gobanContainerSize,
+                        ),
+                        minBoardPaneHeight: 0,
+                        maxBoardPaneHeight: geometry.shell.shellHeight,
+                        devicePixelRatio:
+                            typeof window !== "undefined" ? window.devicePixelRatio : 1,
+                    },
+                    output: {
+                        boardSurfaceWidth: geometry.boardSurface.boardSurfaceWidth,
+                        boardSurfaceHeight: geometry.boardSurface.boardSurfaceHeight,
+                        gobanContainerSize: geometry.gobanContainer.gobanContainerSize,
+                        previewGobanContentSize: geometry.gobanContent.previewGobanContentSize,
+                        predictedNativeGobanContentSize:
+                            geometry.gobanContent.predictedNativeGobanContentSize,
+                    },
+                });
+            }
 
             const now = Date.now();
             if (isKibitzBoardSizeDebugEnabled() && now - transientMetrics.lastLogAt >= 120) {
@@ -739,6 +793,15 @@ export function KibitzBoard({
                 const hostMetrics = getKibitzElementMetrics(host);
                 const containerMetrics = getKibitzElementMetrics(container);
                 const gobanMetrics = getKibitzElementMetrics(gobanElement);
+                recordKibitzBoardSizeEvent("mobile-geometry:applied-target", {
+                    source: "computeMobileBoardGeometry",
+                    pointerId: null,
+                    boardSurfaceWidth: target.boardSurfaceWidth,
+                    boardSurfaceHeight: target.boardSurfaceHeight,
+                    gobanContainerWidth: target.gobanContainerWidth,
+                    gobanContainerHeight: target.gobanContainerHeight,
+                    gobanContentSize: target.previewGobanContentSize,
+                });
                 recordKibitzBoardSizeEvent("kibitz-board:drag-fast-scale", {
                     role: boardRole,
                     gameId,
@@ -757,20 +820,23 @@ export function KibitzBoard({
                         (allowTransientDragScalingRef.current ||
                             transientDragFinalizingRef.current),
                     visualSize,
-                    contentSize: geometry.contentSize,
+                    contentSize: geometry.gobanContent.previewGobanContentSize,
                     dividerRatio: target.dividerRatio,
                     startWindowWidth,
                     startWindowHeight,
                     startWindowSize,
                     startContentSize,
                     startedAtHorizontalMax,
-                    usingRestingMaxGeometry: geometry.usingRestingMaxGeometry,
+                    usingRestingMaxGeometry: false,
                     transientBoardWindowMaxSize,
                     startGap: transientMetrics.startGap,
-                    dragScale: geometry.dragScale,
+                    dragScale:
+                        geometry.boardSurface.boardSurfaceWidth / Math.max(1, startWindowSize),
                     cachedMetricsWidth: metricsWidth,
                     cachedMetricsHeight: metricsHeight,
-                    transformScale: geometry.transformScale,
+                    transformScale:
+                        geometry.gobanContent.previewGobanContentSize / Math.max(1, metricsWidth),
+                    geometry: geometry,
                 });
                 recordKibitzBoardSizeEvent("kibitz-board:drag-fast-layout", {
                     role: boardRole,
@@ -785,19 +851,22 @@ export function KibitzBoard({
                     containerRectHeight: containerMetrics?.rectHeight ?? null,
                     gobanRectWidth: gobanMetrics?.rectWidth ?? null,
                     gobanRectHeight: gobanMetrics?.rectHeight ?? null,
-                    contentSize: geometry.contentSize,
+                    contentSize: geometry.gobanContent.previewGobanContentSize,
                     startWindowWidth,
                     startWindowHeight,
                     startWindowSize,
                     startContentSize,
                     startedAtHorizontalMax,
-                    usingRestingMaxGeometry: geometry.usingRestingMaxGeometry,
+                    usingRestingMaxGeometry: false,
                     startGap: transientMetrics.startGap,
-                    dragScale: geometry.dragScale,
-                    transformScale: geometry.transformScale,
+                    dragScale:
+                        geometry.boardSurface.boardSurfaceWidth / Math.max(1, startWindowSize),
+                    transformScale:
+                        geometry.gobanContent.previewGobanContentSize / Math.max(1, metricsWidth),
                     gobanLeft: gobanElement.style.left,
                     gobanTop: gobanElement.style.top,
                     transform: gobanElement.style.transform,
+                    geometry,
                 });
             }
 

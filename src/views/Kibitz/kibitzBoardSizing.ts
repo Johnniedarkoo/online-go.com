@@ -158,6 +158,141 @@ export type MobileResizeGeometrySnapshot = {
     divider?: MobileResizeDividerGeometry;
 };
 
+export type StableMobileBoardGeometrySnapshot = {
+    measuredAt: number;
+    shell: {
+        shellWidth: number;
+        shellHeight: number;
+    };
+    boardSurface: {
+        boardSurfaceWidth: number;
+        boardSurfaceHeight: number;
+    };
+    gobanContainer: {
+        gobanContainerWidth: number;
+        gobanContainerHeight: number;
+        gobanContainerSize: number;
+    };
+    gobanContent: {
+        gobanContentWidth: number | null;
+        gobanContentHeight: number | null;
+        gobanContentSize: number | null;
+        nativeGobanContentSize: number | null;
+    };
+    divider: {
+        dividerRatio: number;
+    };
+    derived: {
+        horizontalInset: number;
+        boardVerticalChrome: number;
+    };
+    source: "stable-observer" | "initial-capture" | "post-settle";
+};
+
+export type MobileResizeLifecycleState =
+    | "idle"
+    | "armed"
+    | "active"
+    | "release-settle"
+    | "native-handoff"
+    | "final-clear";
+
+export function shouldAcceptStableMobileGeometryMeasurement({
+    lifecycleState,
+    snapshot,
+}: {
+    lifecycleState: MobileResizeLifecycleState;
+    snapshot: StableMobileBoardGeometrySnapshot | null;
+}): boolean {
+    if (lifecycleState !== "idle") {
+        return false;
+    }
+
+    if (!snapshot) {
+        return false;
+    }
+
+    const { shell, boardSurface, gobanContainer } = snapshot;
+    return (
+        shell.shellWidth > 0 &&
+        shell.shellHeight > 0 &&
+        boardSurface.boardSurfaceWidth > 0 &&
+        boardSurface.boardSurfaceHeight > 0 &&
+        gobanContainer.gobanContainerWidth > 0 &&
+        gobanContainer.gobanContainerHeight > 0
+    );
+}
+
+export function compareMobileGeometryToTarget({
+    target,
+    actual,
+    tolerancePx = 1.5,
+}: {
+    target: MobileResizeAppliedTarget | null;
+    actual: StableMobileBoardGeometrySnapshot | null;
+    tolerancePx?: number;
+}): {
+    matched: boolean;
+    maxDeltaPx: number;
+    deltas: {
+        boardSurfaceWidth: number | null;
+        boardSurfaceHeight: number | null;
+        gobanContainerWidth: number | null;
+        gobanContainerHeight: number | null;
+        gobanContentSize: number | null;
+    };
+} {
+    if (!target || !actual) {
+        return {
+            matched: false,
+            maxDeltaPx: Number.POSITIVE_INFINITY,
+            deltas: {
+                boardSurfaceWidth: null,
+                boardSurfaceHeight: null,
+                gobanContainerWidth: null,
+                gobanContainerHeight: null,
+                gobanContentSize: null,
+            },
+        };
+    }
+
+    const boardSurfaceWidthDelta = Math.abs(
+        actual.boardSurface.boardSurfaceWidth - target.boardSurfaceWidth,
+    );
+    const boardSurfaceHeightDelta = Math.abs(
+        actual.boardSurface.boardSurfaceHeight - target.boardSurfaceHeight,
+    );
+    const gobanContainerWidthDelta = Math.abs(
+        actual.gobanContainer.gobanContainerWidth - target.gobanContainerWidth,
+    );
+    const gobanContainerHeightDelta = Math.abs(
+        actual.gobanContainer.gobanContainerHeight - target.gobanContainerHeight,
+    );
+    const gobanContentSizeDelta =
+        actual.gobanContent.nativeGobanContentSize != null
+            ? Math.abs(actual.gobanContent.nativeGobanContentSize - target.previewGobanContentSize)
+            : null;
+    const maxDeltaPx = Math.max(
+        boardSurfaceWidthDelta,
+        boardSurfaceHeightDelta,
+        gobanContainerWidthDelta,
+        gobanContainerHeightDelta,
+        gobanContentSizeDelta ?? 0,
+    );
+
+    return {
+        matched: maxDeltaPx <= tolerancePx,
+        maxDeltaPx,
+        deltas: {
+            boardSurfaceWidth: boardSurfaceWidthDelta,
+            boardSurfaceHeight: boardSurfaceHeightDelta,
+            gobanContainerWidth: gobanContainerWidthDelta,
+            gobanContainerHeight: gobanContainerHeightDelta,
+            gobanContentSize: gobanContentSizeDelta,
+        },
+    };
+}
+
 export function describeBoardSurfaceFromHostRect(
     rect: Pick<DOMRect, "width" | "height"> | null,
 ): MobileResizeBoardSurfaceGeometry {
@@ -262,7 +397,141 @@ export interface TransientDragGeometry {
     usingRestingMaxGeometry: boolean;
 }
 
+export interface MobileBoardGeometryInput {
+    shellWidth: number;
+    shellHeight: number;
+    dividerRatio: number;
+    horizontalInset: number;
+    boardVerticalChrome: number;
+    minBoardPaneHeight?: number;
+    maxBoardPaneHeight?: number;
+    minGobanContainerSize?: number;
+    devicePixelRatio?: number;
+    boardWidth?: number;
+    boardHeight?: number;
+    showLabels?: boolean;
+}
+
+export interface MobileBoardGeometry {
+    modelVersion: "phase-6-corrected";
+    shell: {
+        shellWidth: number;
+        shellHeight: number;
+    };
+    divider: {
+        dividerRatio: number;
+        boardPaneHeight: number;
+    };
+    boardSurface: {
+        boardSurfaceWidth: number;
+        boardSurfaceHeight: number;
+    };
+    gobanContainer: {
+        gobanContainerWidth: number;
+        gobanContainerHeight: number;
+        gobanContainerSize: number;
+        gobanContainerLeft: number;
+        gobanContainerTop: number;
+    };
+    gobanContent: {
+        predictedNativeGobanContentSize: number;
+        previewGobanContentSize: number;
+        gobanContentLeft: number;
+        gobanContentTop: number;
+    };
+}
+
+function clampMobileRatio(value: number): number {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+
+    return Math.max(0, Math.min(1, value));
+}
+
+export function computeMobileBoardGeometry({
+    shellWidth,
+    shellHeight,
+    dividerRatio,
+    horizontalInset,
+    boardVerticalChrome,
+    minBoardPaneHeight = 0,
+    maxBoardPaneHeight = shellHeight,
+    minGobanContainerSize = 0,
+    devicePixelRatio: _devicePixelRatio,
+    boardWidth = 19,
+    boardHeight = 19,
+    showLabels = false,
+}: MobileBoardGeometryInput): MobileBoardGeometry {
+    const safeShellWidth = Math.max(0, shellWidth);
+    const safeShellHeight = Math.max(0, shellHeight);
+    const safeDividerRatio = clampMobileRatio(dividerRatio);
+    const safeHorizontalInset = Math.max(0, horizontalInset);
+    const safeBoardVerticalChrome = Math.max(0, boardVerticalChrome);
+    const boardPaneHeight = Math.max(
+        0,
+        Math.floor(
+            Math.max(
+                minBoardPaneHeight,
+                Math.min(maxBoardPaneHeight, safeShellHeight * safeDividerRatio),
+            ),
+        ),
+    );
+    const boardSurfaceWidth = Math.max(0, Math.floor(safeShellWidth - safeHorizontalInset));
+    const boardSurfaceHeight = boardPaneHeight;
+    const availableContainerHeight = Math.max(0, boardSurfaceHeight - safeBoardVerticalChrome);
+    const gobanContainerSize = Math.max(
+        minGobanContainerSize,
+        Math.floor(Math.min(boardSurfaceWidth, availableContainerHeight)),
+    );
+    const predictedNativeGobanContentSize = predictNativeGobanContentSize({
+        targetSlotSize: gobanContainerSize,
+        boardWidth,
+        boardHeight,
+        showLabels,
+    });
+    const previewGobanContentSize = predictedNativeGobanContentSize;
+    const gobanContainerLeft = Math.max(
+        0,
+        Math.floor((boardSurfaceWidth - gobanContainerSize) / 2),
+    );
+    const gobanContentLeft = Math.max(
+        0,
+        Math.floor((gobanContainerSize - previewGobanContentSize) / 2),
+    );
+
+    return {
+        modelVersion: "phase-6-corrected",
+        shell: {
+            shellWidth: safeShellWidth,
+            shellHeight: safeShellHeight,
+        },
+        divider: {
+            dividerRatio: safeDividerRatio,
+            boardPaneHeight,
+        },
+        boardSurface: {
+            boardSurfaceWidth,
+            boardSurfaceHeight,
+        },
+        gobanContainer: {
+            gobanContainerWidth: gobanContainerSize,
+            gobanContainerHeight: gobanContainerSize,
+            gobanContainerSize,
+            gobanContainerLeft,
+            gobanContainerTop: 0,
+        },
+        gobanContent: {
+            predictedNativeGobanContentSize,
+            previewGobanContentSize,
+            gobanContentLeft,
+            gobanContentTop: gobanContentLeft,
+        },
+    };
+}
+
 export interface MobileResizeAppliedTarget {
+    geometrySource: "computeMobileBoardGeometry";
     dividerRatio: number;
     boardSurfaceWidth: number;
     boardSurfaceHeight: number;
@@ -277,6 +546,7 @@ export interface MobileResizeAppliedTarget {
     dragScale: number;
     gobanLeft: number;
     gobanTop: number;
+    geometry: MobileBoardGeometry;
 }
 
 export function computeTransientDragGeometry({
