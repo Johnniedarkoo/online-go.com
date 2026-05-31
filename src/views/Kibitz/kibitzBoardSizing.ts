@@ -72,6 +72,36 @@ export function computeTransientDragVisualBoardSize({
     return Math.max(0, Math.floor(Math.min(boardSlotMaxWidth, usableBoardHeight)));
 }
 
+export function computeTransientDragScale(visualSize: number, metricsWidth: number): number {
+    if (!Number.isFinite(visualSize) || !Number.isFinite(metricsWidth) || metricsWidth <= 0) {
+        return 1;
+    }
+
+    return visualSize / metricsWidth;
+}
+
+export function predictNativeGobanContentSize({
+    targetSlotSize,
+    boardWidth,
+    boardHeight,
+    showLabels,
+}: {
+    targetSlotSize: number;
+    boardWidth: number;
+    boardHeight: number;
+    showLabels: boolean;
+}): number {
+    const boardUnits = Math.max(boardWidth, boardHeight);
+    const labelUnits = showLabels ? 2 : 0;
+    const metricUnits = boardUnits + labelUnits;
+
+    if (!Number.isFinite(targetSlotSize) || targetSlotSize <= 0 || metricUnits <= 0) {
+        return 0;
+    }
+
+    return Math.max(metricUnits, Math.floor(targetSlotSize / metricUnits) * metricUnits);
+}
+
 export interface SquareFitLayoutMetrics {
     slotWidth: number;
     slotHeight: number;

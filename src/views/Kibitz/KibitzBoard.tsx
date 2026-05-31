@@ -26,7 +26,12 @@ import {
     isKibitzBoardSizeDebugEnabled,
     recordKibitzBoardSizeEvent,
 } from "./kibitzBoardSizeDebug";
-import { computeRecenterScale, isKibitzBoardResizeStale } from "./kibitzBoardSizing";
+import {
+    computeRecenterScale,
+    computeTransientDragScale,
+    isKibitzBoardResizeStale,
+    predictNativeGobanContentSize,
+} from "./kibitzBoardSizing";
 import { logKibitzVariationDebug, summarizeKibitzMoveTreeNode } from "./kibitzVariationDebug";
 import "./KibitzBoard.css";
 
@@ -377,6 +382,9 @@ export function KibitzBoard({
     const allowTransientDragScalingRef = React.useRef(allowTransientDragScaling);
     const pendingTransientDragFinalSizeRef = React.useRef<number | null>(null);
     const pendingTransientDragClearFrameRef = React.useRef<number | null>(null);
+    const scheduleFinalTransientClearWhenNativeReadyRef = React.useRef<
+        (finalSizeHint: number) => void
+    >(() => {});
     const transientDragMetricsRef = React.useRef<{
         metricsWidth: number | null;
         metricsHeight: number | null;
@@ -462,8 +470,7 @@ export function KibitzBoard({
                     ),
                 pointerEventsDisabledForTransientScaling:
                     coordinateSafeInput &&
-                    allowTransientDragScaling &&
-                    !transientDragFinalizingRef.current,
+                    (allowTransientDragScaling || transientDragFinalizingRef.current),
                 respectContainerBounds,
                 host: getKibitzElementMetrics(host),
                 container: getKibitzElementMetrics(container),
@@ -540,7 +547,7 @@ export function KibitzBoard({
 
             setTransientSquareSize(host, visualSize);
             setTransientSquareSize(container, visualSize);
-            const scale = visualSize / metricsWidth;
+            const scale = computeTransientDragScale(visualSize, metricsWidth);
             gobanElement.style.transformOrigin = "top left";
             gobanElement.style.transform = `scale(${scale})`;
             gobanElement.style.left = "0px";
@@ -567,7 +574,9 @@ export function KibitzBoard({
                         fitMode === "contain" &&
                         !(coordinateSafeInputRef.current && !allowTransientDragScalingRef.current),
                     pointerEventsDisabledForTransientScaling:
-                        coordinateSafeInputRef.current && allowTransientDragScalingRef.current,
+                        coordinateSafeInputRef.current &&
+                        (allowTransientDragScalingRef.current ||
+                            transientDragFinalizingRef.current),
                     visualSize,
                     cachedMetricsWidth: metricsWidth,
                     cachedMetricsHeight: metricsHeight,
@@ -613,19 +622,30 @@ export function KibitzBoard({
             setTransientSquareSize(host, finalSizeHint);
             setTransientSquareSize(container, finalSizeHint);
             applyTransientDragVisualSize(finalSizeHint);
+            gobanElement.style.pointerEvents = "none";
             recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-resize", {
                 ...getKibitzBoardMetricsSnapshot("transient-drag-final-resize"),
                 finalSizeHint,
                 allowTransientDragScaling,
                 coordinateSafeInput,
+                predictedNativeContentSize: predictNativeGobanContentSize({
+                    targetSlotSize: finalSizeHint,
+                    boardWidth: width,
+                    boardHeight: height,
+                    showLabels,
+                }),
             });
             onResizeRef.current(true, true);
+            scheduleFinalTransientClearWhenNativeReadyRef.current(finalSizeHint);
         },
         [
             allowTransientDragScaling,
             applyTransientDragVisualSize,
             coordinateSafeInput,
             getKibitzBoardMetricsSnapshot,
+            height,
+            showLabels,
+            width,
         ],
     );
 
@@ -665,6 +685,141 @@ export function KibitzBoard({
         }
         transientDragMetricsRef.current = null;
     }, [displaySize, size]);
+
+    const isNativeFinalResizeReady = React.useCallback(
+        (finalSizeHint: number): boolean => {
+            const gobanController = controllerRef.current?.goban;
+            const host = boardHostRef.current;
+            const container = gobanContainerRef.current;
+
+            if (!gobanController || !host || !container) {
+                return false;
+            }
+
+            if (host.offsetWidth <= 0 || host.offsetHeight <= 0) {
+                return false;
+            }
+
+            if (container.offsetWidth <= 0 || container.offsetHeight <= 0) {
+                return false;
+            }
+
+            const metrics = gobanController.computeMetrics?.();
+            const metricWidth = Number(metrics?.width ?? NaN);
+            const metricHeight = Number(metrics?.height ?? NaN);
+            if (!Number.isFinite(metricWidth) || !Number.isFinite(metricHeight)) {
+                return false;
+            }
+
+            const predictedNativeContentSize = predictNativeGobanContentSize({
+                targetSlotSize: finalSizeHint,
+                boardWidth: width,
+                boardHeight: height,
+                showLabels,
+            });
+
+            return (
+                Math.abs(metricWidth - predictedNativeContentSize) <= 1 &&
+                Math.abs(metricHeight - predictedNativeContentSize) <= 1
+            );
+        },
+        [height, showLabels, width],
+    );
+
+    const scheduleFinalTransientClearWhenNativeReady = React.useCallback(
+        (finalSizeHint: number) => {
+            if (!Number.isFinite(finalSizeHint) || finalSizeHint <= 0) {
+                return;
+            }
+
+            if (pendingTransientDragClearFrameRef.current !== null) {
+                window.cancelAnimationFrame(pendingTransientDragClearFrameRef.current);
+                pendingTransientDragClearFrameRef.current = null;
+            }
+
+            let attempts = 0;
+            let timeoutLogged = false;
+            const maxAttempts = 6;
+
+            const check = () => {
+                if (pendingTransientDragFinalSizeRef.current == null) {
+                    pendingTransientDragClearFrameRef.current = null;
+                    return;
+                }
+
+                attempts += 1;
+
+                if (isNativeFinalResizeReady(finalSizeHint)) {
+                    const gobanController = controllerRef.current?.goban;
+                    const metrics = gobanController?.computeMetrics?.();
+                    const predictedNativeContentSize = predictNativeGobanContentSize({
+                        targetSlotSize: finalSizeHint,
+                        boardWidth: width,
+                        boardHeight: height,
+                        showLabels,
+                    });
+
+                    recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-native-ready", {
+                        ...getKibitzBoardMetricsSnapshot("transient-drag-final-native-ready"),
+                        finalSizeHint,
+                        predictedNativeContentSize,
+                        metricsWidth: metrics?.width ?? null,
+                        metricsHeight: metrics?.height ?? null,
+                        attempts,
+                    });
+
+                    clearTransientDragPresentation();
+                    transientDragFinalizingRef.current = false;
+                    pendingTransientDragFinalSizeRef.current = null;
+                    pendingTransientDragClearFrameRef.current = null;
+
+                    const hostRect = boardHostRef.current?.getBoundingClientRect();
+                    const containerRect = gobanContainerRef.current?.getBoundingClientRect();
+                    const gobanRect = gobanDiv.current.getBoundingClientRect();
+                    recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-clear", {
+                        ...getKibitzBoardMetricsSnapshot("transient-drag-final-clear"),
+                        finalSizeHint,
+                        predictedNativeContentSize,
+                        metricsWidth: metrics?.width ?? null,
+                        metricsHeight: metrics?.height ?? null,
+                        hostRectWidth: hostRect?.width ?? null,
+                        hostRectHeight: hostRect?.height ?? null,
+                        containerRectWidth: containerRect?.width ?? null,
+                        containerRectHeight: containerRect?.height ?? null,
+                        gobanRectWidth: gobanRect?.width ?? null,
+                        gobanRectHeight: gobanRect?.height ?? null,
+                        attempts,
+                    });
+                    return;
+                }
+
+                if (attempts >= maxAttempts && !timeoutLogged) {
+                    timeoutLogged = true;
+                    recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-clear-timeout", {
+                        ...getKibitzBoardMetricsSnapshot("transient-drag-final-clear-timeout"),
+                        finalSizeHint,
+                        predictedNativeContentSize: predictNativeGobanContentSize({
+                            targetSlotSize: finalSizeHint,
+                            boardWidth: width,
+                            boardHeight: height,
+                            showLabels,
+                        }),
+                        attempts,
+                    });
+                }
+
+                pendingTransientDragClearFrameRef.current = window.requestAnimationFrame(check);
+            };
+
+            pendingTransientDragClearFrameRef.current = window.requestAnimationFrame(check);
+        },
+        [getKibitzBoardMetricsSnapshot, height, isNativeFinalResizeReady, showLabels, width],
+    );
+
+    React.useEffect(() => {
+        scheduleFinalTransientClearWhenNativeReadyRef.current =
+            scheduleFinalTransientClearWhenNativeReady;
+    }, [scheduleFinalTransientClearWhenNativeReady]);
 
     const transientDragController = React.useMemo<KibitzBoardTransientDragController>(
         () => ({
@@ -1049,12 +1204,17 @@ export function KibitzBoard({
             gobanElement.style.left = `${Math.max(0, Math.floor((containerWidth - visualWidth) / 2))}px`;
             gobanElement.style.pointerEvents =
                 coordinateSafeInput &&
-                allowTransientDragScaling &&
-                !transientDragFinalizingRef.current
+                (allowTransientDragScaling || transientDragFinalizingRef.current)
                     ? "none"
                     : "";
 
             const gobanElementMetrics = getKibitzElementMetrics(gobanElement);
+            const predictedNativeContentSize = predictNativeGobanContentSize({
+                targetSlotSize: containerWidth,
+                boardWidth: width,
+                boardHeight: height,
+                showLabels,
+            });
 
             recordKibitzBoardSizeEvent("kibitz-board:metrics:after-recenter", {
                 ...getKibitzBoardMetricsSnapshot("after-recenter"),
@@ -1064,8 +1224,7 @@ export function KibitzBoard({
                 allowCssTransformScaling,
                 pointerEventsDisabledForTransientScaling:
                     coordinateSafeInput &&
-                    allowTransientDragScaling &&
-                    !transientDragFinalizingRef.current,
+                    (allowTransientDragScaling || transientDragFinalizingRef.current),
                 containerWidth,
                 containerHeight,
                 metricsWidth: metricWidth,
@@ -1074,6 +1233,7 @@ export function KibitzBoard({
                 scaledWidth: visualWidth,
                 visualWidth,
                 visualHeight,
+                predictedNativeContentSize,
                 visualToInternalScaleX:
                     typeof gobanElementMetrics?.rectWidth === "number" && metricWidth > 0
                         ? gobanElementMetrics.rectWidth / metricWidth
@@ -1085,7 +1245,15 @@ export function KibitzBoard({
                 left: Math.max(0, Math.floor((containerWidth - visualWidth) / 2)),
             });
         },
-        [allowTransientDragScaling, coordinateSafeInput, fitMode, getKibitzBoardMetricsSnapshot],
+        [
+            allowTransientDragScaling,
+            coordinateSafeInput,
+            fitMode,
+            getKibitzBoardMetricsSnapshot,
+            height,
+            showLabels,
+            width,
+        ],
     );
 
     const onResize = React.useCallback(
@@ -1138,8 +1306,7 @@ export function KibitzBoard({
                 allowCssTransformScaling,
                 pointerEventsDisabledForTransientScaling:
                     coordinateSafeInput &&
-                    allowTransientDragScaling &&
-                    !transientDragFinalizingRef.current,
+                    (allowTransientDragScaling || transientDragFinalizingRef.current),
                 respectContainerBounds,
             });
 
@@ -1162,8 +1329,7 @@ export function KibitzBoard({
                     allowCssTransformScaling,
                     pointerEventsDisabledForTransientScaling:
                         coordinateSafeInput &&
-                        allowTransientDragScaling &&
-                        !transientDragFinalizingRef.current,
+                        (allowTransientDragScaling || transientDragFinalizingRef.current),
                     respectContainerBounds,
                 });
                 if (no_debounce) {
@@ -1212,8 +1378,7 @@ export function KibitzBoard({
                 allowCssTransformScaling,
                 pointerEventsDisabledForTransientScaling:
                     coordinateSafeInput &&
-                    allowTransientDragScaling &&
-                    !transientDragFinalizingRef.current,
+                    (allowTransientDragScaling || transientDragFinalizingRef.current),
                 respectContainerBounds,
             });
             gobanController.setLastMoveOpacity(preferences.get("last-move-opacity"));
@@ -1231,8 +1396,7 @@ export function KibitzBoard({
                     allowCssTransformScaling,
                     pointerEventsDisabledForTransientScaling:
                         coordinateSafeInput &&
-                        allowTransientDragScaling &&
-                        !transientDragFinalizingRef.current,
+                        (allowTransientDragScaling || transientDragFinalizingRef.current),
                     respectContainerBounds,
                 });
                 gobanController.setSquareSizeBasedOnDisplayWidth(targetDisplayWidth);
@@ -1249,8 +1413,7 @@ export function KibitzBoard({
                     allowCssTransformScaling,
                     pointerEventsDisabledForTransientScaling:
                         coordinateSafeInput &&
-                        allowTransientDragScaling &&
-                        !transientDragFinalizingRef.current,
+                        (allowTransientDragScaling || transientDragFinalizingRef.current),
                     respectContainerBounds,
                 });
                 recenterGoban(gobanController);
@@ -1276,8 +1439,7 @@ export function KibitzBoard({
                     allowCssTransformScaling,
                     pointerEventsDisabledForTransientScaling:
                         coordinateSafeInput &&
-                        allowTransientDragScaling &&
-                        !transientDragFinalizingRef.current,
+                        (allowTransientDragScaling || transientDragFinalizingRef.current),
                     respectContainerBounds,
                     scheduledControllerEpoch,
                     scheduledGeneration,
@@ -1339,8 +1501,7 @@ export function KibitzBoard({
                             allowCssTransformScaling,
                             pointerEventsDisabledForTransientScaling:
                                 coordinateSafeInput &&
-                                allowTransientDragScaling &&
-                                !transientDragFinalizingRef.current,
+                                (allowTransientDragScaling || transientDragFinalizingRef.current),
                             respectContainerBounds,
                         });
                         return;
@@ -1378,8 +1539,7 @@ export function KibitzBoard({
                         allowCssTransformScaling,
                         pointerEventsDisabledForTransientScaling:
                             coordinateSafeInput &&
-                            allowTransientDragScaling &&
-                            !transientDragFinalizingRef.current,
+                            (allowTransientDragScaling || transientDragFinalizingRef.current),
                         respectContainerBounds,
                         scheduledControllerEpoch,
                         scheduledGeneration,
@@ -1454,51 +1614,7 @@ export function KibitzBoard({
         if (allowTransientDragScaling) {
             return;
         }
-
-        const currentSize = size ?? displaySize ?? null;
-        if (currentSize == null || Math.abs(currentSize - pendingFinalSize) > 1) {
-            return;
-        }
-
-        pendingTransientDragClearFrameRef.current = window.requestAnimationFrame(() => {
-            pendingTransientDragClearFrameRef.current = null;
-
-            const latestPendingFinalSize = pendingTransientDragFinalSizeRef.current;
-            if (latestPendingFinalSize == null) {
-                return;
-            }
-
-            const latestSize = size ?? displaySize ?? null;
-            if (latestSize == null || Math.abs(latestSize - latestPendingFinalSize) > 1) {
-                return;
-            }
-
-            clearTransientDragPresentation();
-            transientDragFinalizingRef.current = false;
-            pendingTransientDragFinalSizeRef.current = null;
-            const hostRect = boardHostRef.current?.getBoundingClientRect();
-            const containerRect = gobanContainerRef.current?.getBoundingClientRect();
-            const invalidFinalClear =
-                (hostRect != null && (hostRect.width <= 0 || hostRect.height <= 0)) ||
-                (containerRect != null && (containerRect.width <= 0 || containerRect.height <= 0));
-            if (invalidFinalClear) {
-                recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-clear-invalid", {
-                    ...getKibitzBoardMetricsSnapshot("transient-drag-final-clear-invalid"),
-                    pendingFinalSize: latestPendingFinalSize,
-                    currentSize: latestSize,
-                    hostRectWidth: hostRect?.width ?? null,
-                    hostRectHeight: hostRect?.height ?? null,
-                    containerRectWidth: containerRect?.width ?? null,
-                    containerRectHeight: containerRect?.height ?? null,
-                });
-                return;
-            }
-            recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-clear", {
-                ...getKibitzBoardMetricsSnapshot("transient-drag-final-clear"),
-                pendingFinalSize: latestPendingFinalSize,
-                currentSize: latestSize,
-            });
-        });
+        scheduleFinalTransientClearWhenNativeReady(pendingFinalSize);
 
         return () => {
             if (pendingTransientDragClearFrameRef.current !== null) {
@@ -1506,13 +1622,7 @@ export function KibitzBoard({
                 pendingTransientDragClearFrameRef.current = null;
             }
         };
-    }, [
-        allowTransientDragScaling,
-        clearTransientDragPresentation,
-        displaySize,
-        getKibitzBoardMetricsSnapshot,
-        size,
-    ]);
+    }, [allowTransientDragScaling, scheduleFinalTransientClearWhenNativeReady]);
 
     React.useEffect(() => {
         if (!goban) {

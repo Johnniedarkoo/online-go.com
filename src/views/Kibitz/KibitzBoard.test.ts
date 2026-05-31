@@ -26,8 +26,10 @@ import {
 } from "./KibitzBoard";
 import {
     computeRecenterScale,
+    computeTransientDragScale,
     computeTransientDragVisualBoardSize,
     isKibitzBoardResizeStale,
+    predictNativeGobanContentSize,
     shouldCommitMobileSplitRatioUpdate,
 } from "./kibitzBoardSizing";
 
@@ -151,6 +153,53 @@ describe("computeTransientDragVisualBoardSize", () => {
                 reservedBoardVerticalSpace: 100,
             }),
         ).toBe(200);
+    });
+});
+
+describe("computeTransientDragScale", () => {
+    it("uses the continuous visual size during live drag", () => {
+        expect(computeTransientDragScale(269, 210)).toBeCloseTo(269 / 210);
+        expect(computeTransientDragScale(233, 210)).toBeCloseTo(233 / 210);
+    });
+});
+
+describe("predictNativeGobanContentSize", () => {
+    it("predicts the quantized native board size for a labelled 19x19 board", () => {
+        expect(
+            predictNativeGobanContentSize({
+                targetSlotSize: 260,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: true,
+            }),
+        ).toBe(252);
+
+        expect(
+            predictNativeGobanContentSize({
+                targetSlotSize: 292,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: true,
+            }),
+        ).toBe(273);
+
+        expect(
+            predictNativeGobanContentSize({
+                targetSlotSize: 363,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: true,
+            }),
+        ).toBe(357);
+
+        expect(
+            predictNativeGobanContentSize({
+                targetSlotSize: 382,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: true,
+            }),
+        ).toBe(378);
     });
 });
 
