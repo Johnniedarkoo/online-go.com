@@ -1128,10 +1128,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             shellWidth: snapshot.shell.shellWidth,
             shellHeight: snapshot.shell.shellHeight,
             dividerRatio: snapshot.divider.dividerRatio,
-            boardSizingSlotWidth: snapshot.boardSizingSlot?.boardSizingSlotWidth ?? undefined,
-            boardSizingSlotHeight: snapshot.boardSizingSlot?.boardSizingSlotHeight ?? undefined,
-            horizontalInset: snapshot.derived.horizontalInset,
-            boardVerticalChrome: snapshot.derived.boardVerticalChrome,
+            boardSizingSlotWidth: snapshot.boardSizingSlot?.boardSizingSlotWidth ?? 0,
+            squareFitReservedHeight: snapshot.derived.boardVerticalChrome,
+            squareFitExtraReservedHeight: 0,
             devicePixelRatio: window.devicePixelRatio,
         });
         const computedTarget = computeMobileResizeAppliedTarget({

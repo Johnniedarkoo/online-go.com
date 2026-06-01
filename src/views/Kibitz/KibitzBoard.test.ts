@@ -463,7 +463,7 @@ describe("computeMobileResizeAppliedTarget", () => {
         });
 
         expect(target).not.toBeNull();
-        expect(target!.boardSurfaceWidth).toBe(374);
+        expect(target!.boardSurfaceWidth).toBe(382);
         expect(target!.boardSurfaceHeight).toBe(374);
         expect(target!.gobanContainerWidth).toBe(374);
         expect(target!.gobanContainerHeight).toBe(374);
@@ -570,14 +570,50 @@ describe("computeMobileResizeAppliedTarget", () => {
 });
 
 describe("computeMobileBoardGeometry", () => {
+    it("keeps board surface square once the board is width-capped", () => {
+        const geometry = computeMobileBoardGeometry({
+            shellWidth: 390,
+            shellHeight: 744,
+            dividerRatio: 0.6019354838709677,
+            boardSizingSlotWidth: 382,
+            squareFitReservedHeight: 36,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+        });
+
+        expect(geometry.boardPane.boardPaneHeight).toBe(447);
+        expect(geometry.boardPane.usableBoardHeight).toBe(411);
+        expect(geometry.boardSurface.boardSurfaceWidth).toBe(382);
+        expect(geometry.boardSurface.boardSurfaceHeight).toBe(382);
+        expect(geometry.gobanContainer.gobanContainerSize).toBe(382);
+    });
+
+    it("does not grow board surface when dragging further after max width", () => {
+        for (const dividerRatio of [0.6019354838709677, 0.624616935483871]) {
+            const geometry = computeMobileBoardGeometry({
+                shellWidth: 390,
+                shellHeight: 744,
+                dividerRatio,
+                boardSizingSlotWidth: 382,
+                squareFitReservedHeight: 36,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: true,
+            });
+
+            expect(geometry.gobanContainer.gobanContainerSize).toBe(382);
+            expect(geometry.boardSurface.boardSurfaceHeight).toBe(382);
+        }
+    });
+
     it("keeps the board surface rectangular while the goban container remains square", () => {
         const geometry = computeMobileBoardGeometry({
             shellWidth: 394,
             shellHeight: 640,
             boardSizingSlotWidth: 382,
             dividerRatio: 0.609375,
-            horizontalInset: 8,
-            boardVerticalChrome: 16,
+            squareFitReservedHeight: 16,
             boardWidth: 18,
             boardHeight: 18,
             showLabels: true,
@@ -588,15 +624,17 @@ describe("computeMobileBoardGeometry", () => {
             boardSizingSlotHeight: 640,
         });
         expect(geometry.boardSurface).toEqual({
-            boardSurfaceWidth: 374,
+            boardSurfaceWidth: 382,
             boardSurfaceHeight: 374,
         });
         expect(geometry.gobanContainer).toEqual({
             gobanContainerWidth: 374,
             gobanContainerHeight: 374,
             gobanContainerSize: 374,
-            gobanContainerLeft: 0,
+            gobanContainerLeft: 4,
             gobanContainerTop: 0,
+            leftInSurface: 4,
+            topInSurface: 0,
         });
         expect(geometry.gobanContent.predictedNativeGobanContentSize).toBe(360);
     });
@@ -607,8 +645,7 @@ describe("computeMobileBoardGeometry", () => {
             shellHeight: 640,
             boardSizingSlotWidth: 382,
             dividerRatio: 0.4,
-            horizontalInset: 8,
-            boardVerticalChrome: 16,
+            squareFitReservedHeight: 16,
             boardWidth: 18,
             boardHeight: 18,
             showLabels: true,
@@ -618,8 +655,7 @@ describe("computeMobileBoardGeometry", () => {
             shellHeight: 640,
             boardSizingSlotWidth: 382,
             dividerRatio: 0.55,
-            horizontalInset: 8,
-            boardVerticalChrome: 16,
+            squareFitReservedHeight: 16,
             boardWidth: 18,
             boardHeight: 18,
             showLabels: true,
@@ -640,8 +676,8 @@ describe("computeMobileBoardGeometry", () => {
             shellHeight: 744,
             dividerRatio: 0.4949618414264922,
             boardSizingSlotWidth: 382,
-            horizontalInset: 0,
-            boardVerticalChrome: 40,
+            squareFitReservedHeight: 36,
+            squareFitExtraReservedHeight: 4,
             boardWidth: 19,
             boardHeight: 19,
             showLabels: false,
@@ -700,8 +736,7 @@ describe("mobile geometry mismatch classification", () => {
                 shellHeight: 640,
                 boardSizingSlotWidth: 382,
                 dividerRatio: 0.609375,
-                horizontalInset: 8,
-                boardVerticalChrome: 16,
+                squareFitReservedHeight: 16,
                 boardWidth: 18,
                 boardHeight: 18,
                 showLabels: true,
@@ -792,8 +827,8 @@ describe("mobile geometry mismatch classification", () => {
                 shellHeight: 744,
                 boardSizingSlotWidth: 382,
                 dividerRatio: 0.4949618414264922,
-                horizontalInset: 0,
-                boardVerticalChrome: 40,
+                squareFitReservedHeight: 36,
+                squareFitExtraReservedHeight: 4,
                 boardWidth: 19,
                 boardHeight: 19,
                 showLabels: false,
@@ -925,8 +960,7 @@ describe("mobile geometry mismatch classification", () => {
                 shellHeight: 640,
                 boardSizingSlotWidth: 382,
                 dividerRatio: 0.596875,
-                horizontalInset: 8,
-                boardVerticalChrome: 8,
+                squareFitReservedHeight: 8,
                 boardWidth: 19,
                 boardHeight: 19,
                 showLabels: true,
@@ -1008,10 +1042,14 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                         topInSurface: 0,
                     },
                     geometry: {
-                        modelVersion: "phase-6-corrected",
+                        modelVersion: "mobile-square-surface-v1",
                         shell: {
                             shellWidth: 382,
                             shellHeight: 640,
+                        },
+                        boardPane: {
+                            boardPaneHeight: 382,
+                            usableBoardHeight: 374,
                         },
                         boardSizingSlot: {
                             boardSizingSlotWidth: 382,
@@ -1031,6 +1069,22 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                             gobanContainerSize: 374,
                             gobanContainerLeft: 0,
                             gobanContainerTop: 0,
+                            leftInSurface: 0,
+                            topInSurface: 0,
+                        },
+                        activePreviewContent: {
+                            size: 374,
+                            leftInContainer: 0,
+                            topInContainer: 0,
+                            leftInSurface: 0,
+                            topInSurface: 0,
+                        },
+                        nativeFinalContent: {
+                            size: 360,
+                            leftInContainer: 7,
+                            topInContainer: 7,
+                            leftInSurface: 7,
+                            topInSurface: 7,
                         },
                         gobanContent: {
                             predictedNativeGobanContentSize: 360,
