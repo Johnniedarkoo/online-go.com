@@ -865,27 +865,31 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     } | null>(null);
     const mobileDragStateRef = React.useRef<{
         pointerId: number;
-        startedAt: number;
         startY: number;
         startRatio: number;
         gestureState: "armed" | "active";
-        shellWidth: number;
-        shellHeight: number;
-        outerBoardSlotMaxWidth: number;
-        boardSlotMaxWidth: number;
-        transientBoardWindowMaxSize: number;
-        reservedBoardVerticalSpace: number;
-        startWindowWidth: number;
-        startWindowHeight: number;
-        startLayoutSize: number;
-        startWindowSize: number;
-        startedAtHorizontalMax: boolean;
         stableGeometry: StableMobileBoardGeometrySnapshot | null;
-        topPaneElement: HTMLDivElement | null;
-        boardSlotElement: HTMLDivElement | null;
-        boardWindowElement: HTMLElement | null;
-        cachedMetricsWidth: number | null;
-        cachedMetricsHeight: number | null;
+        lastAppliedTarget: MobileResizeAppliedTarget | null;
+        lastCommittedTarget: MobileResizeAppliedTarget | null;
+        legacyDiagnostics: {
+            startedAt: number;
+            shellWidth: number;
+            shellHeight: number;
+            outerBoardSlotMaxWidth: number;
+            boardSlotMaxWidth: number;
+            transientBoardWindowMaxSize: number;
+            reservedBoardVerticalSpace: number;
+            startWindowWidth: number;
+            startWindowHeight: number;
+            startLayoutSize: number;
+            startWindowSize: number;
+            startedAtHorizontalMax: boolean;
+            topPaneElement: HTMLDivElement | null;
+            boardSlotElement: HTMLDivElement | null;
+            boardWindowElement: HTMLElement | null;
+            cachedMetricsWidth: number | null;
+            cachedMetricsHeight: number | null;
+        };
     } | null>(null);
     const mobileDraftTransientDragControllerRef =
         React.useRef<KibitzBoardTransientDragController | null>(null);
@@ -1088,28 +1092,13 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             boardVerticalChrome: snapshot.derived.boardVerticalChrome,
             devicePixelRatio: window.devicePixelRatio,
         });
-        const computedTarget: MobileResizeAppliedTarget = {
-            geometrySource: "computeMobileBoardGeometry" as const,
-            dividerRatio: computed.divider.dividerRatio,
-            boardSurfaceWidth: computed.boardSurface.boardSurfaceWidth,
-            boardSurfaceHeight: computed.boardSurface.boardSurfaceHeight,
-            gobanContainerWidth: computed.gobanContainer.gobanContainerWidth,
-            gobanContainerHeight: computed.gobanContainer.gobanContainerHeight,
-            previewGobanContentSize: computed.gobanContent.previewGobanContentSize,
-            predictedNativeGobanContentSize: computed.gobanContent.predictedNativeGobanContentSize,
-            legacyVisualSize: computed.gobanContainer.gobanContainerSize,
-            legacyFinalWindowSize: computed.gobanContainer.gobanContainerWidth,
-            usingRestingMaxGeometry: false,
-            transformScale:
-                computed.gobanContent.previewGobanContentSize /
-                Math.max(1, computed.gobanContent.predictedNativeGobanContentSize ?? 1),
-            dragScale:
-                computed.boardSurface.boardSurfaceWidth /
-                Math.max(1, computed.boardSizingSlot.boardSizingSlotWidth),
-            gobanLeft: computed.gobanContainer.gobanContainerLeft,
-            gobanTop: computed.gobanContainer.gobanContainerTop,
-            geometry: computed,
-        };
+        const computedTarget = computeMobileResizeAppliedTarget({
+            stableGeometry: snapshot,
+            targetDividerRatio: snapshot.divider.dividerRatio,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: false,
+        });
         const comparison = compareMobileGeometryToTarget({
             target: computedTarget,
             actual: snapshot,
@@ -1290,32 +1279,36 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             ) {
                 mobileDividerFastVisualLogAtRef.current = now;
                 const dragState = mobileDragStateRef.current;
+                const legacyDiagnostics = dragState?.legacyDiagnostics ?? null;
                 recordKibitzBoardSizeEvent("mobile-divider:drag-fast-visual-size", {
                     pointerId: dragState?.pointerId ?? null,
                     nextRatio: target.dividerRatio,
                     visualBoardSize: target.boardSurfaceWidth,
                     usingRestingMaxGeometry: target.usingRestingMaxGeometry,
                     heightLimitedSize: target.boardSurfaceHeight,
-                    transientBoardWindowMaxSize: dragState?.transientBoardWindowMaxSize ?? null,
-                    outerBoardSlotMaxWidth: dragState?.outerBoardSlotMaxWidth ?? null,
-                    boardSlotMaxWidth: dragState?.boardSlotMaxWidth ?? null,
-                    reservedBoardVerticalSpace: dragState?.reservedBoardVerticalSpace ?? null,
-                    startWindowWidth: dragState?.startWindowWidth ?? null,
-                    startWindowHeight: dragState?.startWindowHeight ?? null,
-                    startLayoutSize: dragState?.startLayoutSize ?? null,
-                    startWindowSize: dragState?.startWindowSize ?? null,
-                    cachedMetricsWidth: dragState?.cachedMetricsWidth ?? null,
-                    cachedMetricsHeight: dragState?.cachedMetricsHeight ?? null,
+                    transientBoardWindowMaxSize:
+                        legacyDiagnostics?.transientBoardWindowMaxSize ?? null,
+                    outerBoardSlotMaxWidth: legacyDiagnostics?.outerBoardSlotMaxWidth ?? null,
+                    boardSlotMaxWidth: legacyDiagnostics?.boardSlotMaxWidth ?? null,
+                    reservedBoardVerticalSpace:
+                        legacyDiagnostics?.reservedBoardVerticalSpace ?? null,
+                    startWindowWidth: legacyDiagnostics?.startWindowWidth ?? null,
+                    startWindowHeight: legacyDiagnostics?.startWindowHeight ?? null,
+                    startLayoutSize: legacyDiagnostics?.startLayoutSize ?? null,
+                    startWindowSize: legacyDiagnostics?.startWindowSize ?? null,
+                    cachedMetricsWidth: legacyDiagnostics?.cachedMetricsWidth ?? null,
+                    cachedMetricsHeight: legacyDiagnostics?.cachedMetricsHeight ?? null,
                     geometry: buildMobileResizeGeometrySnapshot({
                         shellRect:
-                            dragState?.shellWidth != null && dragState.shellHeight != null
+                            legacyDiagnostics?.shellWidth != null &&
+                            legacyDiagnostics.shellHeight != null
                                 ? {
-                                      width: dragState.shellWidth,
-                                      height: dragState.shellHeight,
+                                      width: legacyDiagnostics.shellWidth,
+                                      height: legacyDiagnostics.shellHeight,
                                   }
                                 : null,
-                        boardSizingSlotRect: dragState?.boardSlotElement
-                            ? dragState.boardSlotElement.getBoundingClientRect()
+                        boardSizingSlotRect: legacyDiagnostics?.boardSlotElement
+                            ? legacyDiagnostics.boardSlotElement.getBoundingClientRect()
                             : null,
                         boardSurfaceRect: {
                             width: target.boardSurfaceWidth,
@@ -1326,11 +1319,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                             height: target.gobanContainerHeight,
                         },
                         gobanMetrics:
-                            dragState?.cachedMetricsWidth != null &&
-                            dragState.cachedMetricsHeight != null
+                            legacyDiagnostics?.cachedMetricsWidth != null &&
+                            legacyDiagnostics.cachedMetricsHeight != null
                                 ? {
-                                      width: dragState.cachedMetricsWidth,
-                                      height: dragState.cachedMetricsHeight,
+                                      width: legacyDiagnostics.cachedMetricsWidth,
+                                      height: legacyDiagnostics.cachedMetricsHeight,
                                   }
                                 : null,
                         dividerRatio: target.dividerRatio,
@@ -1344,7 +1337,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         };
 
         const measureSteadyMobileBoardSize = () => {
-            const boardSlotElement = mobileDragStateRef.current?.boardSlotElement;
+            const boardSlotElement =
+                mobileDragStateRef.current?.legacyDiagnostics.boardSlotElement ?? null;
             const metrics = boardSlotElement
                 ? measureSquareFitLayout(boardSlotElement, true)
                 : null;
@@ -1360,6 +1354,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             if (!dragState) {
                 return;
             }
+
+            const legacyDiagnostics = dragState.legacyDiagnostics;
 
             const deltaY = event.clientY - dragState.startY;
             if (dragState.gestureState !== "active") {
@@ -1378,15 +1374,15 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
                 const beginResult =
                     mobileDraftTransientDragControllerRef.current?.beginTransientDrag(
-                        dragState.transientBoardWindowMaxSize,
+                        legacyDiagnostics.transientBoardWindowMaxSize,
                     ) ?? {
                         metricsWidth: null,
                         metricsHeight: null,
                     };
                 dragState.gestureState = "active";
                 mobileResizeLifecycleStateRef.current = "active";
-                dragState.cachedMetricsWidth = beginResult.metricsWidth;
-                dragState.cachedMetricsHeight = beginResult.metricsHeight;
+                legacyDiagnostics.cachedMetricsWidth = beginResult.metricsWidth;
+                legacyDiagnostics.cachedMetricsHeight = beginResult.metricsHeight;
                 setMobileDividerDragging(true);
                 const shell = mobileShellRef.current;
                 shell?.classList.add("mobile-divider-dragging");
@@ -1396,7 +1392,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 );
                 shell?.style.setProperty(
                     "--kibitz-mobile-drag-board-size",
-                    `${dragState.startWindowSize}px`,
+                    `${legacyDiagnostics.startWindowSize}px`,
                 );
                 mobileDividerFastVisualLogAtRef.current = 0;
                 if (isKibitzBoardSizeDebugEnabled()) {
@@ -1406,33 +1402,34 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                         thresholdPx: MOBILE_DIVIDER_DRAG_START_THRESHOLD_PX,
                         startDividerRatio: dragState.startRatio,
                         targetDividerRatio: clampMobileSplitRatio(
-                            dragState.startRatio + deltaY / dragState.shellHeight,
+                            dragState.startRatio + deltaY / legacyDiagnostics.shellHeight,
                         ),
                         gestureState: "active",
                         geometry: buildMobileResizeGeometrySnapshot({
                             shellRect:
-                                dragState.shellWidth != null && dragState.shellHeight != null
+                                legacyDiagnostics.shellWidth != null &&
+                                legacyDiagnostics.shellHeight != null
                                     ? {
-                                          width: dragState.shellWidth,
-                                          height: dragState.shellHeight,
+                                          width: legacyDiagnostics.shellWidth,
+                                          height: legacyDiagnostics.shellHeight,
                                       }
                                     : null,
-                            boardSizingSlotRect: dragState.boardSlotElement
-                                ? dragState.boardSlotElement.getBoundingClientRect()
+                            boardSizingSlotRect: legacyDiagnostics.boardSlotElement
+                                ? legacyDiagnostics.boardSlotElement.getBoundingClientRect()
                                 : null,
                             boardSurfaceRect:
-                                dragState.startWindowWidth != null &&
-                                dragState.startWindowHeight != null
+                                legacyDiagnostics.startWindowWidth != null &&
+                                legacyDiagnostics.startWindowHeight != null
                                     ? {
-                                          width: dragState.startWindowWidth,
-                                          height: dragState.startWindowHeight,
+                                          width: legacyDiagnostics.startWindowWidth,
+                                          height: legacyDiagnostics.startWindowHeight,
                                       }
                                     : null,
                             gobanContainerRect:
-                                dragState.startWindowSize != null
+                                legacyDiagnostics.startWindowSize != null
                                     ? {
-                                          width: dragState.startWindowSize,
-                                          height: dragState.startWindowSize,
+                                          width: legacyDiagnostics.startWindowSize,
+                                          height: legacyDiagnostics.startWindowSize,
                                       }
                                     : null,
                             gobanMetrics:
@@ -1446,14 +1443,14 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                             dividerRatio: dragState.startRatio,
                             startDividerRatio: dragState.startRatio,
                             targetDividerRatio: clampMobileSplitRatio(
-                                dragState.startRatio + deltaY / dragState.shellHeight,
+                                dragState.startRatio + deltaY / legacyDiagnostics.shellHeight,
                             ),
                         }),
                     });
                 }
             }
 
-            const ratioDelta = deltaY / dragState.shellHeight;
+            const ratioDelta = deltaY / legacyDiagnostics.shellHeight;
             const nextRatio = clampMobileSplitRatio(dragState.startRatio + ratioDelta);
             const previousPending =
                 pendingMobileSplitRatioRef.current ?? lastCommittedMobileSplitRatioRef.current;
@@ -1466,10 +1463,14 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const target = computeMobileResizeAppliedTarget({
                 stableGeometry,
                 targetDividerRatio: nextRatio,
-                boardWidth: currentGameWidth ?? 19,
-                boardHeight: currentGameHeight ?? 19,
+                boardWidth: 19,
+                boardHeight: 19,
                 showLabels: false,
             });
+            if (!target) {
+                event.preventDefault();
+                return;
+            }
             if (
                 !shouldCommitMobileSplitRatioUpdate({
                     currentRatio: previousPending,
@@ -1492,7 +1493,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     pointerId: event.pointerId,
                     clientY: event.clientY,
                     startY: dragState.startY,
-                    shellRectHeight: dragState.shellHeight,
+                    shellRectHeight: legacyDiagnostics.shellHeight,
                     rawRatioDelta: ratioDelta,
                     nextRatio,
                     previousRatio: previousPending,
@@ -1529,6 +1530,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 return;
             }
 
+            const legacyDiagnostics = dragState.legacyDiagnostics;
+
             if (mobileDividerRef.current?.hasPointerCapture?.(event.pointerId)) {
                 mobileDividerRef.current.releasePointerCapture(event.pointerId);
             }
@@ -1557,36 +1560,37 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                         reason: "no-active-drag",
                         geometry: buildMobileResizeGeometrySnapshot({
                             shellRect:
-                                dragState.shellWidth != null && dragState.shellHeight != null
+                                legacyDiagnostics.shellWidth != null &&
+                                legacyDiagnostics.shellHeight != null
                                     ? {
-                                          width: dragState.shellWidth,
-                                          height: dragState.shellHeight,
+                                          width: legacyDiagnostics.shellWidth,
+                                          height: legacyDiagnostics.shellHeight,
                                       }
                                     : null,
-                            boardSizingSlotRect: dragState.boardSlotElement
-                                ? dragState.boardSlotElement.getBoundingClientRect()
+                            boardSizingSlotRect: legacyDiagnostics.boardSlotElement
+                                ? legacyDiagnostics.boardSlotElement.getBoundingClientRect()
                                 : null,
                             boardSurfaceRect:
-                                dragState.startWindowWidth != null &&
-                                dragState.startWindowHeight != null
+                                legacyDiagnostics.startWindowWidth != null &&
+                                legacyDiagnostics.startWindowHeight != null
                                     ? {
-                                          width: dragState.startWindowWidth,
-                                          height: dragState.startWindowHeight,
+                                          width: legacyDiagnostics.startWindowWidth,
+                                          height: legacyDiagnostics.startWindowHeight,
                                       }
                                     : null,
                             gobanContainerRect:
-                                dragState.startWindowSize != null
+                                legacyDiagnostics.startWindowSize != null
                                     ? {
-                                          width: dragState.startWindowSize,
-                                          height: dragState.startWindowSize,
+                                          width: legacyDiagnostics.startWindowSize,
+                                          height: legacyDiagnostics.startWindowSize,
                                       }
                                     : null,
                             gobanMetrics:
-                                dragState.cachedMetricsWidth != null &&
-                                dragState.cachedMetricsHeight != null
+                                legacyDiagnostics.cachedMetricsWidth != null &&
+                                legacyDiagnostics.cachedMetricsHeight != null
                                     ? {
-                                          width: dragState.cachedMetricsWidth,
-                                          height: dragState.cachedMetricsHeight,
+                                          width: legacyDiagnostics.cachedMetricsWidth,
+                                          height: legacyDiagnostics.cachedMetricsHeight,
                                       }
                                     : null,
                             dividerRatio: dragState.startRatio,
@@ -1684,16 +1688,16 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 });
                 recordKibitzBoardSizeEvent("mobile-resize:summary", {
                     pointerId: event.pointerId,
-                    startedAt: dragState.startedAt,
+                    startedAt: legacyDiagnostics.startedAt,
                     endedAt: Date.now(),
-                    durationMs: Date.now() - dragState.startedAt,
+                    durationMs: Date.now() - legacyDiagnostics.startedAt,
                     startDividerRatio: dragState.startRatio,
                     committedDividerRatio: appliedTarget.dividerRatio,
                     startGeometry: {
-                        boardSurfaceWidth: dragState.startWindowWidth,
-                        boardSurfaceHeight: dragState.startWindowHeight,
-                        gobanContainerSize: dragState.startWindowSize,
-                        gobanContentSize: dragState.cachedMetricsWidth,
+                        boardSurfaceWidth: legacyDiagnostics.startWindowWidth,
+                        boardSurfaceHeight: legacyDiagnostics.startWindowHeight,
+                        gobanContainerSize: legacyDiagnostics.startWindowSize,
+                        gobanContentSize: legacyDiagnostics.cachedMetricsWidth,
                     },
                     finalTarget: {
                         boardSurfaceWidth: appliedTarget.boardSurfaceWidth,
@@ -3384,27 +3388,31 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             mobileResizeLifecycleStateRef.current = "armed";
             mobileDragStateRef.current = {
                 pointerId: event.pointerId,
-                startedAt: Date.now(),
                 startY: event.clientY,
                 startRatio: mobileSplitRatio,
                 gestureState: "armed",
-                shellWidth: shellRect.width,
-                shellHeight: shellRect.height,
-                outerBoardSlotMaxWidth,
-                boardSlotMaxWidth,
-                transientBoardWindowMaxSize,
-                boardWindowElement,
-                reservedBoardVerticalSpace,
-                startWindowWidth,
-                startWindowHeight,
-                startLayoutSize,
-                startWindowSize,
-                startedAtHorizontalMax,
                 stableGeometry: initialStableGeometry ?? stableMobileBoardGeometryRef.current,
-                topPaneElement,
-                boardSlotElement,
-                cachedMetricsWidth: metricsWidth,
-                cachedMetricsHeight: metricsHeight,
+                lastAppliedTarget: null,
+                lastCommittedTarget: null,
+                legacyDiagnostics: {
+                    startedAt: Date.now(),
+                    shellWidth: shellRect.width,
+                    shellHeight: shellRect.height,
+                    outerBoardSlotMaxWidth,
+                    boardSlotMaxWidth,
+                    transientBoardWindowMaxSize,
+                    reservedBoardVerticalSpace,
+                    startWindowWidth,
+                    startWindowHeight,
+                    startLayoutSize,
+                    startWindowSize,
+                    startedAtHorizontalMax,
+                    topPaneElement,
+                    boardSlotElement,
+                    boardWindowElement,
+                    cachedMetricsWidth: metricsWidth,
+                    cachedMetricsHeight: metricsHeight,
+                },
             };
             event.currentTarget.setPointerCapture?.(event.pointerId);
             document.body.style.userSelect = "none";

@@ -332,14 +332,15 @@ describe("computeMobileResizeAppliedTarget", () => {
             showLabels: true,
         });
 
-        expect(target.boardSurfaceWidth).toBeGreaterThan(0);
-        expect(target.boardSurfaceHeight).toBeGreaterThan(
+        expect(target).not.toBeNull();
+        expect(target!.boardSurfaceWidth).toBeGreaterThan(0);
+        expect(target!.boardSurfaceHeight).toBeGreaterThan(
             smallBoardStableGeometry.boardSurface.boardSurfaceHeight,
         );
-        expect(target.gobanContainerHeight).toBeGreaterThan(
+        expect(target!.gobanContainerHeight).toBeGreaterThan(
             smallBoardStableGeometry.gobanContainer.gobanContainerHeight,
         );
-        expect(target.gobanContainerWidth).toBeGreaterThan(
+        expect(target!.gobanContainerWidth).toBeGreaterThan(
             smallBoardStableGeometry.gobanContainer.gobanContainerWidth,
         );
     });
@@ -353,11 +354,32 @@ describe("computeMobileResizeAppliedTarget", () => {
             showLabels: true,
         });
 
-        expect(target.boardSurfaceWidth).toBe(374);
-        expect(target.boardSurfaceHeight).toBe(382);
-        expect(target.gobanContainerWidth).toBe(374);
-        expect(target.gobanContainerHeight).toBe(374);
-        expect(target.gobanLeft).toBe(0);
+        expect(target).not.toBeNull();
+        expect(target!.boardSurfaceWidth).toBe(374);
+        expect(target!.boardSurfaceHeight).toBe(382);
+        expect(target!.gobanContainerWidth).toBe(374);
+        expect(target!.gobanContainerHeight).toBe(374);
+        expect(target!.gobanLeft).toBe(0);
+    });
+
+    it("fails closed when stable goban content metrics are missing", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                ...smallBoardStableGeometry,
+                gobanContent: {
+                    gobanContentWidth: null,
+                    gobanContentHeight: null,
+                    gobanContentSize: null,
+                    nativeGobanContentSize: null,
+                },
+            },
+            targetDividerRatio: 0.65,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+        });
+
+        expect(target).toBeNull();
     });
 });
 

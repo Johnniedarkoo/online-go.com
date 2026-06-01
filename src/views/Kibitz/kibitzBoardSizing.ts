@@ -718,22 +718,22 @@ export function computeMobileResizeAppliedTarget({
     boardWidth,
     boardHeight,
     showLabels,
-}: MobileResizeAppliedTargetInput): MobileResizeAppliedTarget {
+}: MobileResizeAppliedTargetInput): MobileResizeAppliedTarget | null {
     const boardSizingSlotWidth =
         stableGeometry.boardSizingSlot?.boardSizingSlotWidth ?? stableGeometry.shell.shellWidth;
     const boardSizingSlotHeight =
         stableGeometry.boardSizingSlot?.boardSizingSlotHeight ?? stableGeometry.shell.shellHeight;
     const boardSurfaceWidth = stableGeometry.boardSurface.boardSurfaceWidth;
-    const boardVerticalChrome = Math.max(
-        0,
-        stableGeometry.boardSurface.boardSurfaceHeight -
-            stableGeometry.gobanContainer.gobanContainerHeight,
-    );
+    const boardVerticalChrome = Math.max(0, stableGeometry.derived.boardVerticalChrome);
     const horizontalInset = Math.max(0, boardSizingSlotWidth - boardSurfaceWidth);
     const stableMetricsWidth =
         stableGeometry.gobanContent.nativeGobanContentSize ??
-        stableGeometry.gobanContent.gobanContentSize ??
-        1;
+        stableGeometry.gobanContent.gobanContentSize;
+
+    if (!stableMetricsWidth || stableMetricsWidth <= 0) {
+        return null;
+    }
+
     const geometry = computeMobileBoardGeometry({
         shellWidth: stableGeometry.shell.shellWidth,
         shellHeight: stableGeometry.shell.shellHeight,
@@ -763,8 +763,7 @@ export function computeMobileResizeAppliedTarget({
         legacyVisualSize: geometry.gobanContainer.gobanContainerSize,
         legacyFinalWindowSize: geometry.gobanContainer.gobanContainerWidth,
         usingRestingMaxGeometry: false,
-        transformScale:
-            geometry.gobanContent.previewGobanContentSize / Math.max(1, stableMetricsWidth),
+        transformScale: geometry.gobanContent.previewGobanContentSize / stableMetricsWidth,
         dragScale: geometry.boardSurface.boardSurfaceWidth / Math.max(1, boardSizingSlotWidth),
         gobanLeft: geometry.gobanContainer.gobanContainerLeft,
         gobanTop: geometry.gobanContainer.gobanContainerTop,
