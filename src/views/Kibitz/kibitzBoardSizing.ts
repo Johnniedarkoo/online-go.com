@@ -261,6 +261,8 @@ export function shouldAcceptStableMobileGeometryMeasurement({
 export type MobileGeometryMismatchType =
     | "horizontal-inset"
     | "vertical-chrome"
+    | "vertical-fit-slot-mismatch"
+    | "square-fit-authority-mismatch"
     | "surface-container-confusion"
     | "content-prediction"
     | "wrong-shell-basis"
@@ -409,6 +411,18 @@ export function classifyMobileGeometryMismatch({
         gobanContainerHeightDelta <= tolerancePx
     ) {
         return "horizontal-inset";
+    }
+
+    if (boardSurfaceHeightDelta > tolerancePx && boardSurfaceWidthDelta <= tolerancePx) {
+        return "vertical-fit-slot-mismatch";
+    }
+
+    if (
+        gobanContainerWidthDelta > tolerancePx &&
+        gobanContainerHeightDelta > tolerancePx &&
+        boardSurfaceWidthDelta <= tolerancePx
+    ) {
+        return "square-fit-authority-mismatch";
     }
 
     if (

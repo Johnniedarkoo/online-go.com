@@ -38,6 +38,7 @@ import {
     computeTransientDragReleaseGeometryFromAppliedTarget,
     computeTransientDragReleaseGeometry,
     compareMobileGeometryToTarget,
+    classifyMobileGeometryMismatch,
     isKibitzBoardResizeStale,
     predictNativeGobanContentSize,
     resolveMobileResizeBaselineGobanContentSize,
@@ -592,6 +593,24 @@ describe("computeMobileBoardGeometry", () => {
             smaller.gobanContainer.gobanContainerSize,
         );
     });
+
+    it("uses the same square-fit usable height that the mobile layout later recomputes", () => {
+        const geometry = computeMobileBoardGeometry({
+            shellWidth: 744,
+            shellHeight: 744,
+            dividerRatio: 0.4949618414264922,
+            boardSizingSlotWidth: 382,
+            horizontalInset: 0,
+            boardVerticalChrome: 40,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: false,
+        });
+
+        expect(geometry.boardSurface.boardSurfaceHeight).toBe(368);
+        expect(geometry.gobanContainer.gobanContainerSize).toBe(328);
+        expect(geometry.gobanContainer.gobanContainerWidth).toBe(328);
+    });
 });
 
 describe("mobile geometry mismatch classification", () => {
@@ -660,7 +679,79 @@ describe("mobile geometry mismatch classification", () => {
             actual: actual as Parameters<typeof compareMobileGeometryToTarget>[0]["actual"],
         });
 
-        expect(comparison.mismatchType).toBe("vertical-chrome");
+        expect(comparison.mismatchType).toBe("vertical-fit-slot-mismatch");
+    });
+
+    it("classifies the square-fit authority mismatch path", () => {
+        const target = {
+            geometrySource: "computeMobileBoardGeometry" as const,
+            dividerRatio: 0.4949618414264922,
+            boardSurfaceWidth: 382,
+            boardSurfaceHeight: 368,
+            gobanContainerWidth: 328,
+            gobanContainerHeight: 328,
+            previewGobanContentSize: 308,
+            predictedNativeGobanContentSize: 308,
+            legacyVisualSize: 328,
+            legacyFinalWindowSize: 328,
+            usingRestingMaxGeometry: false,
+            transformScale: 1,
+            dragScale: 1,
+            gobanLeft: 0,
+            gobanTop: 0,
+            geometry: computeMobileBoardGeometry({
+                shellWidth: 744,
+                shellHeight: 744,
+                boardSizingSlotWidth: 382,
+                dividerRatio: 0.4949618414264922,
+                horizontalInset: 0,
+                boardVerticalChrome: 40,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: false,
+            }),
+        };
+        const actual = {
+            measuredAt: 1,
+            shell: {
+                shellWidth: 744,
+                shellHeight: 744,
+            },
+            boardSizingSlot: {
+                boardSizingSlotWidth: 382,
+                boardSizingSlotHeight: 744,
+            },
+            boardSurface: {
+                boardSurfaceWidth: 382,
+                boardSurfaceHeight: 328.25,
+            },
+            gobanContainer: {
+                gobanContainerWidth: 382,
+                gobanContainerHeight: 368,
+                gobanContainerSize: 382,
+            },
+            gobanContent: {
+                gobanContentWidth: 360,
+                gobanContentHeight: 360,
+                gobanContentSize: 360,
+                nativeGobanContentSize: 360,
+            },
+            divider: {
+                dividerRatio: 0.4949618414264922,
+            },
+            derived: {
+                horizontalInset: 0,
+                boardVerticalChrome: 40,
+            },
+            source: "stable-observer" as const,
+        };
+
+        expect(
+            classifyMobileGeometryMismatch({
+                target,
+                actual,
+            }),
+        ).toBe("vertical-fit-slot-mismatch");
     });
 
     it("flags a bad helper output that pushes the board into padding", () => {
