@@ -81,6 +81,10 @@ export interface KibitzBoardTransientDragController {
         metricsWidth: number | null;
         metricsHeight: number | null;
     };
+    measureCurrentGobanMetrics: () => {
+        width: number | null;
+        height: number | null;
+    } | null;
     applyTransientDragTarget: (
         target: MobileResizeAppliedTarget,
     ) => MobileResizeAppliedTarget | null;
@@ -645,6 +649,18 @@ export function KibitzBoard({
         },
         [boardRole, currentRoomGameId, gameId, interactive, isMobile],
     );
+
+    const measureCurrentGobanMetrics = React.useCallback(() => {
+        const metrics = controllerRef.current?.goban.computeMetrics?.();
+        if (!metrics) {
+            return null;
+        }
+
+        return {
+            width: Number.isFinite(metrics.width) ? metrics.width : null,
+            height: Number.isFinite(metrics.height) ? metrics.height : null,
+        };
+    }, []);
     const applyTransientDragTarget = React.useCallback(
         (target: MobileResizeAppliedTarget): MobileResizeAppliedTarget | null => {
             if (!coordinateSafeInputRef.current || !allowTransientDragScalingRef.current) {
@@ -1383,10 +1399,16 @@ export function KibitzBoard({
     const transientDragController = React.useMemo<KibitzBoardTransientDragController>(
         () => ({
             beginTransientDrag,
+            measureCurrentGobanMetrics,
             applyTransientDragTarget,
             finishTransientDragFromAppliedTarget,
         }),
-        [applyTransientDragTarget, beginTransientDrag, finishTransientDragFromAppliedTarget],
+        [
+            applyTransientDragTarget,
+            beginTransientDrag,
+            finishTransientDragFromAppliedTarget,
+            measureCurrentGobanMetrics,
+        ],
     );
 
     React.useEffect(() => {

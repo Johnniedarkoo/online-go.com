@@ -1372,13 +1372,73 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     return;
                 }
 
-                const beginResult =
-                    mobileDraftTransientDragControllerRef.current?.beginTransientDrag(
-                        legacyDiagnostics.transientBoardWindowMaxSize,
-                    ) ?? {
-                        metricsWidth: null,
-                        metricsHeight: null,
-                    };
+                const targetDividerRatio = clampMobileSplitRatio(
+                    dragState.startRatio + deltaY / legacyDiagnostics.shellHeight,
+                );
+                const stableGeometry =
+                    dragState.stableGeometry ?? stableMobileBoardGeometryRef.current ?? null;
+                if (!stableGeometry) {
+                    event.preventDefault();
+                    return;
+                }
+
+                const controller = mobileDraftTransientDragControllerRef.current;
+                const currentMetrics = controller?.measureCurrentGobanMetrics() ?? null;
+                const baselineGobanContentSize =
+                    stableGeometry.gobanContent.nativeGobanContentSize ??
+                    stableGeometry.gobanContent.gobanContentSize ??
+                    currentMetrics?.width ??
+                    currentMetrics?.height ??
+                    null;
+                if (!baselineGobanContentSize || baselineGobanContentSize <= 0) {
+                    if (isKibitzBoardSizeDebugEnabled()) {
+                        recordKibitzBoardSizeEvent(
+                            "mobile-geometry:stable-missing-content-metric",
+                            {
+                                pointerId: event.pointerId,
+                                gestureState: "armed",
+                                targetDividerRatio,
+                                stableGeometry,
+                                currentMetrics,
+                            },
+                        );
+                    }
+                    event.preventDefault();
+                    return;
+                }
+
+                const target = computeMobileResizeAppliedTarget({
+                    stableGeometry,
+                    targetDividerRatio,
+                    boardWidth: 19,
+                    boardHeight: 19,
+                    showLabels: false,
+                    baselineGobanContentSize,
+                });
+                if (!target) {
+                    if (isKibitzBoardSizeDebugEnabled()) {
+                        recordKibitzBoardSizeEvent(
+                            "mobile-geometry:stable-missing-content-metric",
+                            {
+                                pointerId: event.pointerId,
+                                gestureState: "armed",
+                                targetDividerRatio,
+                                stableGeometry,
+                                currentMetrics,
+                                reason: "target-computation-failed",
+                            },
+                        );
+                    }
+                    event.preventDefault();
+                    return;
+                }
+
+                const beginResult = controller?.beginTransientDrag(
+                    legacyDiagnostics.transientBoardWindowMaxSize,
+                ) ?? {
+                    metricsWidth: null,
+                    metricsHeight: null,
+                };
                 dragState.gestureState = "active";
                 mobileResizeLifecycleStateRef.current = "active";
                 legacyDiagnostics.cachedMetricsWidth = beginResult.metricsWidth;
@@ -1395,15 +1455,16 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     `${legacyDiagnostics.startWindowSize}px`,
                 );
                 mobileDividerFastVisualLogAtRef.current = 0;
+                pendingMobileSplitRatioRef.current = targetDividerRatio;
+                pendingMobileResizeTargetRef.current = target;
+                updateTransientDragVisuals(target);
                 if (isKibitzBoardSizeDebugEnabled()) {
                     recordKibitzBoardSizeEvent("mobile-divider:drag-active-start", {
                         pointerId: event.pointerId,
                         deltaY,
                         thresholdPx: MOBILE_DIVIDER_DRAG_START_THRESHOLD_PX,
                         startDividerRatio: dragState.startRatio,
-                        targetDividerRatio: clampMobileSplitRatio(
-                            dragState.startRatio + deltaY / legacyDiagnostics.shellHeight,
-                        ),
+                        targetDividerRatio,
                         gestureState: "active",
                         geometry: buildMobileResizeGeometrySnapshot({
                             shellRect:
@@ -1418,18 +1479,19 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                 ? legacyDiagnostics.boardSlotElement.getBoundingClientRect()
                                 : null,
                             boardSurfaceRect:
-                                legacyDiagnostics.startWindowWidth != null &&
-                                legacyDiagnostics.startWindowHeight != null
+                                target.boardSurfaceWidth != null &&
+                                target.boardSurfaceHeight != null
                                     ? {
-                                          width: legacyDiagnostics.startWindowWidth,
-                                          height: legacyDiagnostics.startWindowHeight,
+                                          width: target.boardSurfaceWidth,
+                                          height: target.boardSurfaceHeight,
                                       }
                                     : null,
                             gobanContainerRect:
-                                legacyDiagnostics.startWindowSize != null
+                                target.gobanContainerWidth != null &&
+                                target.gobanContainerHeight != null
                                     ? {
-                                          width: legacyDiagnostics.startWindowSize,
-                                          height: legacyDiagnostics.startWindowSize,
+                                          width: target.gobanContainerWidth,
+                                          height: target.gobanContainerHeight,
                                       }
                                     : null,
                             gobanMetrics:
@@ -1442,9 +1504,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                     : null,
                             dividerRatio: dragState.startRatio,
                             startDividerRatio: dragState.startRatio,
-                            targetDividerRatio: clampMobileSplitRatio(
-                                dragState.startRatio + deltaY / legacyDiagnostics.shellHeight,
-                            ),
+                            targetDividerRatio,
                         }),
                     });
                 }
@@ -1460,12 +1520,20 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 event.preventDefault();
                 return;
             }
+            const currentMetrics =
+                mobileDraftTransientDragControllerRef.current?.measureCurrentGobanMetrics() ?? null;
             const target = computeMobileResizeAppliedTarget({
                 stableGeometry,
                 targetDividerRatio: nextRatio,
                 boardWidth: 19,
                 boardHeight: 19,
                 showLabels: false,
+                baselineGobanContentSize:
+                    stableGeometry.gobanContent.nativeGobanContentSize ??
+                    stableGeometry.gobanContent.gobanContentSize ??
+                    currentMetrics?.width ??
+                    currentMetrics?.height ??
+                    null,
             });
             if (!target) {
                 event.preventDefault();

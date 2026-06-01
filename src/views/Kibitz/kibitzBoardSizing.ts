@@ -710,6 +710,7 @@ export interface MobileResizeAppliedTargetInput {
     boardWidth: number;
     boardHeight: number;
     showLabels: boolean;
+    baselineGobanContentSize?: number | null;
 }
 
 export function computeMobileResizeAppliedTarget({
@@ -718,6 +719,7 @@ export function computeMobileResizeAppliedTarget({
     boardWidth,
     boardHeight,
     showLabels,
+    baselineGobanContentSize,
 }: MobileResizeAppliedTargetInput): MobileResizeAppliedTarget | null {
     const boardSizingSlotWidth =
         stableGeometry.boardSizingSlot?.boardSizingSlotWidth ?? stableGeometry.shell.shellWidth;
@@ -727,6 +729,7 @@ export function computeMobileResizeAppliedTarget({
     const boardVerticalChrome = Math.max(0, stableGeometry.derived.boardVerticalChrome);
     const horizontalInset = Math.max(0, boardSizingSlotWidth - boardSurfaceWidth);
     const stableMetricsWidth =
+        baselineGobanContentSize ??
         stableGeometry.gobanContent.nativeGobanContentSize ??
         stableGeometry.gobanContent.gobanContentSize;
 

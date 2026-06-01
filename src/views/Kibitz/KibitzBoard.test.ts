@@ -381,6 +381,28 @@ describe("computeMobileResizeAppliedTarget", () => {
 
         expect(target).toBeNull();
     });
+
+    it("uses an explicit baseline goban content size when the stable snapshot lacks one", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                ...smallBoardStableGeometry,
+                gobanContent: {
+                    gobanContentWidth: null,
+                    gobanContentHeight: null,
+                    gobanContentSize: null,
+                    nativeGobanContentSize: null,
+                },
+            },
+            targetDividerRatio: 0.65,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 286,
+        });
+
+        expect(target).not.toBeNull();
+        expect(target!.transformScale).toBeCloseTo(target!.previewGobanContentSize / 286);
+    });
 });
 
 describe("computeMobileBoardGeometry", () => {
