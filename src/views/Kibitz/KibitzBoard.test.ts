@@ -492,6 +492,40 @@ describe("computeMobileResizeAppliedTarget", () => {
         expect(target).not.toBeNull();
         expect(target!.transformScale).toBeCloseTo(target!.previewGobanContentSize / 225);
     });
+
+    it("does not freeze board geometry when the stable Goban host is narrower than the slot", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                ...smallBoardStableGeometry,
+                boardSurface: {
+                    boardSurfaceWidth: 382,
+                    boardSurfaceHeight: 382,
+                },
+                gobanContainer: {
+                    gobanContainerWidth: 227,
+                    gobanContainerHeight: 227,
+                    gobanContainerSize: 227,
+                },
+                gobanContent: {
+                    gobanContentWidth: 225,
+                    gobanContentHeight: 225,
+                    gobanContentSize: 225,
+                    nativeGobanContentSize: 225,
+                },
+            },
+            targetDividerRatio: 0.8,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 225,
+        });
+
+        expect(target).not.toBeNull();
+        expect(target!.boardSurfaceWidth).toBe(382);
+        expect(target!.boardSurfaceWidth).not.toBe(227);
+        expect(target!.gobanContainerWidth).toBeGreaterThan(227);
+        expect(target!.geometry.gobanContainer.gobanContainerSize).toBeGreaterThan(227);
+    });
 });
 
 describe("computeMobileBoardGeometry", () => {

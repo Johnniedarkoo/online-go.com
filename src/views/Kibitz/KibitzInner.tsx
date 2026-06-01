@@ -930,10 +930,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 ".mobile-board-fit-slot",
             ) as HTMLElement | null;
             const boardSurfaceElement = shell?.querySelector(
-                ".mobile-secondary-board-surface",
+                ".mobile-board-fit-slot",
             ) as HTMLElement | null;
             const gobanContainerElement = shell?.querySelector(
-                ".mobile-secondary-board-surface",
+                ".mobile-board-fit-slot > .KibitzBoard",
             ) as HTMLElement | null;
             const gobanContentElement = gobanContainerElement?.querySelector(
                 ".Goban",
@@ -1777,8 +1777,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                             appliedTarget.predictedNativeGobanContentSize,
                     },
                     postSettle: {
-                        matched: true,
-                        maxDeltaPx: 0,
+                        matched: null,
+                        maxDeltaPx: null,
+                        verified: false,
                     },
                     invariantViolations: [],
                 });
