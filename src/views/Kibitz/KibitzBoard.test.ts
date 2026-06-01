@@ -48,6 +48,9 @@ import {
     computeTransientDragVisualBoardSize,
     computeTransientDragScale,
     computeMeasuredTransientDragContentSize,
+    getExpectedReactBoardSizeFromTarget,
+    hasReactBoardSizeCaughtUp,
+    type MobileResizeAppliedTarget,
 } from "./kibitzBoardSizing";
 
 describe("getMovePathToRestore", () => {
@@ -357,6 +360,84 @@ describe("resolveActualNativeFinalContentSize", () => {
                 actualMetricHeight: null,
             }),
         ).toBe(323);
+    });
+});
+
+describe("react board size catch-up", () => {
+    const target = {
+        geometrySource: "computeMobileBoardGeometry" as const,
+        dividerRatio: 0.5,
+        boardSurface: {
+            width: 382,
+            height: 382,
+        },
+        gobanContainer: {
+            size: 382,
+            leftInSurface: 0,
+            topInSurface: 0,
+        },
+        activePreviewContent: {
+            size: 382,
+            leftInContainer: 0,
+            topInContainer: 0,
+            leftInSurface: 0,
+            topInSurface: 0,
+            transformScale: 1,
+        },
+        nativeFinalContent: {
+            size: 380,
+            leftInContainer: 1,
+            topInContainer: 1,
+            leftInSurface: 1,
+            topInSurface: 1,
+        },
+        previewGobanContentSize: 382,
+        predictedNativeGobanContentSize: 380,
+        legacyVisualSize: 382,
+        legacyFinalWindowSize: 382,
+        usingRestingMaxGeometry: false,
+        transformScale: 1,
+        dragScale: 1,
+        gobanLeft: 0,
+        gobanTop: 0,
+        geometry: computeMobileBoardGeometry({
+            shellWidth: 390,
+            shellHeight: 744,
+            dividerRatio: 0.6019354838709677,
+            boardSizingSlotWidth: 382,
+            squareFitReservedHeight: 36,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+        }),
+        boardSurfaceWidth: 382,
+        boardSurfaceHeight: 382,
+        gobanContainerWidth: 382,
+        gobanContainerHeight: 382,
+    } satisfies MobileResizeAppliedTarget;
+
+    it("uses the goban container size as the expected react board size", () => {
+        expect(getExpectedReactBoardSizeFromTarget(target)).toBe(382);
+    });
+
+    it("treats stale 331px size props as not caught up for a 382px target", () => {
+        expect(
+            hasReactBoardSizeCaughtUp({
+                target,
+                sizePropLatest: 331,
+                displaySizeLatest: 331,
+            }),
+        ).toBe(false);
+    });
+
+    it("treats matching 382px size props as caught up", () => {
+        expect(
+            hasReactBoardSizeCaughtUp({
+                target,
+                sizePropLatest: 382,
+                displaySizeLatest: 382,
+            }),
+        ).toBe(true);
     });
 });
 

@@ -158,6 +158,45 @@ export function resolveActualNativeFinalContentSize({
     );
 }
 
+export function getExpectedReactBoardSizeFromTarget(target: MobileResizeAppliedTarget): number {
+    return target.gobanContainer.size;
+}
+
+export function hasReactBoardSizeCaughtUp({
+    target,
+    expectedReactBoardSize,
+    sizePropLatest,
+    displaySizeLatest,
+    tolerancePx = 1.5,
+}: {
+    target?: MobileResizeAppliedTarget | null;
+    expectedReactBoardSize?: number | null;
+    sizePropLatest: number | null;
+    displaySizeLatest: number | null;
+    tolerancePx?: number;
+}): boolean {
+    const expected = firstPositiveFinite(
+        expectedReactBoardSize ?? null,
+        target ? getExpectedReactBoardSizeFromTarget(target) : null,
+    );
+
+    if (expected == null) {
+        return false;
+    }
+
+    const sizePropReady =
+        typeof sizePropLatest === "number" &&
+        Number.isFinite(sizePropLatest) &&
+        Math.abs(sizePropLatest - expected) <= tolerancePx;
+
+    const displaySizeReady =
+        typeof displaySizeLatest === "number" &&
+        Number.isFinite(displaySizeLatest) &&
+        Math.abs(displaySizeLatest - expected) <= tolerancePx;
+
+    return sizePropReady && displaySizeReady;
+}
+
 /**
  * Mobile resize geometry terminology:
  *

@@ -37,6 +37,7 @@ import {
     isKibitzBoardResizeStale,
     type MobileResizeAppliedTarget,
     type TransientDragReleaseGeometryFromAppliedTarget,
+    hasReactBoardSizeCaughtUp,
     resolveActualNativeFinalContentSize,
     shouldAnimateTransientRelease,
     predictNativeGobanContentSize,
@@ -1067,13 +1068,6 @@ export function KibitzBoard({
                 const metrics = gobanController?.computeMetrics?.();
                 const metricWidth = Number(metrics?.width ?? NaN);
                 const metricHeight = Number(metrics?.height ?? NaN);
-                const nativeReady = isNativeFinalResizeReady(
-                    finalNativeContentSize,
-                    boardSurfaceWidth,
-                    boardSurfaceHeight,
-                    gobanContainerWidth,
-                    gobanContainerHeight,
-                );
                 const layoutReady =
                     hostRect != null &&
                     containerRect != null &&
@@ -1088,31 +1082,32 @@ export function KibitzBoard({
                     actualMetricWidth: Number.isFinite(metricWidth) ? metricWidth : null,
                     actualMetricHeight: Number.isFinite(metricHeight) ? metricHeight : null,
                 });
-                const reactHasCaughtUp =
-                    layoutReady ||
-                    (sizePropLatest != null && Math.abs(sizePropLatest - boardSurfaceWidth) <= 1) ||
-                    (displaySizeLatest != null &&
-                        Math.abs(displaySizeLatest - boardSurfaceWidth) <= 1);
-                const nativeReadyOrActual =
-                    nativeReady ||
-                    (actualNativeContentSize != null && layoutReady && reactHasCaughtUp);
+                const resolvedFinalNativeContentSize = actualNativeContentSize;
+                const nativeReady = isNativeFinalResizeReady(
+                    resolvedFinalNativeContentSize,
+                    boardSurfaceWidth,
+                    boardSurfaceHeight,
+                    gobanContainerWidth,
+                    gobanContainerHeight,
+                );
+                const reactHasCaughtUp = hasReactBoardSizeCaughtUp({
+                    expectedReactBoardSize: gobanContainerWidth,
+                    sizePropLatest,
+                    displaySizeLatest,
+                });
 
                 if (gobanElement && Number.isFinite(metricWidth) && metricWidth > 0) {
                     gobanElement.style.transformOrigin = "top left";
-                    gobanElement.style.transform = `scale(${finalNativeContentSize / metricWidth})`;
+                    gobanElement.style.transform = `scale(${resolvedFinalNativeContentSize / metricWidth})`;
                     gobanElement.style.left = `${Math.max(
                         0,
-                        (gobanContainerWidth - finalNativeContentSize) / 2,
+                        (gobanContainerWidth - resolvedFinalNativeContentSize) / 2,
                     )}px`;
                     gobanElement.style.top = "0px";
                     gobanElement.style.pointerEvents = "none";
                 }
 
-                if (
-                    (nativeReadyOrActual && layoutReady && reactHasCaughtUp) ||
-                    attempts >= maxAttempts
-                ) {
-                    const resolvedFinalNativeContentSize = actualNativeContentSize;
+                if ((nativeReady && layoutReady && reactHasCaughtUp) || attempts >= maxAttempts) {
                     recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-native-ready", {
                         ...getKibitzBoardMetricsSnapshot("transient-drag-final-native-ready"),
                         boardSurfaceWidth,
@@ -1123,7 +1118,6 @@ export function KibitzBoard({
                         metricsWidth: Number.isFinite(metricWidth) ? metricWidth : null,
                         metricsHeight: Number.isFinite(metricHeight) ? metricHeight : null,
                         nativeReady,
-                        nativeReadyOrActual,
                         hostRectWidth: hostRect?.width ?? null,
                         hostRectHeight: hostRect?.height ?? null,
                         containerRectWidth: containerRect?.width ?? null,
@@ -1422,11 +1416,11 @@ export function KibitzBoard({
                     Math.abs(hostRect.height - releaseGeometry.boardSurfaceHeight) <= 1 &&
                     Math.abs(containerRect.width - releaseGeometry.gobanContainerWidth) <= 1 &&
                     Math.abs(containerRect.height - releaseGeometry.gobanContainerHeight) <= 1;
-                const reactHasCaughtUp =
-                    (sizePropLatest != null &&
-                        Math.abs(sizePropLatest - releaseGeometry.boardSurfaceWidth) <= 1) ||
-                    (displaySizeLatest != null &&
-                        Math.abs(displaySizeLatest - releaseGeometry.boardSurfaceWidth) <= 1);
+                const reactHasCaughtUp = hasReactBoardSizeCaughtUp({
+                    expectedReactBoardSize: releaseGeometry.gobanContainerWidth,
+                    sizePropLatest,
+                    displaySizeLatest,
+                });
 
                 if (!layoutReady || !reactHasCaughtUp) {
                     if (isKibitzBoardSizeDebugEnabled() && isKibitzBoardSizeVerboseDebugEnabled()) {
