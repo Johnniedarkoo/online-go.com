@@ -130,6 +130,34 @@ export function resolveMobileResizeBaselineGobanContentSize({
     );
 }
 
+export function shouldAnimateTransientRelease({
+    fromContentSize,
+    toContentSize,
+}: {
+    fromContentSize: number;
+    toContentSize: number;
+}): boolean {
+    const contentDelta = Math.abs(toContentSize - fromContentSize);
+    const contentDeltaRatio = contentDelta / Math.max(1, fromContentSize);
+
+    return contentDelta > 3 && contentDeltaRatio > 0.01;
+}
+
+export function resolveActualNativeFinalContentSize({
+    expectedNativeContentSize,
+    actualMetricWidth,
+    actualMetricHeight,
+}: {
+    expectedNativeContentSize: number;
+    actualMetricWidth?: number | null;
+    actualMetricHeight?: number | null;
+}): number {
+    return (
+        firstPositiveFinite(actualMetricWidth ?? null, actualMetricHeight ?? null) ??
+        expectedNativeContentSize
+    );
+}
+
 /**
  * Mobile resize geometry terminology:
  *

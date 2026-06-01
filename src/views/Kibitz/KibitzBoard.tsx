@@ -37,6 +37,8 @@ import {
     isKibitzBoardResizeStale,
     type MobileResizeAppliedTarget,
     type TransientDragReleaseGeometryFromAppliedTarget,
+    resolveActualNativeFinalContentSize,
+    shouldAnimateTransientRelease,
     predictNativeGobanContentSize,
 } from "./kibitzBoardSizing";
 import { logKibitzVariationDebug, summarizeKibitzMoveTreeNode } from "./kibitzVariationDebug";
@@ -401,6 +403,7 @@ export function KibitzBoard({
     const allowTransientDragScalingRef = React.useRef(allowTransientDragScaling);
     const pendingTransientDragFinalSizeRef = React.useRef<number | null>(null);
     const pendingTransientDragClearFrameRef = React.useRef<number | null>(null);
+    const pendingTransientReleaseStartFrameRef = React.useRef<number | null>(null);
     const lastAppliedTransientContentSizeRef = React.useRef<number | null>(null);
     const transientDragMetricsRef = React.useRef<{
         metricsWidth: number | null;
@@ -1080,11 +1083,19 @@ export function KibitzBoard({
                     Math.abs(containerRect.height - gobanContainerHeight) <= 1;
                 const sizePropLatest = sizePropRef.current;
                 const displaySizeLatest = displaySizeRef.current;
+                const actualNativeContentSize = resolveActualNativeFinalContentSize({
+                    expectedNativeContentSize: finalNativeContentSize,
+                    actualMetricWidth: Number.isFinite(metricWidth) ? metricWidth : null,
+                    actualMetricHeight: Number.isFinite(metricHeight) ? metricHeight : null,
+                });
                 const reactHasCaughtUp =
                     layoutReady ||
                     (sizePropLatest != null && Math.abs(sizePropLatest - boardSurfaceWidth) <= 1) ||
                     (displaySizeLatest != null &&
                         Math.abs(displaySizeLatest - boardSurfaceWidth) <= 1);
+                const nativeReadyOrActual =
+                    nativeReady ||
+                    (actualNativeContentSize != null && layoutReady && reactHasCaughtUp);
 
                 if (gobanElement && Number.isFinite(metricWidth) && metricWidth > 0) {
                     gobanElement.style.transformOrigin = "top left";
@@ -1097,17 +1108,22 @@ export function KibitzBoard({
                     gobanElement.style.pointerEvents = "none";
                 }
 
-                if ((nativeReady && layoutReady && reactHasCaughtUp) || attempts >= maxAttempts) {
+                if (
+                    (nativeReadyOrActual && layoutReady && reactHasCaughtUp) ||
+                    attempts >= maxAttempts
+                ) {
+                    const resolvedFinalNativeContentSize = actualNativeContentSize;
                     recordKibitzBoardSizeEvent("kibitz-board:transient-drag-final-native-ready", {
                         ...getKibitzBoardMetricsSnapshot("transient-drag-final-native-ready"),
                         boardSurfaceWidth,
                         boardSurfaceHeight,
                         gobanContainerWidth,
                         gobanContainerHeight,
-                        finalNativeContentSize,
+                        finalNativeContentSize: resolvedFinalNativeContentSize,
                         metricsWidth: Number.isFinite(metricWidth) ? metricWidth : null,
                         metricsHeight: Number.isFinite(metricHeight) ? metricHeight : null,
                         nativeReady,
+                        nativeReadyOrActual,
                         hostRectWidth: hostRect?.width ?? null,
                         hostRectHeight: hostRect?.height ?? null,
                         containerRectWidth: containerRect?.width ?? null,
@@ -1124,7 +1140,7 @@ export function KibitzBoard({
                         boardSurfaceHeight,
                         gobanContainerWidth,
                         gobanContainerHeight,
-                        finalNativeContentSize,
+                        resolvedFinalNativeContentSize,
                         {
                             metricsWidth: Number.isFinite(metricWidth) ? metricWidth : null,
                             metricsHeight: Number.isFinite(metricHeight) ? metricHeight : null,
@@ -1380,6 +1396,81 @@ export function KibitzBoard({
         [getKibitzBoardMetricsSnapshot, runFinalNativeResizeAfterSettle],
     );
 
+    const waitForTransientReleaseLayoutCatchUpThenStart = React.useCallback(
+        (releaseGeometry: TransientDragReleaseGeometryFromAppliedTarget) => {
+            if (pendingTransientReleaseStartFrameRef.current !== null) {
+                window.cancelAnimationFrame(pendingTransientReleaseStartFrameRef.current);
+                pendingTransientReleaseStartFrameRef.current = null;
+            }
+
+            const check = () => {
+                if (pendingTransientDragFinalSizeRef.current == null) {
+                    pendingTransientReleaseStartFrameRef.current = null;
+                    return;
+                }
+
+                const host = boardHostRef.current;
+                const container = gobanContainerRef.current;
+                const hostRect = host?.getBoundingClientRect() ?? null;
+                const containerRect = container?.getBoundingClientRect() ?? null;
+                const sizePropLatest = sizePropRef.current;
+                const displaySizeLatest = displaySizeRef.current;
+                const layoutReady =
+                    hostRect != null &&
+                    containerRect != null &&
+                    Math.abs(hostRect.width - releaseGeometry.boardSurfaceWidth) <= 1 &&
+                    Math.abs(hostRect.height - releaseGeometry.boardSurfaceHeight) <= 1 &&
+                    Math.abs(containerRect.width - releaseGeometry.gobanContainerWidth) <= 1 &&
+                    Math.abs(containerRect.height - releaseGeometry.gobanContainerHeight) <= 1;
+                const reactHasCaughtUp =
+                    (sizePropLatest != null &&
+                        Math.abs(sizePropLatest - releaseGeometry.boardSurfaceWidth) <= 1) ||
+                    (displaySizeLatest != null &&
+                        Math.abs(displaySizeLatest - releaseGeometry.boardSurfaceWidth) <= 1);
+
+                if (!layoutReady || !reactHasCaughtUp) {
+                    if (isKibitzBoardSizeDebugEnabled() && isKibitzBoardSizeVerboseDebugEnabled()) {
+                        recordKibitzBoardSizeEvent("kibitz-board:transient-drag-release-wait", {
+                            ...getKibitzBoardMetricsSnapshot("transient-drag-release-wait"),
+                            boardSurfaceWidth: releaseGeometry.boardSurfaceWidth,
+                            boardSurfaceHeight: releaseGeometry.boardSurfaceHeight,
+                            gobanContainerWidth: releaseGeometry.gobanContainerWidth,
+                            gobanContainerHeight: releaseGeometry.gobanContainerHeight,
+                            sizePropLatest,
+                            displaySizeLatest,
+                            layoutReady,
+                            reactHasCaughtUp,
+                        });
+                    }
+
+                    pendingTransientReleaseStartFrameRef.current =
+                        window.requestAnimationFrame(check);
+                    return;
+                }
+
+                pendingTransientReleaseStartFrameRef.current = null;
+                if (
+                    shouldAnimateTransientRelease({
+                        fromContentSize: releaseGeometry.fromContentSize,
+                        toContentSize: releaseGeometry.toContentSize,
+                    })
+                ) {
+                    startTransientReleaseSettle(releaseGeometry);
+                    return;
+                }
+
+                runFinalNativeResizeAfterSettle(releaseGeometry);
+            };
+
+            pendingTransientReleaseStartFrameRef.current = window.requestAnimationFrame(check);
+        },
+        [
+            getKibitzBoardMetricsSnapshot,
+            runFinalNativeResizeAfterSettle,
+            startTransientReleaseSettle,
+        ],
+    );
+
     const finishTransientDragFromAppliedTarget = React.useCallback(
         (target: MobileResizeAppliedTarget) => {
             if (!Number.isFinite(target.boardSurfaceWidth) || target.boardSurfaceWidth <= 0) {
@@ -1439,9 +1530,15 @@ export function KibitzBoard({
                 source: "last-applied-target",
             });
 
-            startTransientReleaseSettle(releaseGeometry);
+            waitForTransientReleaseLayoutCatchUpThenStart(releaseGeometry);
         },
-        [getKibitzBoardMetricsSnapshot, height, showLabels, startTransientReleaseSettle, width],
+        [
+            getKibitzBoardMetricsSnapshot,
+            height,
+            showLabels,
+            waitForTransientReleaseLayoutCatchUpThenStart,
+            width,
+        ],
     );
 
     const transientDragController = React.useMemo<KibitzBoardTransientDragController>(
@@ -1463,6 +1560,10 @@ export function KibitzBoard({
         onTransientDragControllerChange?.(transientDragController);
 
         return () => {
+            if (pendingTransientReleaseStartFrameRef.current !== null) {
+                window.cancelAnimationFrame(pendingTransientReleaseStartFrameRef.current);
+                pendingTransientReleaseStartFrameRef.current = null;
+            }
             onTransientDragControllerChange?.(null);
         };
     }, [onTransientDragControllerChange, transientDragController]);

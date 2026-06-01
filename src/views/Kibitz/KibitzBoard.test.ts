@@ -42,6 +42,8 @@ import {
     isKibitzBoardResizeStale,
     predictNativeGobanContentSize,
     resolveMobileResizeBaselineGobanContentSize,
+    resolveActualNativeFinalContentSize,
+    shouldAnimateTransientRelease,
     shouldCommitMobileSplitRatioUpdate,
     computeTransientDragVisualBoardSize,
     computeTransientDragScale,
@@ -317,6 +319,44 @@ describe("resolveMobileResizeBaselineGobanContentSize", () => {
                 currentMetricsHeight: 225,
             }),
         ).toBe(225);
+    });
+});
+
+describe("shouldAnimateTransientRelease", () => {
+    it("skips tiny content deltas", () => {
+        expect(
+            shouldAnimateTransientRelease({
+                fromContentSize: 326,
+                toContentSize: 323,
+            }),
+        ).toBe(false);
+
+        expect(
+            shouldAnimateTransientRelease({
+                fromContentSize: 326,
+                toContentSize: 315,
+            }),
+        ).toBe(true);
+    });
+});
+
+describe("resolveActualNativeFinalContentSize", () => {
+    it("prefers the actual measured Goban size when available", () => {
+        expect(
+            resolveActualNativeFinalContentSize({
+                expectedNativeContentSize: 323,
+                actualMetricWidth: 315,
+                actualMetricHeight: 315,
+            }),
+        ).toBe(315);
+
+        expect(
+            resolveActualNativeFinalContentSize({
+                expectedNativeContentSize: 323,
+                actualMetricWidth: null,
+                actualMetricHeight: null,
+            }),
+        ).toBe(323);
     });
 });
 
