@@ -932,7 +932,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const boardSizingSlotElement = shell?.querySelector(
                 ".mobile-board-fit-slot",
             ) as HTMLElement | null;
-            const boardSurfaceElement = boardHostElement;
+            const boardSurfaceElement = boardSizingSlotElement;
             const gobanContainerElement = shell?.querySelector(
                 ".mobile-board-fit-slot .goban-container",
             ) as HTMLElement | null;
@@ -942,13 +942,26 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
             const shellRect = shell?.getBoundingClientRect() ?? null;
             const boardSizingSlotRect = boardSizingSlotElement?.getBoundingClientRect() ?? null;
-            const boardSurfaceRect = boardSurfaceElement?.getBoundingClientRect() ?? null;
+            const boardSurfaceMeasuredRect = boardSurfaceElement?.getBoundingClientRect() ?? null;
             const gobanContainerRect = gobanContainerElement?.getBoundingClientRect() ?? null;
             const gobanContentRect = gobanContentElement?.getBoundingClientRect() ?? null;
             const boardSizingSlotMetrics =
                 boardSizingSlotElement != null
                     ? measureSquareFitLayout(boardSizingSlotElement, true)
                     : null;
+            const boardSurfaceRect =
+                boardSurfaceMeasuredRect != null
+                    ? {
+                          width: boardSurfaceMeasuredRect.width,
+                          height:
+                              boardSizingSlotMetrics?.nextSize ?? boardSurfaceMeasuredRect.height,
+                      }
+                    : boardSizingSlotMetrics != null
+                      ? {
+                            width: boardSizingSlotMetrics.slotWidth,
+                            height: boardSizingSlotMetrics.nextSize,
+                        }
+                      : null;
             const gobanContentSize = firstPositiveFinite(
                 gobanContentRect?.width ?? null,
                 gobanContentRect?.height ?? null,
@@ -1005,7 +1018,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                               horizontalInset: Math.max(
                                   0,
                                   (boardSizingSlotRect?.width ?? shellRect.width) -
-                                      boardSurfaceRect.width,
+                                      (boardSurfaceRect?.width ?? 0),
                               ),
                               boardVerticalChrome: Math.max(
                                   0,
@@ -1042,6 +1055,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                         hasBoardSurface: Boolean(boardSurfaceRect),
                         hasGobanContainer: Boolean(gobanContainerRect),
                         hasGobanContent: Boolean(gobanContentRect),
+                        boardSurfaceOuterWidth:
+                            boardHostElement?.getBoundingClientRect().width ?? null,
+                        boardSurfaceOuterHeight:
+                            boardHostElement?.getBoundingClientRect().height ?? null,
                         boardSizingSlotMetrics: boardSizingSlotMetrics
                             ? {
                                   reservedHeight: boardSizingSlotMetrics.reservedHeight,

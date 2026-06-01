@@ -681,21 +681,23 @@ export function KibitzBoard({
                 return null;
             }
 
-            setTransientRectSize(host, target.boardSurfaceWidth, target.boardSurfaceHeight);
-            setTransientRectSize(
-                container,
-                target.gobanContainerWidth,
-                target.gobanContainerHeight,
-            );
+            setTransientRectSize(host, target.boardSurface.width, target.boardSurface.height);
+            host.style.position = "relative";
+            host.style.overflow = "hidden";
+            setTransientRectSize(container, target.gobanContainer.size, target.gobanContainer.size);
+            container.style.position = "absolute";
+            container.style.left = `${target.gobanContainer.leftInSurface}px`;
+            container.style.top = `${target.gobanContainer.topInSurface}px`;
+            container.style.flex = "none";
             gobanElement.style.transformOrigin = "top left";
-            gobanElement.style.transform = `scale(${target.transformScale})`;
-            gobanElement.style.left = `${target.gobanLeft}px`;
-            gobanElement.style.top = `${target.gobanTop}px`;
+            gobanElement.style.transform = `scale(${target.activePreviewContent.transformScale})`;
+            gobanElement.style.left = `${target.activePreviewContent.leftInContainer}px`;
+            gobanElement.style.top = `${target.activePreviewContent.topInContainer}px`;
             gobanElement.style.pointerEvents = "none";
             transientMetrics.usingRestingMaxGeometry = target.usingRestingMaxGeometry;
-            transientMetrics.lastWindowSize = target.boardSurfaceWidth;
-            transientMetrics.lastContentSize = target.previewGobanContentSize;
-            lastAppliedTransientContentSizeRef.current = target.previewGobanContentSize;
+            transientMetrics.lastWindowSize = target.boardSurface.width;
+            transientMetrics.lastContentSize = target.activePreviewContent.size;
+            lastAppliedTransientContentSizeRef.current = target.activePreviewContent.size;
 
             if (isKibitzBoardSizeDebugEnabled()) {
                 recordKibitzBoardSizeEvent("mobile-geometry:computed-target", {
@@ -727,11 +729,11 @@ export function KibitzBoard({
                         boardSizingSlotWidth: target.geometry.boardSizingSlot.boardSizingSlotWidth,
                         boardSizingSlotHeight:
                             target.geometry.boardSizingSlot.boardSizingSlotHeight,
-                        boardSurfaceWidth: target.boardSurfaceWidth,
-                        boardSurfaceHeight: target.boardSurfaceHeight,
-                        gobanContainerSize: target.geometry.gobanContainer.gobanContainerSize,
-                        previewGobanContentSize: target.previewGobanContentSize,
-                        predictedNativeGobanContentSize: target.predictedNativeGobanContentSize,
+                        boardSurfaceWidth: target.boardSurface.width,
+                        boardSurfaceHeight: target.boardSurface.height,
+                        gobanContainerSize: target.gobanContainer.size,
+                        activePreviewContentSize: target.activePreviewContent.size,
+                        nativeFinalContentSize: target.nativeFinalContent.size,
                     },
                 });
             }
@@ -777,8 +779,8 @@ export function KibitzBoard({
                         coordinateSafeInputRef.current &&
                         (allowTransientDragScalingRef.current ||
                             transientDragFinalizingRef.current),
-                    visualSize: target.boardSurfaceWidth,
-                    contentSize: target.previewGobanContentSize,
+                    visualSize: target.boardSurface.width,
+                    contentSize: target.activePreviewContent.size,
                     dividerRatio: target.dividerRatio,
                     startWindowWidth: transientMetrics.startWindowWidth,
                     startWindowHeight: transientMetrics.startWindowHeight,
@@ -791,7 +793,7 @@ export function KibitzBoard({
                     dragScale: target.dragScale,
                     cachedMetricsWidth: transientMetrics.metricsWidth,
                     cachedMetricsHeight: transientMetrics.metricsHeight,
-                    transformScale: target.transformScale,
+                    transformScale: target.activePreviewContent.transformScale,
                     geometry: target.geometry,
                 });
                 recordKibitzBoardSizeEvent("kibitz-board:drag-fast-layout", {
@@ -800,14 +802,14 @@ export function KibitzBoard({
                     currentRoomGameId,
                     isMobile,
                     interactive,
-                    visualSize: target.boardSurfaceWidth,
+                    visualSize: target.boardSurface.width,
                     hostRectWidth: hostMetrics?.rectWidth ?? null,
                     hostRectHeight: hostMetrics?.rectHeight ?? null,
                     containerRectWidth: containerMetrics?.rectWidth ?? null,
                     containerRectHeight: containerMetrics?.rectHeight ?? null,
                     gobanRectWidth: gobanMetrics?.rectWidth ?? null,
                     gobanRectHeight: gobanMetrics?.rectHeight ?? null,
-                    contentSize: target.previewGobanContentSize,
+                    contentSize: target.activePreviewContent.size,
                     startWindowWidth: transientMetrics.startWindowWidth,
                     startWindowHeight: transientMetrics.startWindowHeight,
                     startWindowSize: transientMetrics.startWindowSize,
@@ -816,7 +818,7 @@ export function KibitzBoard({
                     usingRestingMaxGeometry: target.usingRestingMaxGeometry,
                     startGap: transientMetrics.startGap,
                     dragScale: target.dragScale,
-                    transformScale: target.transformScale,
+                    transformScale: target.activePreviewContent.transformScale,
                     gobanLeft: gobanElement.style.left,
                     gobanTop: gobanElement.style.top,
                     transform: gobanElement.style.transform,
@@ -858,6 +860,15 @@ export function KibitzBoard({
 
             setTransientRectSize(host, boardSurfaceWidth, boardSurfaceHeight);
             setTransientRectSize(container, gobanContainerWidth, gobanContainerHeight);
+            host.style.position = "relative";
+            host.style.overflow = "hidden";
+            container.style.position = "absolute";
+            container.style.left = `${Math.max(
+                0,
+                Math.floor((boardSurfaceWidth - gobanContainerWidth) / 2),
+            )}px`;
+            container.style.top = "0px";
+            container.style.flex = "none";
 
             gobanElement.style.width = `${finalNativeContentSize}px`;
             gobanElement.style.height = `${finalNativeContentSize}px`;
@@ -916,12 +927,18 @@ export function KibitzBoard({
                     host.style.minHeight = "";
                     host.style.maxWidth = "";
                     host.style.maxHeight = "";
+                    host.style.position = "";
+                    host.style.overflow = "";
                 }
                 if (container) {
                     container.style.minWidth = "";
                     container.style.minHeight = "";
                     container.style.maxWidth = "";
                     container.style.maxHeight = "";
+                    container.style.position = "";
+                    container.style.left = "";
+                    container.style.top = "";
+                    container.style.flex = "";
                 }
             }
 
@@ -1183,7 +1200,10 @@ export function KibitzBoard({
 
             const settleDurationMs = TRANSIENT_DRAG_RELEASE_SETTLE_MS;
             const contentDelta = releaseGeometry.contentDelta;
-            const leftDelta = Math.abs(releaseGeometry.toLeft - releaseGeometry.fromLeft);
+            const leftDelta = Math.abs(
+                releaseGeometry.toContentLeftInContainer -
+                    releaseGeometry.fromContentLeftInContainer,
+            );
             const windowDelta = releaseGeometry.windowDelta;
 
             const host = boardHostRef.current;
@@ -1203,6 +1223,18 @@ export function KibitzBoard({
                     releaseGeometry.gobanContainerWidth,
                     releaseGeometry.gobanContainerHeight,
                 );
+                host.style.position = "relative";
+                host.style.overflow = "hidden";
+                container.style.position = "absolute";
+                container.style.left = `${Math.max(
+                    0,
+                    Math.floor(
+                        (releaseGeometry.boardSurfaceWidth - releaseGeometry.gobanContainerWidth) /
+                            2,
+                    ),
+                )}px`;
+                container.style.top = "0px";
+                container.style.flex = "none";
             }
 
             if (isKibitzBoardSizeDebugEnabled()) {
@@ -1215,10 +1247,10 @@ export function KibitzBoard({
                     finalNativeContentSize: releaseGeometry.finalNativeContentSize,
                     fromContentSize: releaseGeometry.fromContentSize,
                     toContentSize: releaseGeometry.toContentSize,
-                    fromLeft: releaseGeometry.fromLeft,
-                    toLeft: releaseGeometry.toLeft,
+                    fromContentLeftInContainer: releaseGeometry.fromContentLeftInContainer,
+                    toContentLeftInContainer: releaseGeometry.toContentLeftInContainer,
                     currentContentSize: releaseGeometry.fromContentSize,
-                    currentLeft: releaseGeometry.fromLeft,
+                    currentLeft: releaseGeometry.fromContentLeftInContainer,
                     settleElapsedMs: 0,
                     settleDurationMs,
                     contentDelta,
@@ -1261,8 +1293,10 @@ export function KibitzBoard({
                     releaseGeometry.fromContentSize +
                     (releaseGeometry.toContentSize - releaseGeometry.fromContentSize) * easedT;
                 const currentLeft =
-                    releaseGeometry.fromLeft +
-                    (releaseGeometry.toLeft - releaseGeometry.fromLeft) * easedT;
+                    releaseGeometry.fromContentLeftInContainer +
+                    (releaseGeometry.toContentLeftInContainer -
+                        releaseGeometry.fromContentLeftInContainer) *
+                        easedT;
 
                 setTransientRectSize(
                     host,
@@ -1274,6 +1308,18 @@ export function KibitzBoard({
                     releaseGeometry.gobanContainerWidth,
                     releaseGeometry.gobanContainerHeight,
                 );
+                host.style.position = "relative";
+                host.style.overflow = "hidden";
+                container.style.position = "absolute";
+                container.style.left = `${Math.max(
+                    0,
+                    Math.floor(
+                        (releaseGeometry.boardSurfaceWidth - releaseGeometry.gobanContainerWidth) /
+                            2,
+                    ),
+                )}px`;
+                container.style.top = "0px";
+                container.style.flex = "none";
 
                 gobanElement.style.transformOrigin = "top left";
                 gobanElement.style.transform = `scale(${currentContentSize / metricsWidth})`;
@@ -1304,8 +1350,8 @@ export function KibitzBoard({
                         fromContentSize: releaseGeometry.fromContentSize,
                         toContentSize: releaseGeometry.toContentSize,
                         currentContentSize,
-                        fromLeft: releaseGeometry.fromLeft,
-                        toLeft: releaseGeometry.toLeft,
+                        fromContentLeftInContainer: releaseGeometry.fromContentLeftInContainer,
+                        toContentLeftInContainer: releaseGeometry.toContentLeftInContainer,
                         currentLeft,
                         currentWindowSize: releaseGeometry.boardSurfaceWidth,
                         animationProgress: linearT,
@@ -1358,11 +1404,13 @@ export function KibitzBoard({
             gobanElement.style.pointerEvents = "none";
 
             const inlineLeft = Number.parseFloat(gobanElement.style.left);
-            const lastVisibleLeft = Number.isFinite(inlineLeft) ? inlineLeft : target.gobanLeft;
+            const lastVisibleLeftInContainer = Number.isFinite(inlineLeft)
+                ? inlineLeft
+                : target.activePreviewContent.leftInContainer;
             const releaseGeometry = computeTransientDragReleaseGeometryFromAppliedTarget({
                 target,
-                lastVisibleContentSize: target.previewGobanContentSize,
-                lastVisibleLeft,
+                lastVisibleContentSize: target.activePreviewContent.size,
+                lastVisibleLeftInContainer,
                 boardWidth: width,
                 boardHeight: height,
                 showLabels,
@@ -1370,15 +1418,15 @@ export function KibitzBoard({
 
             recordKibitzBoardSizeEvent("kibitz-board:transient-drag-release-start", {
                 ...getKibitzBoardMetricsSnapshot("transient-drag-release-start"),
-                boardSurfaceWidth: target.boardSurfaceWidth,
-                boardSurfaceHeight: target.boardSurfaceHeight,
-                gobanContainerWidth: target.gobanContainerWidth,
-                gobanContainerHeight: target.gobanContainerHeight,
+                boardSurfaceWidth: target.boardSurface.width,
+                boardSurfaceHeight: target.boardSurface.height,
+                gobanContainerWidth: target.gobanContainer.size,
+                gobanContainerHeight: target.gobanContainer.size,
                 finalNativeContentSize: releaseGeometry.finalNativeContentSize,
-                lastVisibleContentSize: target.previewGobanContentSize,
-                lastVisibleLeft,
-                fromLeft: releaseGeometry.fromLeft,
-                toLeft: releaseGeometry.toLeft,
+                lastVisibleContentSize: target.activePreviewContent.size,
+                lastVisibleLeftInContainer,
+                fromContentLeftInContainer: releaseGeometry.fromContentLeftInContainer,
+                toContentLeftInContainer: releaseGeometry.toContentLeftInContainer,
                 contentDelta: releaseGeometry.contentDelta,
                 sizePropLatest: sizePropRef.current,
                 displaySizeLatest: displaySizeRef.current,

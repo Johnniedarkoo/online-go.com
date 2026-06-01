@@ -424,7 +424,7 @@ describe("computeMobileResizeAppliedTarget", () => {
 
         expect(target).not.toBeNull();
         expect(target!.boardSurfaceWidth).toBe(374);
-        expect(target!.boardSurfaceHeight).toBe(382);
+        expect(target!.boardSurfaceHeight).toBe(374);
         expect(target!.gobanContainerWidth).toBe(374);
         expect(target!.gobanContainerHeight).toBe(374);
         expect(target!.gobanLeft).toBe(0);
@@ -549,7 +549,7 @@ describe("computeMobileBoardGeometry", () => {
         });
         expect(geometry.boardSurface).toEqual({
             boardSurfaceWidth: 374,
-            boardSurfaceHeight: 390,
+            boardSurfaceHeight: 374,
         });
         expect(geometry.gobanContainer).toEqual({
             gobanContainerWidth: 374,
@@ -607,7 +607,7 @@ describe("computeMobileBoardGeometry", () => {
             showLabels: false,
         });
 
-        expect(geometry.boardSurface.boardSurfaceHeight).toBe(368);
+        expect(geometry.boardSurface.boardSurfaceHeight).toBe(328);
         expect(geometry.gobanContainer.gobanContainerSize).toBe(328);
         expect(geometry.gobanContainer.gobanContainerWidth).toBe(328);
     });
@@ -631,6 +631,30 @@ describe("mobile geometry mismatch classification", () => {
             dragScale: 1,
             gobanLeft: 0,
             gobanTop: 0,
+            boardSurface: {
+                width: 374,
+                height: 390,
+            },
+            gobanContainer: {
+                size: 374,
+                leftInSurface: 0,
+                topInSurface: 0,
+            },
+            activePreviewContent: {
+                size: 374,
+                leftInContainer: 0,
+                topInContainer: 0,
+                leftInSurface: 0,
+                topInSurface: 0,
+                transformScale: 1,
+            },
+            nativeFinalContent: {
+                size: 360,
+                leftInContainer: 7,
+                topInContainer: 7,
+                leftInSurface: 7,
+                topInSurface: 7,
+            },
             geometry: computeMobileBoardGeometry({
                 shellWidth: 394,
                 shellHeight: 640,
@@ -687,7 +711,7 @@ describe("mobile geometry mismatch classification", () => {
             geometrySource: "computeMobileBoardGeometry" as const,
             dividerRatio: 0.4949618414264922,
             boardSurfaceWidth: 382,
-            boardSurfaceHeight: 368,
+            boardSurfaceHeight: 328,
             gobanContainerWidth: 328,
             gobanContainerHeight: 328,
             previewGobanContentSize: 308,
@@ -699,6 +723,30 @@ describe("mobile geometry mismatch classification", () => {
             dragScale: 1,
             gobanLeft: 0,
             gobanTop: 0,
+            boardSurface: {
+                width: 382,
+                height: 328,
+            },
+            gobanContainer: {
+                size: 328,
+                leftInSurface: 0,
+                topInSurface: 0,
+            },
+            activePreviewContent: {
+                size: 328,
+                leftInContainer: 0,
+                topInContainer: 0,
+                leftInSurface: 0,
+                topInSurface: 0,
+                transformScale: 1,
+            },
+            nativeFinalContent: {
+                size: 308,
+                leftInContainer: 10,
+                topInContainer: 10,
+                leftInSurface: 10,
+                topInSurface: 10,
+            },
             geometry: computeMobileBoardGeometry({
                 shellWidth: 744,
                 shellHeight: 744,
@@ -751,7 +799,7 @@ describe("mobile geometry mismatch classification", () => {
                 target,
                 actual,
             }),
-        ).toBe("vertical-fit-slot-mismatch");
+        ).toBe("square-fit-authority-mismatch");
     });
 
     it("flags a bad helper output that pushes the board into padding", () => {
@@ -808,6 +856,30 @@ describe("mobile geometry mismatch classification", () => {
             dragScale: 1,
             gobanLeft: 0,
             gobanTop: 0,
+            boardSurface: {
+                width: 378,
+                height: 386,
+            },
+            gobanContainer: {
+                size: 378,
+                leftInSurface: 0,
+                topInSurface: 0,
+            },
+            activePreviewContent: {
+                size: 378,
+                leftInContainer: 0,
+                topInContainer: 0,
+                leftInSurface: 0,
+                topInSurface: 0,
+                transformScale: 1,
+            },
+            nativeFinalContent: {
+                size: 363,
+                leftInContainer: 7,
+                topInContainer: 7,
+                leftInSurface: 7,
+                topInSurface: 7,
+            },
             geometry: computeMobileBoardGeometry({
                 shellWidth: 390,
                 shellHeight: 640,
@@ -871,6 +943,30 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                     dragScale: 1,
                     gobanLeft: 7,
                     gobanTop: 0,
+                    boardSurface: {
+                        width: 374,
+                        height: 382,
+                    },
+                    gobanContainer: {
+                        size: 374,
+                        leftInSurface: 0,
+                        topInSurface: 0,
+                    },
+                    activePreviewContent: {
+                        size: 360,
+                        leftInContainer: 7,
+                        topInContainer: 0,
+                        leftInSurface: 7,
+                        topInSurface: 0,
+                        transformScale: 1,
+                    },
+                    nativeFinalContent: {
+                        size: 360,
+                        leftInContainer: 7,
+                        topInContainer: 0,
+                        leftInSurface: 7,
+                        topInSurface: 0,
+                    },
                     geometry: {
                         modelVersion: "phase-6-corrected",
                         shell: {
@@ -905,16 +1001,16 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                     },
                 },
                 lastVisibleContentSize: 360,
-                lastVisibleLeft: 7,
+                lastVisibleLeftInContainer: 7,
                 boardWidth: 19,
                 boardHeight: 19,
                 showLabels: true,
             }),
-        ).toEqual({
+        ).toMatchObject({
             boardSurfaceWidth: 374,
             boardSurfaceHeight: 382,
             gobanContainerWidth: 374,
-            gobanContainerHeight: 382,
+            gobanContainerHeight: 374,
             finalNativeContentSize: 360,
             fromContentSize: 360,
             toContentSize: 360,

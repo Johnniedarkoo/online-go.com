@@ -305,20 +305,22 @@ export function compareMobileGeometryToTarget({
     }
 
     const boardSurfaceWidthDelta = Math.abs(
-        actual.boardSurface.boardSurfaceWidth - target.boardSurfaceWidth,
+        actual.boardSurface.boardSurfaceWidth - target.boardSurface.width,
     );
     const boardSurfaceHeightDelta = Math.abs(
-        actual.boardSurface.boardSurfaceHeight - target.boardSurfaceHeight,
+        actual.boardSurface.boardSurfaceHeight - target.boardSurface.height,
     );
     const gobanContainerWidthDelta = Math.abs(
-        actual.gobanContainer.gobanContainerWidth - target.gobanContainerWidth,
+        actual.gobanContainer.gobanContainerWidth - target.gobanContainer.size,
     );
     const gobanContainerHeightDelta = Math.abs(
-        actual.gobanContainer.gobanContainerHeight - target.gobanContainerHeight,
+        actual.gobanContainer.gobanContainerHeight - target.gobanContainer.size,
     );
     const gobanContentSizeDelta =
         actual.gobanContent.nativeGobanContentSize != null
-            ? Math.abs(actual.gobanContent.nativeGobanContentSize - target.previewGobanContentSize)
+            ? Math.abs(
+                  actual.gobanContent.nativeGobanContentSize - target.activePreviewContent.size,
+              )
             : null;
     const maxDeltaPx = Math.max(
         boardSurfaceWidthDelta,
@@ -377,20 +379,22 @@ export function classifyMobileGeometryMismatch({
 
     const boardSurfaceWidthDelta =
         deltas?.boardSurfaceWidth ??
-        Math.abs(actual.boardSurface.boardSurfaceWidth - target.boardSurfaceWidth);
+        Math.abs(actual.boardSurface.boardSurfaceWidth - target.boardSurface.width);
     const boardSurfaceHeightDelta =
         deltas?.boardSurfaceHeight ??
-        Math.abs(actual.boardSurface.boardSurfaceHeight - target.boardSurfaceHeight);
+        Math.abs(actual.boardSurface.boardSurfaceHeight - target.boardSurface.height);
     const gobanContainerWidthDelta =
         deltas?.gobanContainerWidth ??
-        Math.abs(actual.gobanContainer.gobanContainerWidth - target.gobanContainerWidth);
+        Math.abs(actual.gobanContainer.gobanContainerWidth - target.gobanContainer.size);
     const gobanContainerHeightDelta =
         deltas?.gobanContainerHeight ??
-        Math.abs(actual.gobanContainer.gobanContainerHeight - target.gobanContainerHeight);
+        Math.abs(actual.gobanContainer.gobanContainerHeight - target.gobanContainer.size);
     const gobanContentSizeDelta =
         deltas?.gobanContentSize ??
         (actual.gobanContent.nativeGobanContentSize != null
-            ? Math.abs(actual.gobanContent.nativeGobanContentSize - target.previewGobanContentSize)
+            ? Math.abs(
+                  actual.gobanContent.nativeGobanContentSize - target.activePreviewContent.size,
+              )
             : null);
 
     if (
@@ -448,7 +452,7 @@ export function classifyMobileGeometryMismatch({
     if (
         boardSurfaceWidthDelta > tolerancePx &&
         boardSurfaceHeightDelta > tolerancePx &&
-        actual.shell.shellWidth > target.boardSurfaceWidth + tolerancePx
+        actual.shell.shellWidth > target.boardSurface.width + tolerancePx
     ) {
         return "wrong-shell-basis";
     }
@@ -675,8 +679,8 @@ export function computeMobileBoardGeometry({
         0,
         Math.floor(safeBoardSizingSlotWidth - safeHorizontalInset),
     );
-    const boardSurfaceHeight = boardPaneHeight;
-    const availableContainerHeight = Math.max(0, boardSurfaceHeight - safeBoardVerticalChrome);
+    const boardSurfaceHeight = Math.max(0, boardPaneHeight - safeBoardVerticalChrome);
+    const availableContainerHeight = boardSurfaceHeight;
     const gobanContainerSize = Math.max(
         minGobanContainerSize,
         Math.floor(Math.min(boardSurfaceWidth, availableContainerHeight)),
@@ -734,10 +738,30 @@ export function computeMobileBoardGeometry({
 export interface MobileResizeAppliedTarget {
     geometrySource: "computeMobileBoardGeometry";
     dividerRatio: number;
-    boardSurfaceWidth: number;
-    boardSurfaceHeight: number;
-    gobanContainerWidth: number;
-    gobanContainerHeight: number;
+    boardSurface: {
+        width: number;
+        height: number;
+    };
+    gobanContainer: {
+        size: number;
+        leftInSurface: number;
+        topInSurface: number;
+    };
+    activePreviewContent: {
+        size: number;
+        leftInContainer: number;
+        topInContainer: number;
+        leftInSurface: number;
+        topInSurface: number;
+        transformScale: number;
+    };
+    nativeFinalContent: {
+        size: number;
+        leftInContainer: number;
+        topInContainer: number;
+        leftInSurface: number;
+        topInSurface: number;
+    };
     previewGobanContentSize: number;
     predictedNativeGobanContentSize: number | null;
     legacyVisualSize: number;
@@ -748,6 +772,10 @@ export interface MobileResizeAppliedTarget {
     gobanLeft: number;
     gobanTop: number;
     geometry: MobileBoardGeometry;
+    boardSurfaceWidth: number;
+    boardSurfaceHeight: number;
+    gobanContainerWidth: number;
+    gobanContainerHeight: number;
 }
 
 export interface MobileResizeAppliedTargetInput {
@@ -800,23 +828,68 @@ export function computeMobileResizeAppliedTarget({
         boardHeight,
         showLabels,
     });
+    const activePreviewContentSize = geometry.gobanContainer.gobanContainerSize;
+    const activePreviewLeftInContainer = 0;
+    const activePreviewTopInContainer = 0;
+    const activePreviewLeftInSurface = geometry.gobanContainer.gobanContainerLeft;
+    const activePreviewTopInSurface = geometry.gobanContainer.gobanContainerTop;
+    const predictedNativeGobanContentSize =
+        geometry.gobanContent.predictedNativeGobanContentSize ?? null;
+    const nativeFinalContentSize = Math.min(
+        geometry.gobanContainer.gobanContainerSize,
+        predictedNativeGobanContentSize ?? geometry.gobanContainer.gobanContainerSize,
+    );
+    const nativeFinalLeftInContainer = Math.max(
+        0,
+        Math.floor((geometry.gobanContainer.gobanContainerSize - nativeFinalContentSize) / 2),
+    );
+    const nativeFinalTopInContainer = nativeFinalLeftInContainer;
+    const nativeFinalLeftInSurface =
+        geometry.gobanContainer.gobanContainerLeft + nativeFinalLeftInContainer;
+    const nativeFinalTopInSurface =
+        geometry.gobanContainer.gobanContainerTop + nativeFinalTopInContainer;
+    const activePreviewTransformScale = activePreviewContentSize / stableMetricsWidth;
 
     return {
         geometrySource: "computeMobileBoardGeometry",
         dividerRatio: geometry.divider.dividerRatio,
+        boardSurface: {
+            width: geometry.boardSurface.boardSurfaceWidth,
+            height: geometry.boardSurface.boardSurfaceHeight,
+        },
+        gobanContainer: {
+            size: geometry.gobanContainer.gobanContainerSize,
+            leftInSurface: geometry.gobanContainer.gobanContainerLeft,
+            topInSurface: geometry.gobanContainer.gobanContainerTop,
+        },
+        activePreviewContent: {
+            size: activePreviewContentSize,
+            leftInContainer: activePreviewLeftInContainer,
+            topInContainer: activePreviewTopInContainer,
+            leftInSurface: activePreviewLeftInSurface,
+            topInSurface: activePreviewTopInSurface,
+            transformScale: activePreviewTransformScale,
+        },
+        nativeFinalContent: {
+            size: nativeFinalContentSize,
+            leftInContainer: nativeFinalLeftInContainer,
+            topInContainer: nativeFinalTopInContainer,
+            leftInSurface: nativeFinalLeftInSurface,
+            topInSurface: nativeFinalTopInSurface,
+        },
         boardSurfaceWidth: geometry.boardSurface.boardSurfaceWidth,
         boardSurfaceHeight: geometry.boardSurface.boardSurfaceHeight,
-        gobanContainerWidth: geometry.gobanContainer.gobanContainerWidth,
-        gobanContainerHeight: geometry.gobanContainer.gobanContainerHeight,
-        previewGobanContentSize: geometry.gobanContent.previewGobanContentSize,
-        predictedNativeGobanContentSize: geometry.gobanContent.predictedNativeGobanContentSize,
+        gobanContainerWidth: geometry.gobanContainer.gobanContainerSize,
+        gobanContainerHeight: geometry.gobanContainer.gobanContainerSize,
+        previewGobanContentSize: activePreviewContentSize,
+        predictedNativeGobanContentSize,
         legacyVisualSize: geometry.gobanContainer.gobanContainerSize,
         legacyFinalWindowSize: geometry.gobanContainer.gobanContainerWidth,
         usingRestingMaxGeometry: false,
-        transformScale: geometry.gobanContent.previewGobanContentSize / stableMetricsWidth,
-        dragScale: geometry.boardSurface.boardSurfaceWidth / Math.max(1, boardSizingSlotWidth),
-        gobanLeft: geometry.gobanContainer.gobanContainerLeft,
-        gobanTop: geometry.gobanContainer.gobanContainerTop,
+        transformScale: activePreviewTransformScale,
+        dragScale: geometry.gobanContainer.gobanContainerSize / Math.max(1, boardSizingSlotWidth),
+        gobanLeft: activePreviewLeftInContainer,
+        gobanTop: activePreviewTopInContainer,
         geometry,
     };
 }
@@ -882,7 +955,7 @@ export function computeTransientDragGeometry({
 export interface TransientDragReleaseGeometryFromAppliedTargetInput {
     target: MobileResizeAppliedTarget;
     lastVisibleContentSize: number;
-    lastVisibleLeft: number;
+    lastVisibleLeftInContainer: number;
     boardWidth: number;
     boardHeight: number;
     showLabels: boolean;
@@ -896,50 +969,67 @@ export interface TransientDragReleaseGeometryFromAppliedTarget {
     finalNativeContentSize: number;
     fromContentSize: number;
     toContentSize: number;
-    fromLeft: number;
-    toLeft: number;
+    fromContentLeftInContainer: number;
+    toContentLeftInContainer: number;
+    fromContentTopInContainer: number;
+    toContentTopInContainer: number;
+    fromContentLeftInSurface: number;
+    toContentLeftInSurface: number;
+    fromContentTopInSurface: number;
+    toContentTopInSurface: number;
     contentDelta: number;
     windowDelta: number;
     targetSource: "last-applied-target";
     boardSurfacePreserved: true;
+    fromLeft: number;
+    toLeft: number;
 }
 
 export function computeTransientDragReleaseGeometryFromAppliedTarget({
     target,
     lastVisibleContentSize,
-    lastVisibleLeft,
+    lastVisibleLeftInContainer,
     boardWidth,
     boardHeight,
     showLabels,
 }: TransientDragReleaseGeometryFromAppliedTargetInput): TransientDragReleaseGeometryFromAppliedTarget {
     const finalNativeContentSize =
+        target.nativeFinalContent.size ??
         target.predictedNativeGobanContentSize ??
         predictNativeGobanContentSize({
-            targetSlotSize: target.gobanContainerWidth,
+            targetSlotSize: target.gobanContainer.size,
             boardWidth,
             boardHeight,
             showLabels,
         });
     const toLeft = Math.max(
         0,
-        Math.floor((target.gobanContainerWidth - finalNativeContentSize) / 2),
+        Math.floor((target.gobanContainer.size - finalNativeContentSize) / 2),
     );
     const contentDelta = Math.abs(finalNativeContentSize - lastVisibleContentSize);
 
     return {
-        boardSurfaceWidth: target.boardSurfaceWidth,
-        boardSurfaceHeight: target.boardSurfaceHeight,
-        gobanContainerWidth: target.gobanContainerWidth,
-        gobanContainerHeight: target.gobanContainerHeight,
+        boardSurfaceWidth: target.boardSurface.width,
+        boardSurfaceHeight: target.boardSurface.height,
+        gobanContainerWidth: target.gobanContainer.size,
+        gobanContainerHeight: target.gobanContainer.size,
         finalNativeContentSize,
         fromContentSize: lastVisibleContentSize,
         toContentSize: finalNativeContentSize,
-        fromLeft: lastVisibleLeft,
-        toLeft,
+        fromContentLeftInContainer: lastVisibleLeftInContainer,
+        toContentLeftInContainer: toLeft,
+        fromContentTopInContainer: 0,
+        toContentTopInContainer: 0,
+        fromContentLeftInSurface: target.gobanContainer.leftInSurface + lastVisibleLeftInContainer,
+        toContentLeftInSurface: target.gobanContainer.leftInSurface + toLeft,
+        fromContentTopInSurface: target.gobanContainer.topInSurface,
+        toContentTopInSurface: target.gobanContainer.topInSurface,
         contentDelta,
         windowDelta: 0,
         targetSource: "last-applied-target",
         boardSurfacePreserved: true,
+        fromLeft: lastVisibleLeftInContainer,
+        toLeft,
     };
 }
 
