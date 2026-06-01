@@ -32,6 +32,7 @@ import {
     describeMobileResizeGeometrySnapshot,
     describeMobileResizeShellGeometry,
     computeRecenterScale,
+    firstPositiveFinite,
     computeMobileBoardGeometry,
     computeMobileResizeAppliedTarget,
     computeTransientDragReleaseGeometryFromAppliedTarget,
@@ -39,6 +40,7 @@ import {
     compareMobileGeometryToTarget,
     isKibitzBoardResizeStale,
     predictNativeGobanContentSize,
+    resolveMobileResizeBaselineGobanContentSize,
     shouldCommitMobileSplitRatioUpdate,
     computeTransientDragVisualBoardSize,
     computeTransientDragScale,
@@ -187,6 +189,13 @@ describe("computeMeasuredTransientDragContentSize", () => {
     });
 });
 
+describe("firstPositiveFinite", () => {
+    it("skips zero and returns the first positive finite value", () => {
+        expect(firstPositiveFinite(0, null, -3, 225, 240)).toBe(225);
+        expect(firstPositiveFinite(0, 0, null, undefined)).toBeNull();
+    });
+});
+
 describe("mobile resize geometry terminology", () => {
     it("maps the current DOM measurements into named geometry fields", () => {
         const shell = describeMobileResizeShellGeometry(390, 640);
@@ -249,6 +258,64 @@ describe("mobile resize geometry terminology", () => {
                 targetDividerRatio: 0.45,
             },
         });
+    });
+
+    it("treats zero goban content metrics as missing", () => {
+        expect(
+            describeGobanContentFromMetrics({
+                width: 0,
+                height: 0,
+            }),
+        ).toEqual({
+            gobanContentWidth: null,
+            gobanContentHeight: null,
+            gobanContentSize: null,
+        });
+    });
+});
+
+describe("resolveMobileResizeBaselineGobanContentSize", () => {
+    it("skips zero stable content and falls back to current metrics", () => {
+        expect(
+            resolveMobileResizeBaselineGobanContentSize({
+                stableGeometry: {
+                    measuredAt: 1,
+                    shell: {
+                        shellWidth: 394,
+                        shellHeight: 640,
+                    },
+                    boardSizingSlot: {
+                        boardSizingSlotWidth: 382,
+                        boardSizingSlotHeight: 640,
+                    },
+                    boardSurface: {
+                        boardSurfaceWidth: 374,
+                        boardSurfaceHeight: 382,
+                    },
+                    gobanContainer: {
+                        gobanContainerWidth: 374,
+                        gobanContainerHeight: 374,
+                        gobanContainerSize: 374,
+                    },
+                    gobanContent: {
+                        gobanContentWidth: null,
+                        gobanContentHeight: null,
+                        gobanContentSize: 0,
+                        nativeGobanContentSize: 0,
+                    },
+                    divider: {
+                        dividerRatio: 0.5,
+                    },
+                    derived: {
+                        horizontalInset: 8,
+                        boardVerticalChrome: 8,
+                    },
+                    source: "stable-observer" as const,
+                },
+                currentMetricsWidth: 225,
+                currentMetricsHeight: 225,
+            }),
+        ).toBe(225);
     });
 });
 
@@ -402,6 +469,28 @@ describe("computeMobileResizeAppliedTarget", () => {
 
         expect(target).not.toBeNull();
         expect(target!.transformScale).toBeCloseTo(target!.previewGobanContentSize / 286);
+    });
+
+    it("uses current Goban metrics when stable content is zero", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                ...smallBoardStableGeometry,
+                gobanContent: {
+                    gobanContentWidth: 0,
+                    gobanContentHeight: 0,
+                    gobanContentSize: 0,
+                    nativeGobanContentSize: 0,
+                },
+            },
+            targetDividerRatio: 0.65,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 225,
+        });
+
+        expect(target).not.toBeNull();
+        expect(target!.transformScale).toBeCloseTo(target!.previewGobanContentSize / 225);
     });
 });
 

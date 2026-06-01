@@ -87,7 +87,9 @@ import {
     compareMobileGeometryToTarget,
     computeMobileBoardGeometry,
     computeMobileResizeAppliedTarget,
+    firstPositiveFinite,
     measureSquareFitLayout,
+    resolveMobileResizeBaselineGobanContentSize,
     shouldAcceptStableMobileGeometryMeasurement,
     shouldCommitMobileSplitRatioUpdate,
     type MobileResizeAppliedTarget,
@@ -928,7 +930,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 ".mobile-board-fit-slot",
             ) as HTMLElement | null;
             const boardSurfaceElement = shell?.querySelector(
-                ".Kibitz-mobile-board-host",
+                ".mobile-secondary-board-surface",
             ) as HTMLElement | null;
             const gobanContainerElement = shell?.querySelector(
                 ".mobile-secondary-board-surface",
@@ -942,6 +944,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const boardSurfaceRect = boardSurfaceElement?.getBoundingClientRect() ?? null;
             const gobanContainerRect = gobanContainerElement?.getBoundingClientRect() ?? null;
             const gobanContentRect = gobanContentElement?.getBoundingClientRect() ?? null;
+            const gobanContentSize = firstPositiveFinite(
+                gobanContentRect?.width ?? null,
+                gobanContentRect?.height ?? null,
+            );
             const snapshot: StableMobileBoardGeometrySnapshot | null =
                 shellRect != null &&
                 boardSurfaceRect != null &&
@@ -978,16 +984,14 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                               ),
                           },
                           gobanContent: {
-                              gobanContentWidth: gobanContentRect?.width ?? null,
-                              gobanContentHeight: gobanContentRect?.height ?? null,
-                              gobanContentSize:
-                                  gobanContentRect != null
-                                      ? Math.min(gobanContentRect.width, gobanContentRect.height)
-                                      : null,
-                              nativeGobanContentSize:
-                                  gobanContentRect != null
-                                      ? Math.min(gobanContentRect.width, gobanContentRect.height)
-                                      : null,
+                              gobanContentWidth: firstPositiveFinite(
+                                  gobanContentRect?.width ?? null,
+                              ),
+                              gobanContentHeight: firstPositiveFinite(
+                                  gobanContentRect?.height ?? null,
+                              ),
+                              gobanContentSize,
+                              nativeGobanContentSize: gobanContentSize,
                           },
                           divider: {
                               dividerRatio: mobileSplitRatio,
@@ -1384,12 +1388,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
                 const controller = mobileDraftTransientDragControllerRef.current;
                 const currentMetrics = controller?.measureCurrentGobanMetrics() ?? null;
-                const baselineGobanContentSize =
-                    stableGeometry.gobanContent.nativeGobanContentSize ??
-                    stableGeometry.gobanContent.gobanContentSize ??
-                    currentMetrics?.width ??
-                    currentMetrics?.height ??
-                    null;
+                const baselineGobanContentSize = resolveMobileResizeBaselineGobanContentSize({
+                    stableGeometry,
+                    currentMetricsWidth: currentMetrics?.width ?? null,
+                    currentMetricsHeight: currentMetrics?.height ?? null,
+                });
                 if (!baselineGobanContentSize || baselineGobanContentSize <= 0) {
                     if (isKibitzBoardSizeDebugEnabled()) {
                         recordKibitzBoardSizeEvent(
@@ -1528,12 +1531,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 boardWidth: 19,
                 boardHeight: 19,
                 showLabels: false,
-                baselineGobanContentSize:
-                    stableGeometry.gobanContent.nativeGobanContentSize ??
-                    stableGeometry.gobanContent.gobanContentSize ??
-                    currentMetrics?.width ??
-                    currentMetrics?.height ??
-                    null,
+                baselineGobanContentSize: resolveMobileResizeBaselineGobanContentSize({
+                    stableGeometry,
+                    currentMetricsWidth: currentMetrics?.width ?? null,
+                    currentMetricsHeight: currentMetrics?.height ?? null,
+                }),
             });
             if (!target) {
                 event.preventDefault();
@@ -3379,16 +3381,16 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const startWindowSize = Math.max(
                 0,
                 Math.floor(
-                    boardHostRect?.width ?? boardWindowRect?.width ?? transientBoardWindowMaxSize,
+                    boardWindowRect?.width ?? boardHostRect?.width ?? transientBoardWindowMaxSize,
                 ),
             );
             const startWindowWidth = Math.max(
                 0,
-                Math.floor(boardHostRect?.width ?? startWindowSize),
+                Math.floor(boardWindowRect?.width ?? startWindowSize),
             );
             const startWindowHeight = Math.max(
                 0,
-                Math.floor(boardHostRect?.height ?? startWindowSize),
+                Math.floor(boardWindowRect?.height ?? startWindowSize),
             );
             const metricsWidth = Math.max(
                 0,
@@ -3417,7 +3419,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                       height: boardSlotMetrics.slotHeight,
                                   }
                                 : null,
-                        boardSurfaceRect: boardHostRect ?? null,
+                        boardSurfaceRect: boardWindowRect ?? boardHostRect ?? null,
                         gobanContainerRect: boardWindowRect ?? null,
                         gobanMetrics:
                             metricsWidth != null && metricsHeight != null

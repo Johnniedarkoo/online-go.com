@@ -103,6 +103,33 @@ export function computeMeasuredTransientDragContentSize({
     return Math.max(1, startContentSize * (visualSize / startWindowSize));
 }
 
+export function firstPositiveFinite(...values: Array<number | null | undefined>): number | null {
+    for (const value of values) {
+        if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+            return value;
+        }
+    }
+
+    return null;
+}
+
+export function resolveMobileResizeBaselineGobanContentSize({
+    stableGeometry,
+    currentMetricsWidth,
+    currentMetricsHeight,
+}: {
+    stableGeometry: StableMobileBoardGeometrySnapshot;
+    currentMetricsWidth?: number | null;
+    currentMetricsHeight?: number | null;
+}): number | null {
+    return firstPositiveFinite(
+        stableGeometry.gobanContent.nativeGobanContentSize,
+        stableGeometry.gobanContent.gobanContentSize,
+        currentMetricsWidth ?? null,
+        currentMetricsHeight ?? null,
+    );
+}
+
 /**
  * Mobile resize geometry terminology:
  *
@@ -443,10 +470,15 @@ export function describeGobanContentFromMetrics(
         height: number;
     } | null,
 ): MobileResizeGobanContentGeometry {
-    const gobanContentWidth = metrics?.width ?? null;
-    const gobanContentHeight = metrics?.height ?? null;
+    const gobanContentWidth = firstPositiveFinite(metrics?.width ?? null);
+    const gobanContentHeight = firstPositiveFinite(metrics?.height ?? null);
     const gobanContentSize =
-        metrics != null && Math.abs(metrics.width - metrics.height) <= 1 ? metrics.width : null;
+        metrics != null &&
+        gobanContentWidth != null &&
+        gobanContentHeight != null &&
+        Math.abs(gobanContentWidth - gobanContentHeight) <= 1
+            ? gobanContentWidth
+            : null;
 
     return {
         gobanContentWidth,
@@ -728,10 +760,11 @@ export function computeMobileResizeAppliedTarget({
     const boardSurfaceWidth = stableGeometry.boardSurface.boardSurfaceWidth;
     const boardVerticalChrome = Math.max(0, stableGeometry.derived.boardVerticalChrome);
     const horizontalInset = Math.max(0, boardSizingSlotWidth - boardSurfaceWidth);
-    const stableMetricsWidth =
-        baselineGobanContentSize ??
-        stableGeometry.gobanContent.nativeGobanContentSize ??
-        stableGeometry.gobanContent.gobanContentSize;
+    const stableMetricsWidth = firstPositiveFinite(
+        baselineGobanContentSize,
+        stableGeometry.gobanContent.nativeGobanContentSize,
+        stableGeometry.gobanContent.gobanContentSize,
+    );
 
     if (!stableMetricsWidth || stableMetricsWidth <= 0) {
         return null;
