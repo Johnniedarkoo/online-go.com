@@ -949,19 +949,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 boardSizingSlotElement != null
                     ? measureSquareFitLayout(boardSizingSlotElement, true)
                     : null;
-            const boardSurfaceRect =
-                boardSurfaceMeasuredRect != null
-                    ? {
-                          width: boardSurfaceMeasuredRect.width,
-                          height:
-                              boardSizingSlotMetrics?.nextSize ?? boardSurfaceMeasuredRect.height,
-                      }
-                    : boardSizingSlotMetrics != null
-                      ? {
-                            width: boardSizingSlotMetrics.slotWidth,
-                            height: boardSizingSlotMetrics.nextSize,
-                        }
-                      : null;
+            const boardSurfaceRect = boardSurfaceMeasuredRect;
             const gobanContentSize = firstPositiveFinite(
                 gobanContentRect?.width ?? null,
                 gobanContentRect?.height ?? null,
@@ -1017,18 +1005,36 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                           derived: {
                               horizontalInset: Math.max(
                                   0,
-                                  (boardSizingSlotRect?.width ?? shellRect.width) -
-                                      (boardSurfaceRect?.width ?? 0),
+                                  Math.round(
+                                      ((boardSizingSlotRect?.width ?? shellRect.width) -
+                                          (boardSurfaceRect?.width ?? 0)) /
+                                          2,
+                                  ),
+                              ),
+                              horizontalInsetPx: Math.max(
+                                  0,
+                                  Math.round(
+                                      ((boardSizingSlotRect?.width ?? shellRect.width) -
+                                          (boardSurfaceRect?.width ?? 0)) /
+                                          2,
+                                  ),
+                              ),
+                              verticalInsetPx: Math.max(
+                                  0,
+                                  Math.round(
+                                      (boardSizingSlotMetrics?.fallbackHeight ?? 0) -
+                                          (boardSizingSlotMetrics?.usableHeight ??
+                                              boardSurfaceRect?.height ??
+                                              0),
+                                  ),
+                              ),
+                              reservedHeight: Math.max(
+                                  0,
+                                  boardSizingSlotMetrics?.reservedHeight ?? 0,
                               ),
                               boardVerticalChrome: Math.max(
                                   0,
-                                  (boardSizingSlotMetrics?.reservedHeight ?? 0) +
-                                      (boardSizingSlotMetrics?.rowGap ?? 0) *
-                                          Math.max(
-                                              0,
-                                              (boardSizingSlotMetrics?.visibleChildrenCount ?? 0) -
-                                                  1,
-                                          ),
+                                  boardSizingSlotMetrics?.reservedHeight ?? 0,
                               ),
                           },
                           source,
@@ -1129,8 +1135,14 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             shellHeight: snapshot.shell.shellHeight,
             dividerRatio: snapshot.divider.dividerRatio,
             boardSizingSlotWidth: snapshot.boardSizingSlot?.boardSizingSlotWidth ?? 0,
-            squareFitReservedHeight: snapshot.derived.boardVerticalChrome,
-            squareFitExtraReservedHeight: 0,
+            outerBoardSlotWidth: snapshot.boardSizingSlot?.boardSizingSlotWidth ?? 0,
+            horizontalInsetPx:
+                snapshot.derived.horizontalInsetPx ?? snapshot.derived.horizontalInset,
+            squareFitReservedHeight:
+                snapshot.derived.reservedHeight ?? snapshot.derived.boardVerticalChrome,
+            squareFitExtraReservedHeight: snapshot.derived.verticalInsetPx ?? 0,
+            reservedHeight: snapshot.derived.reservedHeight ?? snapshot.derived.boardVerticalChrome,
+            verticalInsetPx: snapshot.derived.verticalInsetPx ?? 0,
             devicePixelRatio: window.devicePixelRatio,
         });
         const computedTarget = computeMobileResizeAppliedTarget({

@@ -711,30 +711,27 @@ export function KibitzBoard({
                     input: {
                         shellWidth: target.geometry.shell.shellWidth,
                         shellHeight: target.geometry.shell.shellHeight,
+                        outerBoardSlotWidth: target.geometry.fitBox.outerSlotWidth,
                         boardSizingSlotWidth: target.geometry.boardSizingSlot.boardSizingSlotWidth,
                         boardSizingSlotHeight:
                             target.geometry.boardSizingSlot.boardSizingSlotHeight,
-                        horizontalInset: Math.max(
-                            0,
-                            target.geometry.boardSizingSlot.boardSizingSlotWidth -
-                                target.geometry.boardSurface.boardSurfaceWidth,
-                        ),
-                        boardVerticalChrome: Math.max(
-                            0,
-                            target.geometry.boardSurface.boardSurfaceHeight -
-                                target.geometry.gobanContainer.gobanContainerSize,
-                        ),
+                        horizontalInsetPx: target.geometry.fitBox.horizontalInsetPx,
+                        reservedHeight: target.geometry.fitBox.reservedHeight,
+                        verticalInsetPx: target.geometry.fitBox.verticalInsetPx,
+                        boardVerticalChrome: target.geometry.fitBox.reservedHeight,
                         minBoardPaneHeight: 0,
                         maxBoardPaneHeight: target.geometry.shell.shellHeight,
                         devicePixelRatio:
                             typeof window !== "undefined" ? window.devicePixelRatio : 1,
                     },
                     output: {
-                        boardSizingSlotWidth: target.geometry.boardSizingSlot.boardSizingSlotWidth,
-                        boardSizingSlotHeight:
-                            target.geometry.boardSizingSlot.boardSizingSlotHeight,
                         boardSurfaceWidth: target.boardSurface.width,
                         boardSurfaceHeight: target.boardSurface.height,
+                        boardPaneHeight: target.geometry.boardPane.boardPaneHeight,
+                        fallbackHeight: target.geometry.fitBox.fallbackHeight,
+                        contentHeight: target.geometry.fitBox.contentHeight,
+                        outerSlotWidth: target.geometry.fitBox.outerSlotWidth,
+                        contentWidth: target.geometry.fitBox.contentWidth,
                         gobanContainerSize: target.gobanContainer.size,
                         activePreviewContentSize: target.activePreviewContent.size,
                         nativeFinalContentSize: target.nativeFinalContent.size,

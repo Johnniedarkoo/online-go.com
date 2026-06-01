@@ -33,6 +33,7 @@ import {
     describeMobileResizeShellGeometry,
     computeRecenterScale,
     firstPositiveFinite,
+    computeMobileBoardFitBox,
     computeMobileBoardGeometry,
     computeMobileResizeAppliedTarget,
     computeTransientDragReleaseGeometryFromAppliedTarget,
@@ -544,7 +545,7 @@ describe("computeMobileResizeAppliedTarget", () => {
         });
 
         expect(target).not.toBeNull();
-        expect(target!.boardSurfaceWidth).toBe(382);
+        expect(target!.boardSurfaceWidth).toBe(374);
         expect(target!.boardSurfaceHeight).toBe(374);
         expect(target!.gobanContainerWidth).toBe(374);
         expect(target!.gobanContainerHeight).toBe(374);
@@ -620,8 +621,8 @@ describe("computeMobileResizeAppliedTarget", () => {
             stableGeometry: {
                 ...smallBoardStableGeometry,
                 boardSurface: {
-                    boardSurfaceWidth: 382,
-                    boardSurfaceHeight: 382,
+                    boardSurfaceWidth: 374,
+                    boardSurfaceHeight: 374,
                 },
                 gobanContainer: {
                     gobanContainerWidth: 227,
@@ -643,7 +644,7 @@ describe("computeMobileResizeAppliedTarget", () => {
         });
 
         expect(target).not.toBeNull();
-        expect(target!.boardSurfaceWidth).toBe(382);
+        expect(target!.boardSurfaceWidth).toBe(374);
         expect(target!.boardSurfaceWidth).not.toBe(227);
         expect(target!.gobanContainerWidth).toBeGreaterThan(227);
         expect(target!.geometry.gobanContainer.gobanContainerSize).toBeGreaterThan(227);
@@ -651,6 +652,33 @@ describe("computeMobileResizeAppliedTarget", () => {
 });
 
 describe("computeMobileBoardGeometry", () => {
+    it("subtracts horizontal inset from outer mobile board slot width", () => {
+        const fit = computeMobileBoardFitBox({
+            outerSlotWidth: 382,
+            horizontalInsetPx: 4,
+            parentClientHeight: 450,
+            reservedHeight: 36,
+            verticalInsetPx: 4,
+        });
+
+        expect(fit.contentWidth).toBe(374);
+        expect(fit.boardSize).toBe(374);
+    });
+
+    it("subtracts vertical inset so the divider does not overlap the board", () => {
+        const fit = computeMobileBoardFitBox({
+            outerSlotWidth: 382,
+            horizontalInsetPx: 4,
+            parentClientHeight: 373,
+            reservedHeight: 36,
+            verticalInsetPx: 4,
+        });
+
+        expect(fit.fallbackHeight).toBe(337);
+        expect(fit.contentHeight).toBe(333);
+        expect(fit.boardSize).toBe(333);
+    });
+
     it("keeps board surface square once the board is width-capped", () => {
         const geometry = computeMobileBoardGeometry({
             shellWidth: 390,
@@ -1143,6 +1171,17 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                         boardSurface: {
                             boardSurfaceWidth: 374,
                             boardSurfaceHeight: 382,
+                        },
+                        fitBox: {
+                            outerSlotWidth: 382,
+                            contentWidth: 374,
+                            parentClientHeight: 382,
+                            reservedHeight: 8,
+                            fallbackHeight: 374,
+                            contentHeight: 374,
+                            boardSize: 374,
+                            horizontalInsetPx: 4,
+                            verticalInsetPx: 0,
                         },
                         gobanContainer: {
                             gobanContainerWidth: 374,

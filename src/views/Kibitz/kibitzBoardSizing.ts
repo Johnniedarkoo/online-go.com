@@ -113,6 +113,14 @@ export function firstPositiveFinite(...values: Array<number | null | undefined>)
     return null;
 }
 
+function finiteNumber(value: number | null | undefined, fallback = 0): number {
+    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function floorNonNegative(value: number | null | undefined): number {
+    return Math.max(0, Math.floor(finiteNumber(value)));
+}
+
 export function resolveMobileResizeBaselineGobanContentSize({
     stableGeometry,
     currentMetricsWidth,
@@ -287,6 +295,9 @@ export type StableMobileBoardGeometrySnapshot = {
     derived: {
         horizontalInset: number;
         boardVerticalChrome: number;
+        reservedHeight?: number;
+        horizontalInsetPx?: number;
+        verticalInsetPx?: number;
     };
     source: "stable-observer" | "initial-capture" | "post-settle";
 };
@@ -651,8 +662,12 @@ export interface MobileBoardGeometryInput {
     shellHeight: number;
     dividerRatio: number;
     boardSizingSlotWidth: number;
+    outerBoardSlotWidth?: number;
+    horizontalInsetPx?: number;
     squareFitReservedHeight: number;
     squareFitExtraReservedHeight?: number;
+    reservedHeight?: number;
+    verticalInsetPx?: number;
     minBoardPaneHeight?: number;
     maxBoardPaneHeight?: number;
     devicePixelRatio?: number;
@@ -671,6 +686,7 @@ export interface MobileBoardGeometry {
         boardPaneHeight: number;
         usableBoardHeight: number;
     };
+    fitBox: MobileBoardFitBox;
     boardSizingSlot: {
         boardSizingSlotWidth: number;
         boardSizingSlotHeight: number;
@@ -714,6 +730,50 @@ export interface MobileBoardGeometry {
     };
 }
 
+export interface MobileBoardFitBoxInput {
+    outerSlotWidth: number;
+    horizontalInsetPx: number;
+    parentClientHeight: number;
+    reservedHeight: number;
+    verticalInsetPx: number;
+}
+
+export interface MobileBoardFitBox {
+    outerSlotWidth: number;
+    contentWidth: number;
+    parentClientHeight: number;
+    reservedHeight: number;
+    fallbackHeight: number;
+    contentHeight: number;
+    boardSize: number;
+    horizontalInsetPx: number;
+    verticalInsetPx: number;
+}
+
+export function computeMobileBoardFitBox(input: MobileBoardFitBoxInput): MobileBoardFitBox {
+    const outerSlotWidth = floorNonNegative(input.outerSlotWidth);
+    const horizontalInsetPx = floorNonNegative(input.horizontalInsetPx);
+    const contentWidth = Math.max(0, outerSlotWidth - horizontalInsetPx * 2);
+    const parentClientHeight = floorNonNegative(input.parentClientHeight);
+    const reservedHeight = floorNonNegative(input.reservedHeight);
+    const verticalInsetPx = floorNonNegative(input.verticalInsetPx);
+    const fallbackHeight = Math.max(0, parentClientHeight - reservedHeight);
+    const contentHeight = Math.max(0, fallbackHeight - verticalInsetPx);
+    const boardSize = Math.max(0, Math.floor(Math.min(contentWidth, contentHeight)));
+
+    return {
+        outerSlotWidth,
+        contentWidth,
+        parentClientHeight,
+        reservedHeight,
+        fallbackHeight,
+        contentHeight,
+        boardSize,
+        horizontalInsetPx,
+        verticalInsetPx,
+    };
+}
+
 function clampMobileRatio(value: number): number {
     if (!Number.isFinite(value)) {
         return 0;
@@ -731,8 +791,12 @@ export function computeMobileBoardGeometry({
     shellHeight,
     dividerRatio,
     boardSizingSlotWidth,
+    outerBoardSlotWidth,
+    horizontalInsetPx,
     squareFitReservedHeight,
     squareFitExtraReservedHeight = 0,
+    reservedHeight,
+    verticalInsetPx,
     minBoardPaneHeight = 0,
     maxBoardPaneHeight = shellHeight,
     devicePixelRatio: _devicePixelRatio,
@@ -742,27 +806,40 @@ export function computeMobileBoardGeometry({
 }: MobileBoardGeometryInput): MobileBoardGeometry {
     const safeShellWidth = Math.max(0, shellWidth);
     const safeShellHeight = Math.max(0, shellHeight);
+    const safeOuterBoardSlotWidth = Math.max(
+        0,
+        Math.floor(outerBoardSlotWidth ?? boardSizingSlotWidth),
+    );
     const safeBoardSizingSlotWidth = Math.max(0, Math.floor(boardSizingSlotWidth));
+    const safeHorizontalInsetPx = Math.max(
+        0,
+        Math.floor(
+            horizontalInsetPx ??
+                Math.max(0, Math.floor((safeOuterBoardSlotWidth - safeBoardSizingSlotWidth) / 2)),
+        ),
+    );
     const safeDividerRatio = clampMobileRatio(dividerRatio);
-    const safeSquareFitReservedHeight = Math.max(0, Math.floor(squareFitReservedHeight));
-    const safeSquareFitExtraReservedHeight = Math.max(0, Math.floor(squareFitExtraReservedHeight));
+    const safeReservedHeight = Math.max(0, Math.floor(reservedHeight ?? squareFitReservedHeight));
+    const safeVerticalInsetPx = Math.max(
+        0,
+        Math.floor(verticalInsetPx ?? squareFitExtraReservedHeight),
+    );
     const boardPaneHeight = Math.max(
         0,
         Math.floor(
             clamp(safeShellHeight * safeDividerRatio, minBoardPaneHeight, maxBoardPaneHeight),
         ),
     );
-    const usableBoardHeight = Math.max(
-        0,
-        Math.floor(
-            boardPaneHeight - safeSquareFitReservedHeight - safeSquareFitExtraReservedHeight,
-        ),
-    );
-    const boardSize = Math.max(
-        0,
-        Math.floor(Math.min(safeBoardSizingSlotWidth, usableBoardHeight)),
-    );
-    const boardSurfaceWidth = safeBoardSizingSlotWidth;
+    const fitBox = computeMobileBoardFitBox({
+        outerSlotWidth: safeOuterBoardSlotWidth,
+        horizontalInsetPx: safeHorizontalInsetPx,
+        parentClientHeight: boardPaneHeight,
+        reservedHeight: safeReservedHeight,
+        verticalInsetPx: safeVerticalInsetPx,
+    });
+    const usableBoardHeight = fitBox.contentHeight;
+    const boardSize = fitBox.boardSize;
+    const boardSurfaceWidth = fitBox.contentWidth;
     const boardSurfaceHeight = boardSize;
     const gobanContainerSize = boardSize;
     const predictedNativeGobanContentSize = predictNativeGobanContentSize({
@@ -787,12 +864,13 @@ export function computeMobileBoardGeometry({
             shellWidth: safeShellWidth,
             shellHeight: safeShellHeight,
         },
+        fitBox,
         boardPane: {
             boardPaneHeight,
             usableBoardHeight,
         },
         boardSizingSlot: {
-            boardSizingSlotWidth: safeBoardSizingSlotWidth,
+            boardSizingSlotWidth: safeOuterBoardSlotWidth,
             boardSizingSlotHeight: safeShellHeight,
         },
         divider: {
@@ -897,8 +975,17 @@ export function computeMobileResizeAppliedTarget({
 }: MobileResizeAppliedTargetInput): MobileResizeAppliedTarget | null {
     const boardSizingSlotWidth =
         stableGeometry.boardSizingSlot?.boardSizingSlotWidth ?? stableGeometry.shell.shellWidth;
-    const squareFitReservedHeight = Math.max(0, stableGeometry.derived.boardVerticalChrome);
-    const squareFitExtraReservedHeight = 0;
+    const boardSurfaceWidth = stableGeometry.boardSurface.boardSurfaceWidth;
+    const horizontalInsetPx = firstPositiveFinite(
+        Math.max(0, Math.round((boardSizingSlotWidth - boardSurfaceWidth) / 2)),
+        stableGeometry.derived.horizontalInsetPx,
+        stableGeometry.derived.horizontalInset,
+    );
+    const reservedHeight = firstPositiveFinite(
+        stableGeometry.derived.reservedHeight,
+        stableGeometry.derived.boardVerticalChrome,
+    );
+    const verticalInsetPx = firstPositiveFinite(stableGeometry.derived.verticalInsetPx, 0);
     const stableMetricsWidth = firstPositiveFinite(
         baselineGobanContentSize,
         stableGeometry.gobanContent.nativeGobanContentSize,
@@ -914,8 +1001,12 @@ export function computeMobileResizeAppliedTarget({
         shellHeight: stableGeometry.shell.shellHeight,
         dividerRatio: targetDividerRatio,
         boardSizingSlotWidth,
-        squareFitReservedHeight,
-        squareFitExtraReservedHeight,
+        outerBoardSlotWidth: boardSizingSlotWidth,
+        horizontalInsetPx: horizontalInsetPx ?? 0,
+        reservedHeight: reservedHeight ?? 0,
+        verticalInsetPx: verticalInsetPx ?? 0,
+        squareFitReservedHeight: reservedHeight ?? 0,
+        squareFitExtraReservedHeight: verticalInsetPx ?? 0,
         minBoardPaneHeight: 0,
         maxBoardPaneHeight: stableGeometry.shell.shellHeight,
         devicePixelRatio: 1,
@@ -982,7 +1073,8 @@ export function computeMobileResizeAppliedTarget({
         legacyFinalWindowSize: geometry.gobanContainer.gobanContainerWidth,
         usingRestingMaxGeometry: false,
         transformScale: activePreviewTransformScale,
-        dragScale: geometry.gobanContainer.gobanContainerSize / Math.max(1, boardSizingSlotWidth),
+        dragScale:
+            geometry.gobanContainer.gobanContainerSize / Math.max(1, geometry.fitBox.contentWidth),
         gobanLeft: activePreviewLeftInContainer,
         gobanTop: activePreviewTopInContainer,
         geometry,
