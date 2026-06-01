@@ -704,6 +704,74 @@ export interface MobileResizeAppliedTarget {
     geometry: MobileBoardGeometry;
 }
 
+export interface MobileResizeAppliedTargetInput {
+    stableGeometry: StableMobileBoardGeometrySnapshot;
+    targetDividerRatio: number;
+    boardWidth: number;
+    boardHeight: number;
+    showLabels: boolean;
+}
+
+export function computeMobileResizeAppliedTarget({
+    stableGeometry,
+    targetDividerRatio,
+    boardWidth,
+    boardHeight,
+    showLabels,
+}: MobileResizeAppliedTargetInput): MobileResizeAppliedTarget {
+    const boardSizingSlotWidth =
+        stableGeometry.boardSizingSlot?.boardSizingSlotWidth ?? stableGeometry.shell.shellWidth;
+    const boardSizingSlotHeight =
+        stableGeometry.boardSizingSlot?.boardSizingSlotHeight ?? stableGeometry.shell.shellHeight;
+    const boardSurfaceWidth = stableGeometry.boardSurface.boardSurfaceWidth;
+    const boardVerticalChrome = Math.max(
+        0,
+        stableGeometry.boardSurface.boardSurfaceHeight -
+            stableGeometry.gobanContainer.gobanContainerHeight,
+    );
+    const horizontalInset = Math.max(0, boardSizingSlotWidth - boardSurfaceWidth);
+    const stableMetricsWidth =
+        stableGeometry.gobanContent.nativeGobanContentSize ??
+        stableGeometry.gobanContent.gobanContentSize ??
+        1;
+    const geometry = computeMobileBoardGeometry({
+        shellWidth: stableGeometry.shell.shellWidth,
+        shellHeight: stableGeometry.shell.shellHeight,
+        dividerRatio: targetDividerRatio,
+        boardSizingSlotWidth,
+        boardSizingSlotHeight,
+        horizontalInset,
+        boardVerticalChrome,
+        minBoardPaneHeight: 0,
+        maxBoardPaneHeight: stableGeometry.shell.shellHeight,
+        minGobanContainerSize: 0,
+        devicePixelRatio: 1,
+        boardWidth,
+        boardHeight,
+        showLabels,
+    });
+
+    return {
+        geometrySource: "computeMobileBoardGeometry",
+        dividerRatio: geometry.divider.dividerRatio,
+        boardSurfaceWidth: geometry.boardSurface.boardSurfaceWidth,
+        boardSurfaceHeight: geometry.boardSurface.boardSurfaceHeight,
+        gobanContainerWidth: geometry.gobanContainer.gobanContainerWidth,
+        gobanContainerHeight: geometry.gobanContainer.gobanContainerHeight,
+        previewGobanContentSize: geometry.gobanContent.previewGobanContentSize,
+        predictedNativeGobanContentSize: geometry.gobanContent.predictedNativeGobanContentSize,
+        legacyVisualSize: geometry.gobanContainer.gobanContainerSize,
+        legacyFinalWindowSize: geometry.gobanContainer.gobanContainerWidth,
+        usingRestingMaxGeometry: false,
+        transformScale:
+            geometry.gobanContent.previewGobanContentSize / Math.max(1, stableMetricsWidth),
+        dragScale: geometry.boardSurface.boardSurfaceWidth / Math.max(1, boardSizingSlotWidth),
+        gobanLeft: geometry.gobanContainer.gobanContainerLeft,
+        gobanTop: geometry.gobanContainer.gobanContainerTop,
+        geometry,
+    };
+}
+
 /**
  * Compatibility adapter only.
  * Authoritative mobile resize geometry comes from computeMobileBoardGeometry(...).

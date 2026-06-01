@@ -33,16 +33,16 @@ import {
     describeMobileResizeShellGeometry,
     computeRecenterScale,
     computeMobileBoardGeometry,
-    computeMeasuredTransientDragContentSize,
-    computeTransientDragGeometry,
+    computeMobileResizeAppliedTarget,
     computeTransientDragReleaseGeometryFromAppliedTarget,
     computeTransientDragReleaseGeometry,
-    computeTransientDragScale,
-    computeTransientDragVisualBoardSize,
     compareMobileGeometryToTarget,
     isKibitzBoardResizeStale,
     predictNativeGobanContentSize,
     shouldCommitMobileSplitRatioUpdate,
+    computeTransientDragVisualBoardSize,
+    computeTransientDragScale,
+    computeMeasuredTransientDragContentSize,
 } from "./kibitzBoardSizing";
 
 describe("getMovePathToRestore", () => {
@@ -252,106 +252,112 @@ describe("mobile resize geometry terminology", () => {
     });
 });
 
-describe("computeTransientDragGeometry", () => {
-    it("keeps normal upsizing on the active visual geometry path", () => {
-        expect(
-            computeTransientDragGeometry({
-                visualSize: 300,
-                startWindowWidth: 250,
-                startWindowHeight: 254,
-                startWindowSize: 250,
-                startContentSize: 200,
-                metricsWidth: 200,
-                startedAtHorizontalMax: false,
-                transientBoardWindowMaxSize: 378,
-            }),
-        ).toEqual({
-            hostWidth: 300,
-            hostHeight: 304,
-            containerWidth: 300,
-            containerHeight: 300,
-            contentSize: 240,
-            transformScale: 1.2,
-            gobanLeft: 30,
-            gobanTop: 0,
-            dragScale: 1.2,
-            usingRestingMaxGeometry: false,
+describe("computeMobileResizeAppliedTarget", () => {
+    const smallBoardStableGeometry = {
+        measuredAt: 1,
+        shell: {
+            shellWidth: 394,
+            shellHeight: 640,
+        },
+        boardSizingSlot: {
+            boardSizingSlotWidth: 382,
+            boardSizingSlotHeight: 640,
+        },
+        boardSurface: {
+            boardSurfaceWidth: 374,
+            boardSurfaceHeight: 300,
+        },
+        gobanContainer: {
+            gobanContainerWidth: 300,
+            gobanContainerHeight: 300,
+            gobanContainerSize: 300,
+        },
+        gobanContent: {
+            gobanContentWidth: 286,
+            gobanContentHeight: 286,
+            gobanContentSize: 286,
+            nativeGobanContentSize: 286,
+        },
+        divider: {
+            dividerRatio: 0.5,
+        },
+        derived: {
+            horizontalInset: 132,
+            boardVerticalChrome: 70,
+        },
+        source: "stable-observer" as const,
+    };
+
+    const maxStartStableGeometry = {
+        measuredAt: 1,
+        shell: {
+            shellWidth: 390,
+            shellHeight: 640,
+        },
+        boardSizingSlot: {
+            boardSizingSlotWidth: 382,
+            boardSizingSlotHeight: 640,
+        },
+        boardSurface: {
+            boardSurfaceWidth: 374,
+            boardSurfaceHeight: 382,
+        },
+        gobanContainer: {
+            gobanContainerWidth: 374,
+            gobanContainerHeight: 374,
+            gobanContainerSize: 374,
+        },
+        gobanContent: {
+            gobanContentWidth: 360,
+            gobanContentHeight: 360,
+            gobanContentSize: 360,
+            nativeGobanContentSize: 360,
+        },
+        divider: {
+            dividerRatio: 0.596875,
+        },
+        derived: {
+            horizontalInset: 8,
+            boardVerticalChrome: 8,
+        },
+        source: "stable-observer" as const,
+    };
+
+    it("grows host and container from a smaller board", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: smallBoardStableGeometry,
+            targetDividerRatio: 0.65,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
         });
+
+        expect(target.boardSurfaceWidth).toBeGreaterThan(0);
+        expect(target.boardSurfaceHeight).toBeGreaterThan(
+            smallBoardStableGeometry.boardSurface.boardSurfaceHeight,
+        );
+        expect(target.gobanContainerHeight).toBeGreaterThan(
+            smallBoardStableGeometry.gobanContainer.gobanContainerHeight,
+        );
+        expect(target.gobanContainerWidth).toBeGreaterThan(
+            smallBoardStableGeometry.gobanContainer.gobanContainerWidth,
+        );
     });
 
-    it("preserves the resting max geometry when the drag begins at the stable max", () => {
-        const geometry = computeTransientDragGeometry({
-            visualSize: 378,
-            startWindowWidth: 374,
-            startWindowHeight: 378,
-            startWindowSize: 374,
-            startContentSize: 375,
-            metricsWidth: 375,
-            startedAtHorizontalMax: true,
-            transientBoardWindowMaxSize: 374,
+    it("keeps the max-start geometry out of the padding", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: maxStartStableGeometry,
+            targetDividerRatio: maxStartStableGeometry.divider.dividerRatio,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
         });
 
-        expect(geometry.usingRestingMaxGeometry).toBe(true);
-        expect(geometry.hostWidth).toBe(374);
-        expect(geometry.hostHeight).toBe(378);
-        expect(geometry.containerWidth).toBe(374);
-        expect(geometry.containerHeight).toBe(378);
-        expect(geometry.dragScale).toBe(1);
-        expect(geometry.gobanTop).toBe(0);
-        expect(geometry.gobanLeft).toBe(0);
-        expect(geometry.transformScale).toBeCloseTo(geometry.contentSize / 375);
-    });
-
-    it("uses resting max geometry for the real max-start runtime inputs", () => {
-        expect(
-            computeTransientDragGeometry({
-                visualSize: 378,
-                startWindowWidth: 374,
-                startWindowHeight: 378,
-                startWindowSize: 374,
-                startContentSize: 375,
-                metricsWidth: 375,
-                startedAtHorizontalMax: false,
-                transientBoardWindowMaxSize: 378,
-            }),
-        ).toEqual({
-            hostWidth: 374,
-            hostHeight: 378,
-            containerWidth: 374,
-            containerHeight: 378,
-            contentSize: 375,
-            transformScale: 1,
-            gobanLeft: 0,
-            gobanTop: 0,
-            dragScale: 1,
-            usingRestingMaxGeometry: true,
-        });
-    });
-
-    it("preserves the measured max host rect when the drag starts from a tall resting board", () => {
-        expect(
-            computeTransientDragGeometry({
-                visualSize: 378,
-                startWindowWidth: 374,
-                startWindowHeight: 382,
-                startWindowSize: 374,
-                startContentSize: 360,
-                metricsWidth: 360,
-                startedAtHorizontalMax: false,
-                transientBoardWindowMaxSize: 378,
-            }),
-        ).toEqual({
-            hostWidth: 374,
-            hostHeight: 382,
-            containerWidth: 374,
-            containerHeight: 382,
-            contentSize: 360,
-            transformScale: 1,
-            gobanLeft: 7,
-            gobanTop: 0,
-            dragScale: 1,
-            usingRestingMaxGeometry: true,
-        });
+        expect(target.boardSurfaceWidth).toBe(374);
+        expect(target.boardSurfaceHeight).toBe(382);
+        expect(target.gobanContainerWidth).toBe(374);
+        expect(target.gobanContainerHeight).toBe(374);
+        expect(target.gobanLeft).toBe(0);
     });
 });
 
@@ -488,6 +494,82 @@ describe("mobile geometry mismatch classification", () => {
         });
 
         expect(comparison.mismatchType).toBe("vertical-chrome");
+    });
+
+    it("flags a bad helper output that pushes the board into padding", () => {
+        const stableGeometry = {
+            measuredAt: 1,
+            shell: {
+                shellWidth: 390,
+                shellHeight: 640,
+            },
+            boardSizingSlot: {
+                boardSizingSlotWidth: 382,
+                boardSizingSlotHeight: 640,
+            },
+            boardSurface: {
+                boardSurfaceWidth: 374,
+                boardSurfaceHeight: 382,
+            },
+            gobanContainer: {
+                gobanContainerWidth: 374,
+                gobanContainerHeight: 374,
+                gobanContainerSize: 374,
+            },
+            gobanContent: {
+                gobanContentWidth: 360,
+                gobanContentHeight: 360,
+                gobanContentSize: 360,
+                nativeGobanContentSize: 360,
+            },
+            divider: {
+                dividerRatio: 0.596875,
+            },
+            derived: {
+                horizontalInset: 8,
+                boardVerticalChrome: 8,
+            },
+            source: "stable-observer" as const,
+        };
+        const actual = stableGeometry as Parameters<
+            typeof compareMobileGeometryToTarget
+        >[0]["actual"];
+        const target = {
+            geometrySource: "computeMobileBoardGeometry" as const,
+            dividerRatio: 0.596875,
+            boardSurfaceWidth: 378,
+            boardSurfaceHeight: 386,
+            gobanContainerWidth: 378,
+            gobanContainerHeight: 378,
+            previewGobanContentSize: 363,
+            predictedNativeGobanContentSize: 363,
+            legacyVisualSize: 378,
+            legacyFinalWindowSize: 378,
+            usingRestingMaxGeometry: false,
+            transformScale: 1,
+            dragScale: 1,
+            gobanLeft: 0,
+            gobanTop: 0,
+            geometry: computeMobileBoardGeometry({
+                shellWidth: 390,
+                shellHeight: 640,
+                boardSizingSlotWidth: 382,
+                dividerRatio: 0.596875,
+                horizontalInset: 8,
+                boardVerticalChrome: 8,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: true,
+            }),
+        };
+
+        const comparison = compareMobileGeometryToTarget({
+            target,
+            actual,
+        });
+
+        expect(comparison.matched).toBe(false);
+        expect(comparison.mismatchType).not.toBeNull();
     });
 });
 

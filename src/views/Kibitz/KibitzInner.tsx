@@ -86,7 +86,7 @@ import {
     describeMobileResizeShellGeometry,
     compareMobileGeometryToTarget,
     computeMobileBoardGeometry,
-    computeTransientDragVisualBoardSize,
+    computeMobileResizeAppliedTarget,
     measureSquareFitLayout,
     shouldAcceptStableMobileGeometryMeasurement,
     shouldCommitMobileSplitRatioUpdate,
@@ -880,6 +880,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         startLayoutSize: number;
         startWindowSize: number;
         startedAtHorizontalMax: boolean;
+        stableGeometry: StableMobileBoardGeometrySnapshot | null;
         topPaneElement: HTMLDivElement | null;
         boardSlotElement: HTMLDivElement | null;
         boardWindowElement: HTMLElement | null;
@@ -890,6 +891,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         React.useRef<KibitzBoardTransientDragController | null>(null);
     const lastAppliedMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
     const lastCommittedMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
+    const pendingMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
     const stableMobileBoardGeometryRef = React.useRef<StableMobileBoardGeometrySnapshot | null>(
         null,
     );
@@ -989,7 +991,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                           derived: {
                               horizontalInset: Math.max(
                                   0,
-                                  shellRect.width - boardSurfaceRect.width,
+                                  (boardSizingSlotRect?.width ?? shellRect.width) -
+                                      boardSurfaceRect.width,
                               ),
                               boardVerticalChrome: Math.max(
                                   0,
@@ -1085,31 +1088,30 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             boardVerticalChrome: snapshot.derived.boardVerticalChrome,
             devicePixelRatio: window.devicePixelRatio,
         });
+        const computedTarget: MobileResizeAppliedTarget = {
+            geometrySource: "computeMobileBoardGeometry" as const,
+            dividerRatio: computed.divider.dividerRatio,
+            boardSurfaceWidth: computed.boardSurface.boardSurfaceWidth,
+            boardSurfaceHeight: computed.boardSurface.boardSurfaceHeight,
+            gobanContainerWidth: computed.gobanContainer.gobanContainerWidth,
+            gobanContainerHeight: computed.gobanContainer.gobanContainerHeight,
+            previewGobanContentSize: computed.gobanContent.previewGobanContentSize,
+            predictedNativeGobanContentSize: computed.gobanContent.predictedNativeGobanContentSize,
+            legacyVisualSize: computed.gobanContainer.gobanContainerSize,
+            legacyFinalWindowSize: computed.gobanContainer.gobanContainerWidth,
+            usingRestingMaxGeometry: false,
+            transformScale:
+                computed.gobanContent.previewGobanContentSize /
+                Math.max(1, computed.gobanContent.predictedNativeGobanContentSize ?? 1),
+            dragScale:
+                computed.boardSurface.boardSurfaceWidth /
+                Math.max(1, computed.boardSizingSlot.boardSizingSlotWidth),
+            gobanLeft: computed.gobanContainer.gobanContainerLeft,
+            gobanTop: computed.gobanContainer.gobanContainerTop,
+            geometry: computed,
+        };
         const comparison = compareMobileGeometryToTarget({
-            target:
-                lastAppliedMobileResizeTargetRef.current ??
-                (stableMobileBoardGeometryRef.current != null
-                    ? {
-                          geometrySource: "computeMobileBoardGeometry",
-                          dividerRatio: snapshot.divider.dividerRatio,
-                          boardSurfaceWidth: snapshot.boardSurface.boardSurfaceWidth,
-                          boardSurfaceHeight: snapshot.boardSurface.boardSurfaceHeight,
-                          gobanContainerWidth: snapshot.gobanContainer.gobanContainerWidth,
-                          gobanContainerHeight: snapshot.gobanContainer.gobanContainerHeight,
-                          previewGobanContentSize:
-                              snapshot.gobanContent.nativeGobanContentSize ?? 0,
-                          predictedNativeGobanContentSize:
-                              snapshot.gobanContent.nativeGobanContentSize,
-                          legacyVisualSize: snapshot.gobanContainer.gobanContainerSize,
-                          legacyFinalWindowSize: snapshot.boardSurface.boardSurfaceWidth,
-                          usingRestingMaxGeometry: false,
-                          transformScale: 1,
-                          dragScale: 1,
-                          gobanLeft: 0,
-                          gobanTop: 0,
-                          geometry: computed,
-                      }
-                    : null),
+            target: computedTarget,
             actual: snapshot,
         });
         const message = comparison.matched
@@ -1234,19 +1236,22 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             setMobileSplitRatio(pending);
         };
 
-        const updateTransientDragVisuals = (nextRatio: number, visualBoardSize: number) => {
+        const updateTransientDragVisuals = (target: MobileResizeAppliedTarget) => {
             const shell = mobileShellRef.current;
             if (!shell) {
                 return null;
             }
 
-            shell.style.setProperty("--kibitz-mobile-drag-ratio", String(nextRatio));
-            shell.style.setProperty("--kibitz-mobile-drag-board-size", `${visualBoardSize}px`);
+            shell.style.setProperty("--kibitz-mobile-drag-ratio", String(target.dividerRatio));
+            shell.style.setProperty(
+                "--kibitz-mobile-drag-board-size",
+                `${target.boardSurfaceWidth}px`,
+            );
 
             const controller = mobileDraftTransientDragControllerRef.current;
             let appliedTarget: MobileResizeAppliedTarget | null = null;
             if (controller) {
-                appliedTarget = controller.applyTransientDragVisualSize(visualBoardSize, nextRatio);
+                appliedTarget = controller.applyTransientDragTarget(target);
             }
 
             if (appliedTarget) {
@@ -1287,20 +1292,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 const dragState = mobileDragStateRef.current;
                 recordKibitzBoardSizeEvent("mobile-divider:drag-fast-visual-size", {
                     pointerId: dragState?.pointerId ?? null,
-                    nextRatio,
-                    visualBoardSize,
-                    usingRestingMaxGeometry: Boolean(
-                        dragState?.startedAtHorizontalMax &&
-                        dragState?.transientBoardWindowMaxSize != null &&
-                        visualBoardSize >= dragState.transientBoardWindowMaxSize,
-                    ),
-                    heightLimitedSize:
-                        dragState != null
-                            ? Math.floor(
-                                  dragState.shellHeight * nextRatio -
-                                      dragState.reservedBoardVerticalSpace,
-                              )
-                            : null,
+                    nextRatio: target.dividerRatio,
+                    visualBoardSize: target.boardSurfaceWidth,
+                    usingRestingMaxGeometry: target.usingRestingMaxGeometry,
+                    heightLimitedSize: target.boardSurfaceHeight,
                     transientBoardWindowMaxSize: dragState?.transientBoardWindowMaxSize ?? null,
                     outerBoardSlotMaxWidth: dragState?.outerBoardSlotMaxWidth ?? null,
                     boardSlotMaxWidth: dragState?.boardSlotMaxWidth ?? null,
@@ -1322,17 +1317,13 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                         boardSizingSlotRect: dragState?.boardSlotElement
                             ? dragState.boardSlotElement.getBoundingClientRect()
                             : null,
-                        boardSurfaceRect:
-                            dragState?.startWindowWidth != null &&
-                            dragState.startWindowHeight != null
-                                ? {
-                                      width: dragState.startWindowWidth,
-                                      height: dragState.startWindowHeight,
-                                  }
-                                : null,
+                        boardSurfaceRect: {
+                            width: target.boardSurfaceWidth,
+                            height: target.boardSurfaceHeight,
+                        },
                         gobanContainerRect: {
-                            width: visualBoardSize,
-                            height: visualBoardSize,
+                            width: target.gobanContainerWidth,
+                            height: target.gobanContainerHeight,
                         },
                         gobanMetrics:
                             dragState?.cachedMetricsWidth != null &&
@@ -1342,9 +1333,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                       height: dragState.cachedMetricsHeight,
                                   }
                                 : null,
-                        dividerRatio: nextRatio,
+                        dividerRatio: target.dividerRatio,
                         startDividerRatio: dragState?.startRatio ?? null,
-                        targetDividerRatio: nextRatio,
+                        targetDividerRatio: target.dividerRatio,
                     }),
                 });
             }
@@ -1466,11 +1457,18 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             const nextRatio = clampMobileSplitRatio(dragState.startRatio + ratioDelta);
             const previousPending =
                 pendingMobileSplitRatioRef.current ?? lastCommittedMobileSplitRatioRef.current;
-            const visualBoardSize = computeTransientDragVisualBoardSize({
-                shellHeight: dragState.shellHeight,
-                nextRatio,
-                boardSlotMaxWidth: dragState.transientBoardWindowMaxSize,
-                reservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
+            const stableGeometry =
+                dragState.stableGeometry ?? stableMobileBoardGeometryRef.current ?? null;
+            if (!stableGeometry) {
+                event.preventDefault();
+                return;
+            }
+            const target = computeMobileResizeAppliedTarget({
+                stableGeometry,
+                targetDividerRatio: nextRatio,
+                boardWidth: currentGameWidth ?? 19,
+                boardHeight: currentGameHeight ?? 19,
+                showLabels: false,
             });
             if (
                 !shouldCommitMobileSplitRatioUpdate({
@@ -1498,27 +1496,22 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     rawRatioDelta: ratioDelta,
                     nextRatio,
                     previousRatio: previousPending,
-                    visualBoardSize,
+                    visualBoardSize: target.boardSurfaceWidth,
                 };
             }
 
             pendingMobileSplitRatioRef.current = nextRatio;
-            updateTransientDragVisuals(nextRatio, visualBoardSize);
+            pendingMobileResizeTargetRef.current = target;
+            updateTransientDragVisuals(target);
 
             if (mobileSplitRatioRafRef.current === null) {
                 mobileSplitRatioRafRef.current = window.requestAnimationFrame(() => {
                     mobileSplitRatioRafRef.current = null;
-                    const pending = pendingMobileSplitRatioRef.current;
-                    if (pending == null) {
+                    const pendingTarget = pendingMobileResizeTargetRef.current;
+                    if (!pendingTarget) {
                         return;
                     }
-                    const visualSize = computeTransientDragVisualBoardSize({
-                        shellHeight: dragState.shellHeight,
-                        nextRatio: pending,
-                        boardSlotMaxWidth: dragState.transientBoardWindowMaxSize,
-                        reservedBoardVerticalSpace: dragState.reservedBoardVerticalSpace,
-                    });
-                    updateTransientDragVisuals(pending, visualSize);
+                    updateTransientDragVisuals(pendingTarget);
                     const details = mobileDividerMoveDebugPendingRef.current;
                     mobileDividerMoveDebugPendingRef.current = null;
                     if (details) {
@@ -1548,6 +1541,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             if (isMobileDividerPointerUpNoop(dragState.gestureState)) {
                 mobileDragStateRef.current = null;
                 lastAppliedMobileResizeTargetRef.current = null;
+                pendingMobileResizeTargetRef.current = null;
                 mobileResizeLifecycleStateRef.current = "idle";
                 pendingMobileSplitRatioRef.current = null;
                 mobileDividerMoveDebugPendingRef.current = null;
@@ -1612,6 +1606,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             if (!appliedTarget) {
                 mobileDragStateRef.current = null;
                 lastAppliedMobileResizeTargetRef.current = null;
+                pendingMobileResizeTargetRef.current = null;
                 pendingMobileSplitRatioRef.current = null;
                 mobileDividerMoveDebugPendingRef.current = null;
                 mobileDividerFastVisualLogAtRef.current = 0;
@@ -1676,6 +1671,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             );
             lastCommittedMobileResizeTargetRef.current = appliedTarget;
             lastAppliedMobileResizeTargetRef.current = null;
+            pendingMobileResizeTargetRef.current = null;
             mobileResizeLifecycleStateRef.current = "idle";
             setMobileDividerDragging(false);
             stopDrag();
@@ -1725,6 +1721,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 mobileSplitRatioRafRef.current = null;
             }
             pendingMobileSplitRatioRef.current = null;
+            pendingMobileResizeTargetRef.current = null;
             mobileDividerMoveDebugPendingRef.current = null;
             mobileDividerFastVisualLogAtRef.current = 0;
             lastAppliedMobileResizeTargetRef.current = null;
@@ -3383,8 +3380,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             }
             event.preventDefault();
             lastAppliedMobileResizeTargetRef.current = null;
+            const initialStableGeometry = measureStableMobileBoardGeometry("initial-capture");
             mobileResizeLifecycleStateRef.current = "armed";
-            measureStableMobileBoardGeometry("initial-capture");
             mobileDragStateRef.current = {
                 pointerId: event.pointerId,
                 startedAt: Date.now(),
@@ -3403,6 +3400,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 startLayoutSize,
                 startWindowSize,
                 startedAtHorizontalMax,
+                stableGeometry: initialStableGeometry ?? stableMobileBoardGeometryRef.current,
                 topPaneElement,
                 boardSlotElement,
                 cachedMetricsWidth: metricsWidth,

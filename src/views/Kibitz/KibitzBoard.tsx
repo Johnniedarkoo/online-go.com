@@ -33,7 +33,6 @@ import {
     describeGobanContentFromMetrics,
     describeMobileResizeGeometrySnapshot,
     computeRecenterScale,
-    computeMobileBoardGeometry,
     computeTransientDragReleaseGeometryFromAppliedTarget,
     isKibitzBoardResizeStale,
     type MobileResizeAppliedTarget,
@@ -82,9 +81,8 @@ export interface KibitzBoardTransientDragController {
         metricsWidth: number | null;
         metricsHeight: number | null;
     };
-    applyTransientDragVisualSize: (
-        visualSize: number,
-        dividerRatio?: number | null,
+    applyTransientDragTarget: (
+        target: MobileResizeAppliedTarget,
     ) => MobileResizeAppliedTarget | null;
     finishTransientDragFromAppliedTarget: (target: MobileResizeAppliedTarget) => void;
 }
@@ -647,150 +645,77 @@ export function KibitzBoard({
         },
         [boardRole, currentRoomGameId, gameId, interactive, isMobile],
     );
-
-    const applyTransientDragVisualSize = React.useCallback(
-        (
-            visualSize: number,
-            dividerRatio: number | null = null,
-        ): MobileResizeAppliedTarget | null => {
+    const applyTransientDragTarget = React.useCallback(
+        (target: MobileResizeAppliedTarget): MobileResizeAppliedTarget | null => {
             if (!coordinateSafeInputRef.current || !allowTransientDragScalingRef.current) {
                 return null;
             }
 
             const host = boardHostRef.current;
             const container = gobanContainerRef.current;
+            const gobanElement = gobanDiv.current;
             const transientMetrics = transientDragMetricsRef.current;
-            const metricsWidth = transientMetrics?.metricsWidth ?? null;
-            const metricsHeight = transientMetrics?.metricsHeight ?? null;
-            const startWindowSize = transientMetrics?.startWindowSize ?? null;
-            const startWindowWidth = transientMetrics?.startWindowWidth ?? null;
-            const startWindowHeight = transientMetrics?.startWindowHeight ?? null;
-            const startContentSize = transientMetrics?.startContentSize ?? null;
-            const startedAtHorizontalMax = Boolean(transientMetrics?.startedAtHorizontalMax);
-            const transientBoardWindowMaxSize =
-                transientMetrics?.transientBoardWindowMaxSize ?? startWindowWidth;
             if (
                 !transientMetrics ||
                 !transientMetrics.active ||
-                !metricsWidth ||
-                !metricsHeight ||
-                !startWindowSize ||
-                !startWindowWidth ||
-                !startWindowHeight ||
-                !startContentSize ||
                 !host ||
-                !container
+                !container ||
+                !gobanElement
             ) {
                 return null;
             }
 
-            const gobanElement = gobanDiv.current;
-            if (!gobanElement) {
-                return null;
-            }
-
-            const geometry = computeMobileBoardGeometry({
-                shellWidth: transientMetrics.shellWidth ?? startWindowWidth,
-                shellHeight: transientMetrics.shellHeight ?? startWindowHeight,
-                dividerRatio:
-                    transientMetrics.shellHeight != null && transientMetrics.shellHeight > 0
-                        ? visualSize / transientMetrics.shellHeight
-                        : 0,
-                boardSizingSlotWidth: startWindowWidth,
-                boardSizingSlotHeight: startWindowHeight,
-                horizontalInset: Math.max(
-                    0,
-                    (transientMetrics.shellWidth ?? startWindowWidth) - startWindowWidth,
-                ),
-                boardVerticalChrome: Math.max(0, startWindowHeight - startContentSize),
-                minGobanContainerSize: 0,
-                devicePixelRatio: typeof window !== "undefined" ? window.devicePixelRatio : 1,
-                boardWidth: width,
-                boardHeight: height,
-                showLabels,
-            });
-            if (geometry.gobanContent.previewGobanContentSize <= 0) {
-                return null;
-            }
-
-            setTransientRectSize(
-                host,
-                geometry.boardSurface.boardSurfaceWidth,
-                geometry.boardSurface.boardSurfaceHeight,
-            );
+            setTransientRectSize(host, target.boardSurfaceWidth, target.boardSurfaceHeight);
             setTransientRectSize(
                 container,
-                geometry.gobanContainer.gobanContainerWidth,
-                geometry.gobanContainer.gobanContainerHeight,
+                target.gobanContainerWidth,
+                target.gobanContainerHeight,
             );
             gobanElement.style.transformOrigin = "top left";
-            gobanElement.style.transform = `scale(${
-                geometry.gobanContent.previewGobanContentSize / Math.max(1, metricsWidth)
-            })`;
-            gobanElement.style.left = `${geometry.gobanContainer.gobanContainerLeft}px`;
-            gobanElement.style.top = "0px";
+            gobanElement.style.transform = `scale(${target.transformScale})`;
+            gobanElement.style.left = `${target.gobanLeft}px`;
+            gobanElement.style.top = `${target.gobanTop}px`;
             gobanElement.style.pointerEvents = "none";
-            transientMetrics.startedAtHorizontalMax = startedAtHorizontalMax;
-            transientMetrics.usingRestingMaxGeometry = false;
-            transientMetrics.lastWindowSize = geometry.boardSurface.boardSurfaceWidth;
-            transientMetrics.lastContentSize = geometry.gobanContent.previewGobanContentSize;
-            lastAppliedTransientContentSizeRef.current =
-                geometry.gobanContent.previewGobanContentSize;
-            const target: MobileResizeAppliedTarget = {
-                geometrySource: "computeMobileBoardGeometry",
-                dividerRatio: dividerRatio ?? 0,
-                boardSurfaceWidth: geometry.boardSurface.boardSurfaceWidth,
-                boardSurfaceHeight: geometry.boardSurface.boardSurfaceHeight,
-                gobanContainerWidth: geometry.gobanContainer.gobanContainerWidth,
-                gobanContainerHeight: geometry.gobanContainer.gobanContainerHeight,
-                previewGobanContentSize: geometry.gobanContent.previewGobanContentSize,
-                predictedNativeGobanContentSize:
-                    geometry.gobanContent.predictedNativeGobanContentSize,
-                legacyVisualSize: visualSize,
-                legacyFinalWindowSize: geometry.gobanContainer.gobanContainerWidth,
-                usingRestingMaxGeometry: false,
-                transformScale:
-                    geometry.gobanContent.previewGobanContentSize / Math.max(1, metricsWidth),
-                dragScale: geometry.boardSurface.boardSurfaceWidth / Math.max(1, startWindowSize),
-                gobanLeft: geometry.gobanContainer.gobanContainerLeft,
-                gobanTop: geometry.gobanContainer.gobanContainerTop,
-                geometry,
-            };
+            transientMetrics.usingRestingMaxGeometry = target.usingRestingMaxGeometry;
+            transientMetrics.lastWindowSize = target.boardSurfaceWidth;
+            transientMetrics.lastContentSize = target.previewGobanContentSize;
+            lastAppliedTransientContentSizeRef.current = target.previewGobanContentSize;
 
             if (isKibitzBoardSizeDebugEnabled()) {
                 recordKibitzBoardSizeEvent("mobile-geometry:computed-target", {
-                    source: "computeMobileBoardGeometry",
+                    source: target.geometrySource,
                     pointerId: null,
                     dividerRatio: target.dividerRatio,
                     input: {
-                        shellWidth: geometry.shell.shellWidth,
-                        shellHeight: geometry.shell.shellHeight,
-                        boardSizingSlotWidth: geometry.boardSizingSlot.boardSizingSlotWidth,
-                        boardSizingSlotHeight: geometry.boardSizingSlot.boardSizingSlotHeight,
+                        shellWidth: target.geometry.shell.shellWidth,
+                        shellHeight: target.geometry.shell.shellHeight,
+                        boardSizingSlotWidth: target.geometry.boardSizingSlot.boardSizingSlotWidth,
+                        boardSizingSlotHeight:
+                            target.geometry.boardSizingSlot.boardSizingSlotHeight,
                         horizontalInset: Math.max(
                             0,
-                            geometry.boardSizingSlot.boardSizingSlotWidth -
-                                geometry.boardSurface.boardSurfaceWidth,
+                            target.geometry.boardSizingSlot.boardSizingSlotWidth -
+                                target.geometry.boardSurface.boardSurfaceWidth,
                         ),
                         boardVerticalChrome: Math.max(
                             0,
-                            geometry.boardSurface.boardSurfaceHeight -
-                                geometry.gobanContainer.gobanContainerSize,
+                            target.geometry.boardSurface.boardSurfaceHeight -
+                                target.geometry.gobanContainer.gobanContainerSize,
                         ),
                         minBoardPaneHeight: 0,
-                        maxBoardPaneHeight: geometry.shell.shellHeight,
+                        maxBoardPaneHeight: target.geometry.shell.shellHeight,
                         devicePixelRatio:
                             typeof window !== "undefined" ? window.devicePixelRatio : 1,
                     },
                     output: {
-                        boardSizingSlotWidth: geometry.boardSizingSlot.boardSizingSlotWidth,
-                        boardSizingSlotHeight: geometry.boardSizingSlot.boardSizingSlotHeight,
-                        boardSurfaceWidth: geometry.boardSurface.boardSurfaceWidth,
-                        boardSurfaceHeight: geometry.boardSurface.boardSurfaceHeight,
-                        gobanContainerSize: geometry.gobanContainer.gobanContainerSize,
-                        previewGobanContentSize: geometry.gobanContent.previewGobanContentSize,
-                        predictedNativeGobanContentSize:
-                            geometry.gobanContent.predictedNativeGobanContentSize,
+                        boardSizingSlotWidth: target.geometry.boardSizingSlot.boardSizingSlotWidth,
+                        boardSizingSlotHeight:
+                            target.geometry.boardSizingSlot.boardSizingSlotHeight,
+                        boardSurfaceWidth: target.boardSurfaceWidth,
+                        boardSurfaceHeight: target.boardSurfaceHeight,
+                        gobanContainerSize: target.geometry.gobanContainer.gobanContainerSize,
+                        previewGobanContentSize: target.previewGobanContentSize,
+                        predictedNativeGobanContentSize: target.predictedNativeGobanContentSize,
                     },
                 });
             }
@@ -806,7 +731,7 @@ export function KibitzBoard({
                 const containerMetrics = getKibitzElementMetrics(container);
                 const gobanMetrics = getKibitzElementMetrics(gobanElement);
                 recordKibitzBoardSizeEvent("mobile-geometry:applied-target", {
-                    source: "computeMobileBoardGeometry",
+                    source: target.geometrySource,
                     pointerId: null,
                     boardSizingSlotWidth: target.geometry.boardSizingSlot.boardSizingSlotWidth,
                     boardSizingSlotHeight: target.geometry.boardSizingSlot.boardSizingSlotHeight,
@@ -815,6 +740,9 @@ export function KibitzBoard({
                     gobanContainerWidth: target.gobanContainerWidth,
                     gobanContainerHeight: target.gobanContainerHeight,
                     gobanContentSize: target.previewGobanContentSize,
+                    hostMetrics,
+                    containerMetrics,
+                    gobanMetrics,
                 });
                 recordKibitzBoardSizeEvent("kibitz-board:drag-fast-scale", {
                     role: boardRole,
@@ -833,24 +761,22 @@ export function KibitzBoard({
                         coordinateSafeInputRef.current &&
                         (allowTransientDragScalingRef.current ||
                             transientDragFinalizingRef.current),
-                    visualSize,
-                    contentSize: geometry.gobanContent.previewGobanContentSize,
+                    visualSize: target.boardSurfaceWidth,
+                    contentSize: target.previewGobanContentSize,
                     dividerRatio: target.dividerRatio,
-                    startWindowWidth,
-                    startWindowHeight,
-                    startWindowSize,
-                    startContentSize,
-                    startedAtHorizontalMax,
-                    usingRestingMaxGeometry: false,
-                    transientBoardWindowMaxSize,
+                    startWindowWidth: transientMetrics.startWindowWidth,
+                    startWindowHeight: transientMetrics.startWindowHeight,
+                    startWindowSize: transientMetrics.startWindowSize,
+                    startContentSize: transientMetrics.startContentSize,
+                    startedAtHorizontalMax: Boolean(transientMetrics.startedAtHorizontalMax),
+                    usingRestingMaxGeometry: target.usingRestingMaxGeometry,
+                    transientBoardWindowMaxSize: transientMetrics.transientBoardWindowMaxSize,
                     startGap: transientMetrics.startGap,
-                    dragScale:
-                        geometry.boardSurface.boardSurfaceWidth / Math.max(1, startWindowSize),
-                    cachedMetricsWidth: metricsWidth,
-                    cachedMetricsHeight: metricsHeight,
-                    transformScale:
-                        geometry.gobanContent.previewGobanContentSize / Math.max(1, metricsWidth),
-                    geometry: geometry,
+                    dragScale: target.dragScale,
+                    cachedMetricsWidth: transientMetrics.metricsWidth,
+                    cachedMetricsHeight: transientMetrics.metricsHeight,
+                    transformScale: target.transformScale,
+                    geometry: target.geometry,
                 });
                 recordKibitzBoardSizeEvent("kibitz-board:drag-fast-layout", {
                     role: boardRole,
@@ -858,45 +784,33 @@ export function KibitzBoard({
                     currentRoomGameId,
                     isMobile,
                     interactive,
-                    visualSize,
+                    visualSize: target.boardSurfaceWidth,
                     hostRectWidth: hostMetrics?.rectWidth ?? null,
                     hostRectHeight: hostMetrics?.rectHeight ?? null,
                     containerRectWidth: containerMetrics?.rectWidth ?? null,
                     containerRectHeight: containerMetrics?.rectHeight ?? null,
                     gobanRectWidth: gobanMetrics?.rectWidth ?? null,
                     gobanRectHeight: gobanMetrics?.rectHeight ?? null,
-                    contentSize: geometry.gobanContent.previewGobanContentSize,
-                    startWindowWidth,
-                    startWindowHeight,
-                    startWindowSize,
-                    startContentSize,
-                    startedAtHorizontalMax,
-                    usingRestingMaxGeometry: false,
+                    contentSize: target.previewGobanContentSize,
+                    startWindowWidth: transientMetrics.startWindowWidth,
+                    startWindowHeight: transientMetrics.startWindowHeight,
+                    startWindowSize: transientMetrics.startWindowSize,
+                    startContentSize: transientMetrics.startContentSize,
+                    startedAtHorizontalMax: Boolean(transientMetrics.startedAtHorizontalMax),
+                    usingRestingMaxGeometry: target.usingRestingMaxGeometry,
                     startGap: transientMetrics.startGap,
-                    dragScale:
-                        geometry.boardSurface.boardSurfaceWidth / Math.max(1, startWindowSize),
-                    transformScale:
-                        geometry.gobanContent.previewGobanContentSize / Math.max(1, metricsWidth),
+                    dragScale: target.dragScale,
+                    transformScale: target.transformScale,
                     gobanLeft: gobanElement.style.left,
                     gobanTop: gobanElement.style.top,
                     transform: gobanElement.style.transform,
-                    geometry,
+                    geometry: target.geometry,
                 });
             }
 
             return target;
         },
-        [
-            boardRole,
-            currentRoomGameId,
-            fitMode,
-            gameId,
-            height,
-            interactive,
-            isMobile,
-            showLabels,
-            width,
-        ],
+        [boardRole, currentRoomGameId, fitMode, gameId, interactive, isMobile],
     );
 
     const prepareTransientNativeResizeHandoff = React.useCallback(
@@ -1469,10 +1383,10 @@ export function KibitzBoard({
     const transientDragController = React.useMemo<KibitzBoardTransientDragController>(
         () => ({
             beginTransientDrag,
-            applyTransientDragVisualSize,
+            applyTransientDragTarget,
             finishTransientDragFromAppliedTarget,
         }),
-        [applyTransientDragVisualSize, beginTransientDrag, finishTransientDragFromAppliedTarget],
+        [applyTransientDragTarget, beginTransientDrag, finishTransientDragFromAppliedTarget],
     );
 
     React.useEffect(() => {
