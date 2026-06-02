@@ -89,6 +89,11 @@ export interface KibitzBoardTransientDragController {
         width: number | null;
         height: number | null;
     } | null;
+    getNativeSizingConfig: () => {
+        boardWidth: number;
+        boardHeight: number;
+        showLabels: boolean;
+    };
     applyTransientDragTarget: (
         target: MobileResizeAppliedTarget,
     ) => MobileResizeAppliedTarget | null;
@@ -723,6 +728,14 @@ export function KibitzBoard({
             height: Number.isFinite(metrics.height) ? metrics.height : null,
         };
     }, []);
+    const getNativeSizingConfig = React.useCallback(
+        () => ({
+            boardWidth: width,
+            boardHeight: height,
+            showLabels,
+        }),
+        [height, showLabels, width],
+    );
     const applyTransientDragTarget = React.useCallback(
         (target: MobileResizeAppliedTarget): MobileResizeAppliedTarget | null => {
             if (!coordinateSafeInputRef.current || !allowTransientDragScalingRef.current) {
@@ -766,6 +779,7 @@ export function KibitzBoard({
                     source: target.geometrySource,
                     pointerId: null,
                     dividerRatio: target.dividerRatio,
+                    nativeSizing: getNativeSizingConfig(),
                     input: {
                         shellWidth: target.geometry.shell.shellWidth,
                         shellHeight: target.geometry.shell.shellHeight,
@@ -887,7 +901,15 @@ export function KibitzBoard({
 
             return target;
         },
-        [boardRole, currentRoomGameId, fitMode, gameId, interactive, isMobile],
+        [
+            boardRole,
+            currentRoomGameId,
+            fitMode,
+            gameId,
+            getNativeSizingConfig,
+            interactive,
+            isMobile,
+        ],
     );
 
     const prepareTransientNativeResizeHandoff = React.useCallback(
@@ -1627,6 +1649,7 @@ export function KibitzBoard({
         () => ({
             beginTransientDrag,
             measureCurrentGobanMetrics,
+            getNativeSizingConfig,
             applyTransientDragTarget,
             finishTransientDragFromAppliedTarget,
         }),
@@ -1634,6 +1657,7 @@ export function KibitzBoard({
             applyTransientDragTarget,
             beginTransientDrag,
             finishTransientDragFromAppliedTarget,
+            getNativeSizingConfig,
             measureCurrentGobanMetrics,
         ],
     );

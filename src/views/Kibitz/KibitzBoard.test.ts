@@ -648,6 +648,57 @@ describe("computeMobileResizeAppliedTarget", () => {
         expect(target!.transformScale).toBeCloseTo(target!.previewGobanContentSize / 225);
     });
 
+    it("uses labelled native sizing for release prediction when the board shows labels", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                measuredAt: 1,
+                shell: {
+                    shellWidth: 390,
+                    shellHeight: 744,
+                },
+                boardSizingSlot: {
+                    boardSizingSlotWidth: 382,
+                    boardSizingSlotHeight: 744,
+                },
+                boardSurface: {
+                    boardSurfaceWidth: 382,
+                    boardSurfaceHeight: 322,
+                },
+                gobanContainer: {
+                    gobanContainerWidth: 322,
+                    gobanContainerHeight: 322,
+                    gobanContainerSize: 322,
+                },
+                gobanContent: {
+                    gobanContentWidth: 315,
+                    gobanContentHeight: 315,
+                    gobanContentSize: 315,
+                    nativeGobanContentSize: 315,
+                },
+                divider: {
+                    dividerRatio: 0.4885282258064516,
+                },
+                derived: {
+                    horizontalInset: 0,
+                    horizontalInsetPx: 0,
+                    reservedHeight: 36,
+                    boardVerticalChrome: 36,
+                    verticalInsetPx: 4,
+                },
+                source: "stable-observer" as const,
+            },
+            targetDividerRatio: 0.4465255376344086,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 315,
+        });
+
+        expect(target).not.toBeNull();
+        expect(target!.gobanContainer.size).toBe(292);
+        expect(target!.predictedNativeGobanContentSize).toBe(273);
+    });
+
     it("does not grow Goban content when active drag starts from max with a native inner gap", () => {
         const target = computeMobileResizeAppliedTarget({
             stableGeometry: {
@@ -1357,6 +1408,26 @@ describe("predictNativeGobanContentSize", () => {
                 showLabels: true,
             }),
         ).toBe(378);
+    });
+
+    it("keeps labelled and unlabelled 19x19 predictions distinct", () => {
+        expect(
+            predictNativeGobanContentSize({
+                targetSlotSize: 280,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: true,
+            }),
+        ).toBe(273);
+
+        expect(
+            predictNativeGobanContentSize({
+                targetSlotSize: 280,
+                boardWidth: 19,
+                boardHeight: 19,
+                showLabels: false,
+            }),
+        ).toBe(266);
     });
 });
 

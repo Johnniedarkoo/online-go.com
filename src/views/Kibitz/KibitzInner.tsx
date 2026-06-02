@@ -139,6 +139,24 @@ export function isMobileDividerPointerUpNoop(
     return activeGestureState !== "active";
 }
 
+type MobileResizeNativeSizingConfig = {
+    boardWidth: number;
+    boardHeight: number;
+    showLabels: boolean;
+};
+
+const DEFAULT_MOBILE_RESIZE_NATIVE_SIZING: MobileResizeNativeSizingConfig = {
+    boardWidth: 19,
+    boardHeight: 19,
+    showLabels: true,
+};
+
+function getMobileResizeNativeSizingConfig(
+    controller: KibitzBoardTransientDragController | null | undefined,
+): MobileResizeNativeSizingConfig {
+    return controller?.getNativeSizingConfig() ?? DEFAULT_MOBILE_RESIZE_NATIVE_SIZING;
+}
+
 function buildMobileResizeGeometrySnapshot(params: {
     shellRect?: Pick<DOMRect, "width" | "height"> | null;
     boardSizingSlotRect?: Pick<DOMRect, "width" | "height"> | null;
@@ -1130,6 +1148,9 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             return;
         }
 
+        const nativeSizing = getMobileResizeNativeSizingConfig(
+            mobileDraftTransientDragControllerRef.current,
+        );
         const computed = computeMobileBoardGeometry({
             shellWidth: snapshot.shell.shellWidth,
             shellHeight: snapshot.shell.shellHeight,
@@ -1148,9 +1169,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         const computedTarget = computeMobileResizeAppliedTarget({
             stableGeometry: snapshot,
             targetDividerRatio: snapshot.divider.dividerRatio,
-            boardWidth: 19,
-            boardHeight: 19,
-            showLabels: false,
+            ...nativeSizing,
         });
         const comparison = compareMobileGeometryToTarget({
             target: computedTarget,
@@ -1459,12 +1478,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     return;
                 }
 
+                const nativeSizing = getMobileResizeNativeSizingConfig(controller);
                 const target = computeMobileResizeAppliedTarget({
                     stableGeometry,
                     targetDividerRatio,
-                    boardWidth: 19,
-                    boardHeight: 19,
-                    showLabels: false,
+                    ...nativeSizing,
                     baselineGobanContentSize,
                 });
                 if (!target) {
@@ -1572,14 +1590,13 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 event.preventDefault();
                 return;
             }
-            const currentMetrics =
-                mobileDraftTransientDragControllerRef.current?.measureCurrentGobanMetrics() ?? null;
+            const controller = mobileDraftTransientDragControllerRef.current;
+            const currentMetrics = controller?.measureCurrentGobanMetrics() ?? null;
+            const nativeSizing = getMobileResizeNativeSizingConfig(controller);
             const target = computeMobileResizeAppliedTarget({
                 stableGeometry,
                 targetDividerRatio: nextRatio,
-                boardWidth: 19,
-                boardHeight: 19,
-                showLabels: false,
+                ...nativeSizing,
                 baselineGobanContentSize: resolveMobileResizeBaselineGobanContentSize({
                     stableGeometry,
                     currentMetricsWidth: currentMetrics?.width ?? null,
