@@ -581,7 +581,7 @@ describe("computeMobileResizeAppliedTarget", () => {
         expect(target!.boardSurfaceHeight).toBe(374);
         expect(target!.gobanContainerWidth).toBe(374);
         expect(target!.gobanContainerHeight).toBe(374);
-        expect(target!.gobanLeft).toBe(0);
+        expect(target!.gobanLeft).toBe(7);
     });
 
     it("fails closed when stable goban content metrics are missing", () => {
@@ -646,6 +646,56 @@ describe("computeMobileResizeAppliedTarget", () => {
 
         expect(target).not.toBeNull();
         expect(target!.transformScale).toBeCloseTo(target!.previewGobanContentSize / 225);
+    });
+
+    it("does not grow Goban content when active drag starts from max with a native inner gap", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                measuredAt: 1,
+                shell: {
+                    shellWidth: 390,
+                    shellHeight: 744,
+                },
+                boardSizingSlot: {
+                    boardSizingSlotWidth: 382,
+                    boardSizingSlotHeight: 744,
+                },
+                boardSurface: {
+                    boardSurfaceWidth: 382,
+                    boardSurfaceHeight: 382,
+                },
+                gobanContainer: {
+                    gobanContainerWidth: 382,
+                    gobanContainerHeight: 382,
+                    gobanContainerSize: 382,
+                },
+                gobanContent: {
+                    gobanContentWidth: 378,
+                    gobanContentHeight: 378,
+                    gobanContentSize: 378,
+                    nativeGobanContentSize: 378,
+                },
+                divider: {
+                    dividerRatio: 0.60870190785156,
+                },
+                derived: {
+                    horizontalInset: 0,
+                    boardVerticalChrome: 0,
+                },
+                source: "stable-observer" as const,
+            },
+            targetDividerRatio: 0.60870190785156,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 378,
+        });
+
+        expect(target).not.toBeNull();
+        expect(target!.gobanContainer.size).toBe(382);
+        expect(target!.activePreviewContent.size).toBe(378);
+        expect(target!.activePreviewContent.leftInContainer).toBe(2);
+        expect(target!.activePreviewContent.transformScale).toBeCloseTo(1);
     });
 
     it("does not freeze board geometry when the stable Goban host is narrower than the slot", () => {

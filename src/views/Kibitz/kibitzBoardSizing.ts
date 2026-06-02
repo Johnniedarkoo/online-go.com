@@ -1049,11 +1049,34 @@ export function computeMobileResizeAppliedTarget({
         boardHeight,
         showLabels,
     });
-    const activePreviewContentSize = geometry.gobanContainer.gobanContainerSize;
-    const activePreviewLeftInContainer = 0;
-    const activePreviewTopInContainer = 0;
-    const activePreviewLeftInSurface = geometry.gobanContainer.gobanContainerLeft;
-    const activePreviewTopInSurface = geometry.gobanContainer.gobanContainerTop;
+    const targetContainerSize = geometry.gobanContainer.gobanContainerSize;
+    const baselineContainerSize = firstPositiveFinite(
+        stableGeometry.gobanContainer.gobanContainerSize,
+        stableGeometry.gobanContainer.gobanContainerWidth,
+        stableGeometry.gobanContainer.gobanContainerHeight,
+        stableGeometry.boardSurface.boardSurfaceHeight,
+    );
+    const activePreviewContentSize =
+        baselineContainerSize != null && baselineContainerSize > 0
+            ? Math.min(
+                  targetContainerSize,
+                  Math.max(
+                      1,
+                      Math.round(
+                          stableMetricsWidth * (targetContainerSize / baselineContainerSize),
+                      ),
+                  ),
+              )
+            : targetContainerSize;
+    const activePreviewLeftInContainer = Math.max(
+        0,
+        Math.floor((targetContainerSize - activePreviewContentSize) / 2),
+    );
+    const activePreviewTopInContainer = activePreviewLeftInContainer;
+    const activePreviewLeftInSurface =
+        geometry.gobanContainer.gobanContainerLeft + activePreviewLeftInContainer;
+    const activePreviewTopInSurface =
+        geometry.gobanContainer.gobanContainerTop + activePreviewTopInContainer;
     const predictedNativeGobanContentSize =
         geometry.gobanContent.predictedNativeGobanContentSize ?? null;
     const nativeFinalContentSize = Math.min(
