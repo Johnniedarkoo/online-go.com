@@ -744,9 +744,101 @@ describe("computeMobileResizeAppliedTarget", () => {
 
         expect(target).not.toBeNull();
         expect(target!.gobanContainer.size).toBe(382);
+        expect(target!.activePreviewContent.size).toBe(target!.nativeFinalContent.size);
         expect(target!.activePreviewContent.size).toBe(378);
         expect(target!.activePreviewContent.leftInContainer).toBe(2);
+        expect(target!.activePreviewContent.topInContainer).toBe(2);
         expect(target!.activePreviewContent.transformScale).toBeCloseTo(1);
+        expect(target!.previewGobanContentSize).toBe(target!.predictedNativeGobanContentSize);
+    });
+
+    it("keeps active preview smooth instead of native-quantized during mobile drag", () => {
+        const stableGeometry = {
+            measuredAt: 1,
+            shell: {
+                shellWidth: 390,
+                shellHeight: 744,
+            },
+            boardSizingSlot: {
+                boardSizingSlotWidth: 382,
+                boardSizingSlotHeight: 744,
+            },
+            boardSurface: {
+                boardSurfaceWidth: 382,
+                boardSurfaceHeight: 382,
+            },
+            gobanContainer: {
+                gobanContainerWidth: 382,
+                gobanContainerHeight: 382,
+                gobanContainerSize: 382,
+            },
+            gobanContent: {
+                gobanContentWidth: 378,
+                gobanContentHeight: 378,
+                gobanContentSize: 378,
+                nativeGobanContentSize: 378,
+            },
+            divider: {
+                dividerRatio: 0.6254569892473117,
+            },
+            derived: {
+                horizontalInset: 0,
+                boardVerticalChrome: 36,
+                reservedHeight: 36,
+                verticalInsetPx: 0,
+            },
+            source: "stable-observer" as const,
+        };
+
+        const targetA = computeMobileResizeAppliedTarget({
+            stableGeometry,
+            targetDividerRatio: 401 / 744,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 378,
+        });
+        const targetB = computeMobileResizeAppliedTarget({
+            stableGeometry,
+            targetDividerRatio: 398 / 744,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 378,
+        });
+        const targetC = computeMobileResizeAppliedTarget({
+            stableGeometry,
+            targetDividerRatio: 390 / 744,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 378,
+        });
+
+        expect(targetA).not.toBeNull();
+        expect(targetB).not.toBeNull();
+        expect(targetC).not.toBeNull();
+
+        expect(targetA!.gobanContainer.size).toBe(365);
+        expect(targetB!.gobanContainer.size).toBe(362);
+        expect(targetC!.gobanContainer.size).toBe(354);
+
+        expect(targetA!.activePreviewContent.size).toBe(361);
+        expect(targetB!.activePreviewContent.size).toBe(358);
+        expect(targetC!.activePreviewContent.size).toBe(350);
+
+        expect(targetA!.activePreviewContent.size).not.toBe(targetA!.nativeFinalContent.size);
+        expect(targetB!.activePreviewContent.size).not.toBe(targetB!.nativeFinalContent.size);
+        expect(targetC!.activePreviewContent.size).not.toBe(targetC!.nativeFinalContent.size);
+
+        expect(targetA!.activePreviewContent.size).toBeGreaterThan(
+            targetB!.activePreviewContent.size,
+        );
+        expect(targetB!.activePreviewContent.size).toBeGreaterThan(
+            targetC!.activePreviewContent.size,
+        );
+
+        expect(targetA!.nativeFinalContent.size).toBe(targetB!.nativeFinalContent.size);
     });
 
     it("does not freeze board geometry when the stable Goban host is narrower than the slot", () => {
@@ -1271,17 +1363,17 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                     activePreviewContent: {
                         size: 360,
                         leftInContainer: 7,
-                        topInContainer: 0,
+                        topInContainer: 7,
                         leftInSurface: 7,
-                        topInSurface: 0,
+                        topInSurface: 7,
                         transformScale: 1,
                     },
                     nativeFinalContent: {
                         size: 360,
                         leftInContainer: 7,
-                        topInContainer: 0,
+                        topInContainer: 7,
                         leftInSurface: 7,
-                        topInSurface: 0,
+                        topInSurface: 7,
                     },
                     geometry: {
                         modelVersion: "mobile-square-surface-v1",
@@ -1363,6 +1455,10 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
             toContentSize: 360,
             fromLeft: 7,
             toLeft: 7,
+            fromContentTopInContainer: 7,
+            toContentTopInContainer: 7,
+            fromContentTopInSurface: 7,
+            toContentTopInSurface: 7,
             contentDelta: 0,
             windowDelta: 0,
             targetSource: "last-applied-target",

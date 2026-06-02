@@ -1049,13 +1049,28 @@ export function computeMobileResizeAppliedTarget({
         boardHeight,
         showLabels,
     });
-    const targetContainerSize = geometry.gobanContainer.gobanContainerSize;
+    const predictedNativeGobanContentSize =
+        geometry.gobanContent.predictedNativeGobanContentSize ?? null;
+    const nativeFinalContentSize = Math.min(
+        geometry.gobanContainer.gobanContainerSize,
+        predictedNativeGobanContentSize ?? geometry.gobanContainer.gobanContainerSize,
+    );
+    const nativeFinalLeftInContainer = Math.max(
+        0,
+        Math.floor((geometry.gobanContainer.gobanContainerSize - nativeFinalContentSize) / 2),
+    );
+    const nativeFinalTopInContainer = nativeFinalLeftInContainer;
+    const nativeFinalLeftInSurface =
+        geometry.gobanContainer.gobanContainerLeft + nativeFinalLeftInContainer;
+    const nativeFinalTopInSurface =
+        geometry.gobanContainer.gobanContainerTop + nativeFinalTopInContainer;
     const baselineContainerSize = firstPositiveFinite(
         stableGeometry.gobanContainer.gobanContainerSize,
         stableGeometry.gobanContainer.gobanContainerWidth,
         stableGeometry.gobanContainer.gobanContainerHeight,
         stableGeometry.boardSurface.boardSurfaceHeight,
     );
+    const targetContainerSize = geometry.gobanContainer.gobanContainerSize;
     const activePreviewContentSize =
         baselineContainerSize != null && baselineContainerSize > 0
             ? Math.min(
@@ -1077,21 +1092,6 @@ export function computeMobileResizeAppliedTarget({
         geometry.gobanContainer.gobanContainerLeft + activePreviewLeftInContainer;
     const activePreviewTopInSurface =
         geometry.gobanContainer.gobanContainerTop + activePreviewTopInContainer;
-    const predictedNativeGobanContentSize =
-        geometry.gobanContent.predictedNativeGobanContentSize ?? null;
-    const nativeFinalContentSize = Math.min(
-        geometry.gobanContainer.gobanContainerSize,
-        predictedNativeGobanContentSize ?? geometry.gobanContainer.gobanContainerSize,
-    );
-    const nativeFinalLeftInContainer = Math.max(
-        0,
-        Math.floor((geometry.gobanContainer.gobanContainerSize - nativeFinalContentSize) / 2),
-    );
-    const nativeFinalTopInContainer = nativeFinalLeftInContainer;
-    const nativeFinalLeftInSurface =
-        geometry.gobanContainer.gobanContainerLeft + nativeFinalLeftInContainer;
-    const nativeFinalTopInSurface =
-        geometry.gobanContainer.gobanContainerTop + nativeFinalTopInContainer;
     const activePreviewTransformScale = activePreviewContentSize / stableMetricsWidth;
 
     return {
@@ -1251,6 +1251,8 @@ export function computeTransientDragReleaseGeometryFromAppliedTarget({
         0,
         Math.floor((target.gobanContainer.size - finalNativeContentSize) / 2),
     );
+    const toTop = toLeft;
+    const fromTop = target.activePreviewContent.topInContainer;
     const contentDelta = Math.abs(finalNativeContentSize - lastVisibleContentSize);
 
     return {
@@ -1263,12 +1265,12 @@ export function computeTransientDragReleaseGeometryFromAppliedTarget({
         toContentSize: finalNativeContentSize,
         fromContentLeftInContainer: lastVisibleLeftInContainer,
         toContentLeftInContainer: toLeft,
-        fromContentTopInContainer: 0,
-        toContentTopInContainer: 0,
+        fromContentTopInContainer: fromTop,
+        toContentTopInContainer: toTop,
         fromContentLeftInSurface: target.gobanContainer.leftInSurface + lastVisibleLeftInContainer,
         toContentLeftInSurface: target.gobanContainer.leftInSurface + toLeft,
-        fromContentTopInSurface: target.gobanContainer.topInSurface,
-        toContentTopInSurface: target.gobanContainer.topInSurface,
+        fromContentTopInSurface: target.gobanContainer.topInSurface + fromTop,
+        toContentTopInSurface: target.gobanContainer.topInSurface + toTop,
         contentDelta,
         windowDelta: 0,
         targetSource: "last-applied-target",
