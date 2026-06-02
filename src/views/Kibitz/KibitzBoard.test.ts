@@ -51,6 +51,8 @@ import {
     computeMeasuredTransientDragContentSize,
     getExpectedReactBoardSizeFromTarget,
     hasReactBoardSizeCaughtUp,
+    withinPx,
+    canClearTransientMobileSizing,
     type MobileResizeAppliedTarget,
 } from "./kibitzBoardSizing";
 
@@ -200,6 +202,36 @@ describe("firstPositiveFinite", () => {
     it("skips zero and returns the first positive finite value", () => {
         expect(firstPositiveFinite(0, null, -3, 225, 240)).toBe(225);
         expect(firstPositiveFinite(0, 0, null, undefined)).toBeNull();
+    });
+});
+
+describe("final clear postcheck helpers", () => {
+    it("accepts matching 374 content-box rectangles", () => {
+        expect(
+            canClearTransientMobileSizing({
+                expectedBoardSize: 374,
+                hostRect: { width: 374, height: 374 } as Pick<DOMRect, "width" | "height">,
+                containerRect: { width: 374, height: 374 } as Pick<DOMRect, "width" | "height">,
+                gobanRect: { width: 374, height: 374 } as Pick<DOMRect, "width" | "height">,
+            }),
+        ).toBe(true);
+    });
+
+    it("rejects a mixed 382 target against a 374 resting box", () => {
+        expect(
+            canClearTransientMobileSizing({
+                expectedBoardSize: 382,
+                hostRect: { width: 374, height: 382 } as Pick<DOMRect, "width" | "height">,
+                containerRect: { width: 374, height: 382 } as Pick<DOMRect, "width" | "height">,
+                gobanRect: { width: 375, height: 375 } as Pick<DOMRect, "width" | "height">,
+            }),
+        ).toBe(false);
+    });
+
+    it("checks values within tolerance", () => {
+        expect(withinPx(374, 374, 1.5)).toBe(true);
+        expect(withinPx(374.4, 374, 1.5)).toBe(true);
+        expect(withinPx(377, 374, 1.5)).toBe(false);
     });
 });
 

@@ -121,6 +121,41 @@ function floorNonNegative(value: number | null | undefined): number {
     return Math.max(0, Math.floor(finiteNumber(value)));
 }
 
+export function withinPx(actual: number, expected: number, tolerancePx = 1.5): boolean {
+    return (
+        Number.isFinite(actual) &&
+        Number.isFinite(expected) &&
+        Math.abs(actual - expected) <= tolerancePx
+    );
+}
+
+export function canClearTransientMobileSizing({
+    expectedBoardSize,
+    hostRect,
+    containerRect,
+    gobanRect,
+    tolerancePx = 1.5,
+}: {
+    expectedBoardSize: number;
+    hostRect: Pick<DOMRect, "width" | "height"> | null;
+    containerRect: Pick<DOMRect, "width" | "height"> | null;
+    gobanRect: Pick<DOMRect, "width" | "height"> | null;
+    tolerancePx?: number;
+}): boolean {
+    if (!hostRect || !containerRect || !gobanRect) {
+        return false;
+    }
+
+    return (
+        withinPx(hostRect.width, expectedBoardSize, tolerancePx) &&
+        withinPx(hostRect.height, expectedBoardSize, tolerancePx) &&
+        withinPx(containerRect.width, expectedBoardSize, tolerancePx) &&
+        withinPx(containerRect.height, expectedBoardSize, tolerancePx) &&
+        gobanRect.width <= expectedBoardSize + tolerancePx &&
+        gobanRect.height <= expectedBoardSize + tolerancePx
+    );
+}
+
 export function resolveMobileResizeBaselineGobanContentSize({
     stableGeometry,
     currentMetricsWidth,
