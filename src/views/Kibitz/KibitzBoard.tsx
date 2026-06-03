@@ -36,6 +36,7 @@ import {
     computeTransientDragReleaseGeometryFromAppliedTarget,
     isKibitzBoardResizeStale,
     firstPositiveFinite,
+    withinPx,
     shouldPreserveCommittedMobileScaledPresentation,
     type MobileResizeAppliedTarget,
     type TransientDragReleaseGeometryFromAppliedTarget,
@@ -911,6 +912,27 @@ export function KibitzBoard({
             gobanElement.style.left = `${target.activePreviewContent.leftInContainer}px`;
             gobanElement.style.top = `${target.activePreviewContent.topInContainer}px`;
             gobanElement.style.pointerEvents = "none";
+            if (isKibitzBoardSizeDebugEnabled()) {
+                const expectedVisualContentSize = target.activePreviewContent.size;
+                const actualVisualContentSize = gobanElement.getBoundingClientRect().width;
+                const nativeBackingContentSize = gobanElement.offsetWidth;
+                const visualDelta = actualVisualContentSize - expectedVisualContentSize;
+                recordKibitzBoardSizeEvent("mobile-geometry:applied-target-check", {
+                    source: target.geometrySource,
+                    pointerId: null,
+                    expectedVisualContentSize,
+                    actualVisualContentSize,
+                    nativeBackingContentSize,
+                    transformScale: target.activePreviewContent.transformScale,
+                    visualDelta,
+                    withinTolerance: withinPx(
+                        actualVisualContentSize,
+                        expectedVisualContentSize,
+                        1,
+                    ),
+                    geometry: target.geometry,
+                });
+            }
             transientMetrics.usingRestingMaxGeometry = target.usingRestingMaxGeometry;
             transientMetrics.lastWindowSize = target.boardSurface.width;
             transientMetrics.lastContentSize = target.activePreviewContent.size;

@@ -716,6 +716,55 @@ describe("computeMobileResizeAppliedTarget", () => {
         expect(target!.transformScale).toBeCloseTo(target!.previewGobanContentSize / 225);
     });
 
+    it("uses native backing content as the active preview scale denominator", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                measuredAt: 1,
+                shell: {
+                    shellWidth: 390,
+                    shellHeight: 744,
+                },
+                boardSizingSlot: {
+                    boardSizingSlotWidth: 337,
+                    boardSizingSlotHeight: 744,
+                },
+                boardSurface: {
+                    boardSurfaceWidth: 366,
+                    boardSurfaceHeight: 366,
+                },
+                gobanContainer: {
+                    gobanContainerWidth: 366,
+                    gobanContainerHeight: 366,
+                    gobanContainerSize: 366,
+                },
+                gobanContent: {
+                    gobanContentWidth: 366,
+                    gobanContentHeight: 366,
+                    gobanContentSize: 366,
+                    nativeGobanContentSize: 255,
+                },
+                divider: {
+                    dividerRatio: 0.5,
+                },
+                derived: {
+                    horizontalInset: 0,
+                    boardVerticalChrome: 0,
+                },
+                source: "stable-observer",
+            },
+            targetDividerRatio: 0.5,
+            boardWidth: 19,
+            boardHeight: 19,
+            showLabels: true,
+            baselineGobanContentSize: 366,
+        });
+
+        expect(target).not.toBeNull();
+        expect(target!.gobanContainer.size).toBe(337);
+        expect(target!.activePreviewContent.size).toBe(337);
+        expect(target!.activePreviewContent.transformScale).toBeCloseTo(337 / 255);
+    });
+
     it("uses labelled native sizing for release prediction when the board shows labels", () => {
         const target = computeMobileResizeAppliedTarget({
             stableGeometry: {

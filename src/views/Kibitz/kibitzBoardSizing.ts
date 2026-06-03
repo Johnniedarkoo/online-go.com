@@ -1095,6 +1095,13 @@ export function computeMobileResizeAppliedTarget({
                   ),
               )
             : targetContainerSize;
+    const resolvedNativeBackingContentSize = firstPositiveFinite(
+        stableGeometry.gobanContent.nativeGobanContentSize,
+        stableGeometry.gobanContent.gobanContentSize,
+        baselineGobanContentSize,
+    );
+    const activePreviewTransformScale =
+        activePreviewContentSize / (resolvedNativeBackingContentSize ?? stableMetricsWidth);
     const activePreviewLeftInContainer = Math.max(
         0,
         Math.floor((targetContainerSize - activePreviewContentSize) / 2),
@@ -1104,7 +1111,6 @@ export function computeMobileResizeAppliedTarget({
         geometry.gobanContainer.gobanContainerLeft + activePreviewLeftInContainer;
     const activePreviewTopInSurface =
         geometry.gobanContainer.gobanContainerTop + activePreviewTopInContainer;
-    const activePreviewTransformScale = activePreviewContentSize / stableMetricsWidth;
 
     return {
         geometrySource: "computeMobileBoardGeometry",
