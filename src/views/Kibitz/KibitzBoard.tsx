@@ -657,10 +657,8 @@ export function KibitzBoard({
     React.useEffect(() => {
         if (committedMobileScaledPresentationRef.current) {
             recordKibitzBoardSizeEvent("kibitz-board:committed-scaled-clear", {
-                reason: "mode-or-board-config-change",
+                reason: "board-config-change",
                 committedPresentation: committedMobileScaledPresentationRef.current,
-                allowTransientDragScaling,
-                coordinateSafeInput,
                 fitMode,
                 width,
                 height,
@@ -668,7 +666,7 @@ export function KibitzBoard({
             });
         }
         committedMobileScaledPresentationRef.current = null;
-    }, [allowTransientDragScaling, coordinateSafeInput, fitMode, height, showLabels, width]);
+    }, [fitMode, height, showLabels, width]);
 
     const getKibitzBoardMetricsSnapshot = React.useCallback(
         (reason: string): Record<string, unknown> => {
@@ -801,6 +799,17 @@ export function KibitzBoard({
                 startWindowSize != null && startContentSize != null
                     ? Math.max(0, startWindowSize - startContentSize)
                     : null;
+
+            if (committedMobileScaledPresentationRef.current) {
+                recordKibitzBoardSizeEvent("kibitz-board:committed-scaled-clear", {
+                    reason: "new-transient-drag",
+                    committedPresentation: committedMobileScaledPresentationRef.current,
+                    metricsWidth,
+                    metricsHeight,
+                    startContentSize,
+                });
+            }
+            committedMobileScaledPresentationRef.current = null;
 
             transientDragMetricsRef.current = {
                 metricsWidth,
@@ -1727,6 +1736,19 @@ export function KibitzBoard({
                 return;
             }
 
+            if (resizeDebounceRef.current) {
+                clearTimeout(resizeDebounceRef.current);
+                resizeDebounceRef.current = null;
+            }
+
+            if (transientDragFinalizingRef.current && !allowTransientResize) {
+                return;
+            }
+
+            if (coordinateSafeInput && allowTransientDragScaling && !allowTransientResize) {
+                return;
+            }
+
             const committedPresentation = committedMobileScaledPresentationRef.current;
             if (
                 shouldPreserveCommittedMobileScaledPresentation({
@@ -1746,19 +1768,6 @@ export function KibitzBoard({
                     committedPresentation,
                 });
                 recordCommittedScaledPresentationCheck("resize-skip-native");
-                return;
-            }
-
-            if (resizeDebounceRef.current) {
-                clearTimeout(resizeDebounceRef.current);
-                resizeDebounceRef.current = null;
-            }
-
-            if (transientDragFinalizingRef.current && !allowTransientResize) {
-                return;
-            }
-
-            if (coordinateSafeInput && allowTransientDragScaling && !allowTransientResize) {
                 return;
             }
 
