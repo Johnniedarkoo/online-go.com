@@ -42,6 +42,7 @@ import { KibitzProposalQueue } from "./KibitzProposalQueue";
 import { KibitzDebugPanel } from "./KibitzDebugPanel";
 import { KibitzRoomList } from "./KibitzRoomList";
 import { KibitzRoomStage } from "./KibitzRoomStage";
+import type { MobileBoardResizeOwner } from "./KibitzRoomStage";
 import type { KibitzCurrentGameBaseSnapshot } from "./kibitzCurrentGameBaseSnapshotTypes";
 import { KibitzSharedStreamPanel } from "./KibitzSharedStreamPanel";
 import { KibitzPresence } from "./KibitzPresence";
@@ -911,8 +912,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             cachedMetricsHeight: number | null;
         };
     } | null>(null);
-    const mobileDraftTransientDragControllerRef =
-        React.useRef<KibitzBoardTransientDragController | null>(null);
+    const activeMobileBoardTransientDragControllerRef = React.useRef<{
+        owner: MobileBoardResizeOwner;
+        controller: KibitzBoardTransientDragController;
+    } | null>(null);
     const lastAppliedMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
     const lastCommittedMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
     const pendingMobileResizeTargetRef = React.useRef<MobileResizeAppliedTarget | null>(null);
@@ -922,10 +925,21 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
     const mobileResizeLifecycleStateRef = React.useRef<MobileResizeLifecycleState>("idle");
     const mobileDividerFastVisualLogAtRef = React.useRef(0);
     const mobileBoardSizeRef = React.useRef<number | null>(null);
-    const handleMobileDraftTransientDragControllerChange = React.useCallback(
-        (controller: KibitzBoardTransientDragController | null) => {
-            mobileDraftTransientDragControllerRef.current = controller;
+    const handleMobileBoardTransientDragControllerChange = React.useCallback(
+        (owner: MobileBoardResizeOwner, controller: KibitzBoardTransientDragController | null) => {
+            if (controller) {
+                activeMobileBoardTransientDragControllerRef.current = { owner, controller };
+                return;
+            }
+
+            if (activeMobileBoardTransientDragControllerRef.current?.owner === owner) {
+                activeMobileBoardTransientDragControllerRef.current = null;
+            }
         },
+        [],
+    );
+    const getActiveMobileBoardTransientDragController = React.useCallback(
+        () => activeMobileBoardTransientDragControllerRef.current?.controller ?? null,
         [],
     );
     const handleMobileBoardSizeChange = React.useCallback((size: number | null) => {
@@ -1149,7 +1163,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         }
 
         const nativeSizing = getMobileResizeNativeSizingConfig(
-            mobileDraftTransientDragControllerRef.current,
+            getActiveMobileBoardTransientDragController(),
         );
         const computed = computeMobileBoardGeometry({
             shellWidth: snapshot.shell.shellWidth,
@@ -1300,7 +1314,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         const updateTransientDragVisuals = (
             target: MobileResizeAppliedTarget,
         ): MobileResizeAppliedTarget | null => {
-            const controller = mobileDraftTransientDragControllerRef.current;
+            const controller = getActiveMobileBoardTransientDragController();
             const appliedTarget = controller?.applyTransientDragTarget(target) ?? null;
 
             if (!appliedTarget) {
@@ -1488,7 +1502,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     return;
                 }
 
-                const controller = mobileDraftTransientDragControllerRef.current;
+                const controller = getActiveMobileBoardTransientDragController();
                 const currentMetrics = controller?.measureCurrentGobanMetrics() ?? null;
                 const baselineGobanContentSize = resolveMobileResizeBaselineGobanContentSize({
                     stableGeometry,
@@ -1561,6 +1575,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                         thresholdPx: MOBILE_DIVIDER_DRAG_START_THRESHOLD_PX,
                         startDividerRatio: dragState.startRatio,
                         targetDividerRatio,
+                        activeMobileBoardOwner:
+                            activeMobileBoardTransientDragControllerRef.current?.owner ?? null,
+                        hasActiveMobileBoardTransientController: Boolean(
+                            activeMobileBoardTransientDragControllerRef.current?.controller,
+                        ),
                         gestureState: "active",
                         geometry: buildMobileResizeGeometrySnapshot({
                             shellRect:
@@ -1616,7 +1635,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 event.preventDefault();
                 return;
             }
-            const controller = mobileDraftTransientDragControllerRef.current;
+            const controller = getActiveMobileBoardTransientDragController();
             const currentMetrics = controller?.measureCurrentGobanMetrics() ?? null;
             const nativeSizing = getMobileResizeNativeSizingConfig(controller);
             const target = computeMobileResizeAppliedTarget({
@@ -1794,6 +1813,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     recordKibitzBoardSizeEvent("mobile-divider:pointer-up-missing-target", {
                         pointerId: event.pointerId,
                         hadActiveDrag: true,
+                        activeMobileBoardOwner:
+                            activeMobileBoardTransientDragControllerRef.current?.owner ?? null,
+                        hasActiveMobileBoardTransientController: Boolean(
+                            activeMobileBoardTransientDragControllerRef.current?.controller,
+                        ),
                         reason: "missing-last-applied-target",
                     });
                 }
@@ -1826,6 +1850,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     pointerId: event.pointerId,
                     dividerRatio: appliedTarget.dividerRatio,
                     source: "last-applied-target",
+                    activeMobileBoardOwner:
+                        activeMobileBoardTransientDragControllerRef.current?.owner ?? null,
+                    hasActiveMobileBoardTransientController: Boolean(
+                        activeMobileBoardTransientDragControllerRef.current?.controller,
+                    ),
                     geometry: {
                         boardSurface: {
                             boardSurfaceWidth: appliedTarget.boardSurfaceWidth,
@@ -1844,7 +1873,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 });
             }
             commitPendingMobileSplitRatio("pointerup-flush");
-            mobileDraftTransientDragControllerRef.current?.finishTransientDragFromAppliedTarget(
+            getActiveMobileBoardTransientDragController()?.finishTransientDragFromAppliedTarget(
                 appliedTarget,
             );
             lastCommittedMobileResizeTargetRef.current = appliedTarget;
@@ -3514,6 +3543,11 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     pointerId: event.pointerId,
                     startClientY: event.clientY,
                     startDividerRatio: mobileSplitRatio,
+                    activeMobileBoardOwner:
+                        activeMobileBoardTransientDragControllerRef.current?.owner ?? null,
+                    hasActiveMobileBoardTransientController: Boolean(
+                        activeMobileBoardTransientDragControllerRef.current?.controller,
+                    ),
                     gestureState: "armed",
                     geometry: buildMobileResizeGeometrySnapshot({
                         shellRect,
@@ -4054,8 +4088,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                             variationColorIndexes={variationColorIndexes}
                                             secondaryPane={secondaryPane}
                                             mobileDividerDragging={mobileDividerDragging}
-                                            onMobileDraftTransientDragControllerChange={
-                                                handleMobileDraftTransientDragControllerChange
+                                            onMobileBoardTransientDragControllerChange={
+                                                handleMobileBoardTransientDragControllerChange
                                             }
                                             onClearPreview={onClearPreview}
                                             onPostVariation={onPostVariation}
@@ -4226,8 +4260,8 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                     variationColorIndexes={variationColorIndexes}
                                     secondaryPane={secondaryPane}
                                     mobileDividerDragging={mobileDividerDragging}
-                                    onMobileDraftTransientDragControllerChange={
-                                        handleMobileDraftTransientDragControllerChange
+                                    onMobileBoardTransientDragControllerChange={
+                                        handleMobileBoardTransientDragControllerChange
                                     }
                                     onClearPreview={onClearPreview}
                                     onPostVariation={onPostVariation}

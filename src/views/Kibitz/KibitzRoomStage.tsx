@@ -105,7 +105,8 @@ interface KibitzRoomStageProps {
     mobileCompanionPanel?: "chat" | "vote" | "compare";
     mobileHasActiveVote?: boolean;
     mobileDividerDragging?: boolean;
-    onMobileDraftTransientDragControllerChange?: (
+    onMobileBoardTransientDragControllerChange?: (
+        owner: MobileBoardResizeOwner,
         controller: KibitzBoardTransientDragController | null,
     ) => void;
     onMobileBoardSizeChange?: (size: number | null) => void;
@@ -122,6 +123,8 @@ interface KibitzRoomStageProps {
         hydrated: boolean;
     }) => void;
 }
+
+export type MobileBoardResizeOwner = "main" | "draft" | "variation" | "preview";
 
 interface KibitzSelectedGameDetails {
     id: number;
@@ -2062,7 +2065,7 @@ export function KibitzRoomStage({
     mobileCompanionPanel,
     mobileHasActiveVote = false,
     mobileDividerDragging = false,
-    onMobileDraftTransientDragControllerChange,
+    onMobileBoardTransientDragControllerChange,
     onMobileBoardSizeChange,
     onSelectMobileCompanionPanel,
     onOpenMobileRooms,
@@ -5683,8 +5686,22 @@ export function KibitzRoomStage({
         const mobileBoardController = mobileCompareTargetActive
             ? secondaryBoardController
             : mainBoardController;
+        const getMobileResizeBoardProps = (owner: MobileBoardResizeOwner) => ({
+            isMobile: true,
+            size: mobileBoardSize,
+            fitMode: "contain" as const,
+            respectContainerBounds: true,
+            coordinateSafeInput: true,
+            allowTransientDragScaling: mobileDividerDragging,
+            onTransientDragControllerChange:
+                onMobileBoardTransientDragControllerChange != null
+                    ? (controller: KibitzBoardTransientDragController | null) =>
+                          onMobileBoardTransientDragControllerChange(owner, controller)
+                    : undefined,
+        });
         const recordMobileBoardRender = (
             boardKind: "main" | "draft" | "preview" | "posted-variation",
+            resizeOwner: MobileBoardResizeOwner,
             interactive: boolean,
             gameIdForRender: number | undefined,
         ) => {
@@ -5700,6 +5717,7 @@ export function KibitzRoomStage({
                 mobileBoardSizeReady ? "ready" : "pending",
                 mobileSecondaryOwnerRequested,
                 mobileSecondaryOwner,
+                resizeOwner,
                 renderMainBoard ? "main" : "secondary",
             ].join("|");
 
@@ -5716,6 +5734,10 @@ export function KibitzRoomStage({
                 interactive,
                 gameId: gameIdForRender ?? null,
                 currentRoomGameId,
+                resizeOwner,
+                hasTransientDragControllerCallback: Boolean(
+                    onMobileBoardTransientDragControllerChange,
+                ),
             });
         };
 
@@ -5765,21 +5787,18 @@ export function KibitzRoomStage({
                         }
                     >
                         {renderMainBoard
-                            ? (recordMobileBoardRender("main", false, mainGame?.game_id),
+                            ? (recordMobileBoardRender("main", "main", false, mainGame?.game_id),
                               (
                                   <KibitzBoard
                                       key={`main-${room.id}-${mainGame?.game_id ?? "none"}-mobile`}
                                       role="main"
                                       gameId={mainGame?.game_id}
                                       currentRoomGameId={currentRoomGameId}
-                                      isMobile={true}
                                       {...boardDimensionsOf(mainGame)}
                                       className="mobile-main-board-surface"
-                                      size={mobileBoardSize}
-                                      fitMode="contain"
-                                      respectContainerBounds={true}
                                       restoreToOfficialTailOnLoad={true}
                                       onReady={setMainBoardController}
+                                      {...getMobileResizeBoardProps("main")}
                                   />
                               ))
                             : null}
@@ -5789,6 +5808,7 @@ export function KibitzRoomStage({
                                 mobileSecondaryBoardDimensions ? (
                                     mobileSecondaryOwner === "draft" ? (
                                         (recordMobileBoardRender(
+                                            "draft",
                                             "draft",
                                             true,
                                             mobileSecondaryBoardDimensions.gameId ??
@@ -5806,27 +5826,20 @@ export function KibitzRoomStage({
                                                     secondaryPane.variation_source_game_id
                                                 }
                                                 currentRoomGameId={currentRoomGameId}
-                                                isMobile={true}
                                                 connectToGame={false}
                                                 width={mobileSecondaryBoardDimensions.width}
                                                 height={mobileSecondaryBoardDimensions.height}
                                                 className="mobile-secondary-board-surface"
-                                                size={mobileBoardSize}
                                                 interactive={true}
-                                                coordinateSafeInput={true}
-                                                allowTransientDragScaling={mobileDividerDragging}
-                                                onTransientDragControllerChange={
-                                                    onMobileDraftTransientDragControllerChange
-                                                }
-                                                fitMode="contain"
-                                                respectContainerBounds={true}
                                                 moveTree={secondaryPane.variation_source_move_tree}
                                                 movePath={secondaryPane.variation_source_move_path}
                                                 onReady={setSecondaryBoardController}
+                                                {...getMobileResizeBoardProps("draft")}
                                             />
                                         ))
                                     ) : (
                                         (recordMobileBoardRender(
+                                            "preview",
                                             "preview",
                                             false,
                                             mobileSecondaryBoardDimensions.gameId ??
@@ -5844,18 +5857,15 @@ export function KibitzRoomStage({
                                                     secondaryPane.variation_source_game_id
                                                 }
                                                 currentRoomGameId={currentRoomGameId}
-                                                isMobile={true}
                                                 connectToGame={false}
                                                 width={mobileSecondaryBoardDimensions.width}
                                                 height={mobileSecondaryBoardDimensions.height}
                                                 className="mobile-secondary-board-surface"
-                                                size={mobileBoardSize}
                                                 interactive={false}
-                                                fitMode="contain"
-                                                respectContainerBounds={true}
                                                 moveTree={secondaryPane.variation_source_move_tree}
                                                 movePath={secondaryPane.variation_source_move_path}
                                                 onReady={setSecondaryBoardController}
+                                                {...getMobileResizeBoardProps("preview")}
                                             />
                                         ))
                                     )
@@ -5878,6 +5888,7 @@ export function KibitzRoomStage({
                             mobileBoardSizeReady ? (
                                 (recordMobileBoardRender(
                                     "posted-variation",
+                                    "variation",
                                     false,
                                     selectedVariation?.game_id,
                                 ),
@@ -5886,17 +5897,14 @@ export function KibitzRoomStage({
                                         key={mobileSecondaryBoardKey}
                                         gameId={selectedVariation?.game_id}
                                         currentRoomGameId={currentRoomGameId}
-                                        isMobile={true}
                                         connectToGame={false}
                                         {...boardDimensionsOf(selectedVariationSourceGame)}
                                         className="mobile-secondary-board-surface"
-                                        size={mobileBoardSize}
                                         interactive={false}
-                                        fitMode="contain"
-                                        respectContainerBounds={true}
                                         moveTree={secondaryPane.variation_source_move_tree}
                                         movePath={secondaryPane.variation_source_move_path}
                                         onReady={setSecondaryBoardController}
+                                        {...getMobileResizeBoardProps("variation")}
                                     />
                                 ))
                             ) : (
