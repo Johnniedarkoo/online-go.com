@@ -881,21 +881,40 @@ export function KibitzBoard({
     );
     const applyTransientDragTarget = React.useCallback(
         (target: MobileResizeAppliedTarget): MobileResizeAppliedTarget | null => {
-            if (!coordinateSafeInputRef.current || !allowTransientDragScalingRef.current) {
+            if (!coordinateSafeInputRef.current) {
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("kibitz-board:transient-drag-target-rejected", {
+                        reason: "coordinate-safe-input-disabled",
+                        targetDividerRatio: target.dividerRatio,
+                    });
+                }
+                return null;
+            }
+
+            const transientMetrics = transientDragMetricsRef.current;
+            if (!transientMetrics || !transientMetrics.active) {
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("kibitz-board:transient-drag-target-rejected", {
+                        reason: "no-active-transient-drag",
+                        targetDividerRatio: target.dividerRatio,
+                    });
+                }
                 return null;
             }
 
             const host = boardHostRef.current;
             const container = gobanContainerRef.current;
             const gobanElement = gobanDiv.current;
-            const transientMetrics = transientDragMetricsRef.current;
-            if (
-                !transientMetrics ||
-                !transientMetrics.active ||
-                !host ||
-                !container ||
-                !gobanElement
-            ) {
+            if (!host || !container || !gobanElement) {
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("kibitz-board:transient-drag-target-rejected", {
+                        reason: "missing-dom",
+                        hasHost: Boolean(host),
+                        hasContainer: Boolean(container),
+                        hasGobanElement: Boolean(gobanElement),
+                        targetDividerRatio: target.dividerRatio,
+                    });
+                }
                 return null;
             }
 

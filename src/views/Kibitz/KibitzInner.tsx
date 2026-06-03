@@ -1297,51 +1297,85 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
             setMobileSplitRatio(pending);
         };
 
-        const updateTransientDragVisuals = (target: MobileResizeAppliedTarget) => {
-            const shell = mobileShellRef.current;
-            if (!shell) {
+        const updateTransientDragVisuals = (
+            target: MobileResizeAppliedTarget,
+        ): MobileResizeAppliedTarget | null => {
+            const controller = mobileDraftTransientDragControllerRef.current;
+            const appliedTarget = controller?.applyTransientDragTarget(target) ?? null;
+
+            if (!appliedTarget) {
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-divider:drag-target-not-applied", {
+                        reason: controller ? "controller-rejected-target" : "missing-controller",
+                        pointerId: mobileDragStateRef.current?.pointerId ?? null,
+                        dividerRatio: target.dividerRatio,
+                        boardSurfaceWidth: target.boardSurfaceWidth,
+                        boardSurfaceHeight: target.boardSurfaceHeight,
+                        gobanContainerSize: target.gobanContainer.size,
+                        activePreviewContentSize: target.activePreviewContent.size,
+                        nativeBackingContentSize:
+                            target.activePreviewContent.nativeBackingContentSize ?? null,
+                        transformScale: target.activePreviewContent.transformScale ?? null,
+                    });
+                }
+
                 return null;
             }
 
-            shell.style.setProperty("--kibitz-mobile-drag-ratio", String(target.dividerRatio));
-            shell.style.setProperty(
-                "--kibitz-mobile-drag-board-size",
-                `${target.boardSurfaceWidth}px`,
-            );
-
-            const controller = mobileDraftTransientDragControllerRef.current;
-            let appliedTarget: MobileResizeAppliedTarget | null = null;
-            if (controller) {
-                appliedTarget = controller.applyTransientDragTarget(target);
-            }
-
-            if (appliedTarget) {
-                lastAppliedMobileResizeTargetRef.current = appliedTarget;
-                if (isKibitzBoardSizeDebugEnabled() && isKibitzBoardSizeVerboseDebugEnabled()) {
-                    recordKibitzBoardSizeEvent("mobile-divider:drag-target-applied", {
+            const shell = mobileShellRef.current;
+            if (!shell) {
+                if (isKibitzBoardSizeDebugEnabled()) {
+                    recordKibitzBoardSizeEvent("mobile-divider:drag-target-not-applied", {
+                        reason: "missing-shell",
                         pointerId: mobileDragStateRef.current?.pointerId ?? null,
-                        dividerRatio: appliedTarget.dividerRatio,
-                        geometry: {
-                            boardSurface: {
-                                boardSurfaceWidth: appliedTarget.boardSurfaceWidth,
-                                boardSurfaceHeight: appliedTarget.boardSurfaceHeight,
-                            },
-                            gobanContainer: {
-                                gobanContainerWidth: appliedTarget.gobanContainerWidth,
-                                gobanContainerHeight: appliedTarget.gobanContainerHeight,
-                            },
-                            gobanContent: {
-                                previewGobanContentSize: appliedTarget.previewGobanContentSize,
-                                predictedNativeGobanContentSize:
-                                    appliedTarget.predictedNativeGobanContentSize,
-                            },
-                        },
-                        legacyDiagnostics: {
-                            visualSize: appliedTarget.legacyVisualSize,
-                            usingRestingMaxGeometry: appliedTarget.usingRestingMaxGeometry,
-                        },
+                        dividerRatio: target.dividerRatio,
+                        boardSurfaceWidth: target.boardSurfaceWidth,
+                        boardSurfaceHeight: target.boardSurfaceHeight,
+                        gobanContainerSize: target.gobanContainer.size,
+                        activePreviewContentSize: target.activePreviewContent.size,
+                        nativeBackingContentSize:
+                            target.activePreviewContent.nativeBackingContentSize ?? null,
+                        transformScale: target.activePreviewContent.transformScale ?? null,
                     });
                 }
+
+                return null;
+            }
+
+            shell.style.setProperty(
+                "--kibitz-mobile-drag-ratio",
+                String(appliedTarget.dividerRatio),
+            );
+            shell.style.setProperty(
+                "--kibitz-mobile-drag-board-size",
+                `${appliedTarget.boardSurfaceWidth}px`,
+            );
+
+            lastAppliedMobileResizeTargetRef.current = appliedTarget;
+            if (isKibitzBoardSizeDebugEnabled() && isKibitzBoardSizeVerboseDebugEnabled()) {
+                recordKibitzBoardSizeEvent("mobile-divider:drag-target-applied", {
+                    pointerId: mobileDragStateRef.current?.pointerId ?? null,
+                    dividerRatio: appliedTarget.dividerRatio,
+                    geometry: {
+                        boardSurface: {
+                            boardSurfaceWidth: appliedTarget.boardSurfaceWidth,
+                            boardSurfaceHeight: appliedTarget.boardSurfaceHeight,
+                        },
+                        gobanContainer: {
+                            gobanContainerWidth: appliedTarget.gobanContainerWidth,
+                            gobanContainerHeight: appliedTarget.gobanContainerHeight,
+                        },
+                        gobanContent: {
+                            previewGobanContentSize: appliedTarget.previewGobanContentSize,
+                            predictedNativeGobanContentSize:
+                                appliedTarget.predictedNativeGobanContentSize,
+                        },
+                    },
+                    legacyDiagnostics: {
+                        visualSize: appliedTarget.legacyVisualSize,
+                        usingRestingMaxGeometry: appliedTarget.usingRestingMaxGeometry,
+                    },
+                });
             }
 
             const now = Date.now();
@@ -1516,14 +1550,6 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 setMobileDividerDragging(true);
                 const shell = mobileShellRef.current;
                 shell?.classList.add("mobile-divider-dragging");
-                shell?.style.setProperty(
-                    "--kibitz-mobile-drag-ratio",
-                    String(dragState.startRatio),
-                );
-                shell?.style.setProperty(
-                    "--kibitz-mobile-drag-board-size",
-                    `${legacyDiagnostics.startWindowSize}px`,
-                );
                 mobileDividerFastVisualLogAtRef.current = 0;
                 pendingMobileSplitRatioRef.current = targetDividerRatio;
                 pendingMobileResizeTargetRef.current = target;
@@ -1613,11 +1639,23 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                     pendingRatio: nextRatio,
                 })
             ) {
+                pendingMobileSplitRatioRef.current = nextRatio;
+                pendingMobileResizeTargetRef.current = target;
+                const reappliedTarget = updateTransientDragVisuals(target);
                 if (isKibitzBoardSizeDebugEnabled()) {
-                    recordKibitzBoardSizeEvent("mobile-divider:raf-skip-same-ratio", {
-                        reason: "pointermove",
+                    recordKibitzBoardSizeEvent("mobile-divider:raf-reapply-same-ratio", {
+                        reason: "same-ratio-active-correction",
+                        pointerId: event.pointerId,
                         previousRatio: previousPending,
                         pendingRatio: nextRatio,
+                        applied: reappliedTarget != null,
+                        boardSurfaceWidth: target.boardSurfaceWidth,
+                        boardSurfaceHeight: target.boardSurfaceHeight,
+                        gobanContainerSize: target.gobanContainer.size,
+                        activePreviewContentSize: target.activePreviewContent.size,
+                        nativeBackingContentSize:
+                            target.activePreviewContent.nativeBackingContentSize ?? null,
+                        transformScale: target.activePreviewContent.transformScale ?? null,
                     });
                 }
                 event.preventDefault();
