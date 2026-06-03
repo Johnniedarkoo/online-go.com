@@ -970,7 +970,12 @@ export function KibitzBoard({
                         contentWidth: target.geometry.fitBox.contentWidth,
                         gobanContainerSize: target.gobanContainer.size,
                         activePreviewContentSize: target.activePreviewContent.size,
+                        activePreviewTransformScale: target.activePreviewContent.transformScale,
+                        nativeBackingContentSize:
+                            target.activePreviewContent.nativeBackingContentSize ?? null,
                         nativeFinalContentSize: target.nativeFinalContent.size,
+                        mobileScaledVisualTarget: target.mobileScaledVisualTarget,
+                        visualScaleExceedsOne: target.activePreviewContent.visualScaleExceedsOne,
                     },
                 });
             }

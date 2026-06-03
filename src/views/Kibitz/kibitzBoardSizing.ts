@@ -113,6 +113,32 @@ export function firstPositiveFinite(...values: Array<number | null | undefined>)
     return null;
 }
 
+function computeMobileScaledPreviewContentSize({
+    targetContainerSize,
+    maxContainerSize,
+    maxPreviewContentSize,
+}: {
+    targetContainerSize: number;
+    maxContainerSize: number;
+    maxPreviewContentSize: number;
+}): number {
+    if (
+        !Number.isFinite(targetContainerSize) ||
+        !Number.isFinite(maxContainerSize) ||
+        !Number.isFinite(maxPreviewContentSize) ||
+        targetContainerSize <= 0 ||
+        maxContainerSize <= 0 ||
+        maxPreviewContentSize <= 0
+    ) {
+        return Math.max(1, Math.floor(targetContainerSize || 1));
+    }
+
+    return Math.min(
+        targetContainerSize,
+        Math.max(1, Math.round(maxPreviewContentSize * (targetContainerSize / maxContainerSize))),
+    );
+}
+
 function finiteNumber(value: number | null | undefined, fallback = 0): number {
     return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -979,6 +1005,8 @@ export interface MobileResizeAppliedTarget {
         leftInSurface: number;
         topInSurface: number;
         transformScale: number;
+        nativeBackingContentSize: number;
+        visualScaleExceedsOne: boolean;
     };
     nativeFinalContent: {
         size: number;
@@ -996,6 +1024,12 @@ export interface MobileResizeAppliedTarget {
     dragScale: number;
     gobanLeft: number;
     gobanTop: number;
+    mobileScaledVisualTarget: {
+        maxContainerSize: number;
+        maxPreviewContentSize: number;
+        targetContainerSize: number;
+        source: "max-preview-ratio";
+    };
     geometry: MobileBoardGeometry;
     boardSurfaceWidth: number;
     boardSurfaceHeight: number;
@@ -1076,29 +1110,40 @@ export function computeMobileResizeAppliedTarget({
         geometry.gobanContainer.gobanContainerLeft + nativeFinalLeftInContainer;
     const nativeFinalTopInSurface =
         geometry.gobanContainer.gobanContainerTop + nativeFinalTopInContainer;
-    const baselineContainerSize = firstPositiveFinite(
-        stableGeometry.gobanContainer.gobanContainerSize,
-        stableGeometry.gobanContainer.gobanContainerWidth,
-        stableGeometry.gobanContainer.gobanContainerHeight,
-        stableGeometry.boardSurface.boardSurfaceHeight,
-    );
     const targetContainerSize = geometry.gobanContainer.gobanContainerSize;
-    const activePreviewContentSize =
-        baselineContainerSize != null && baselineContainerSize > 0
-            ? Math.min(
-                  targetContainerSize,
-                  Math.max(
-                      1,
-                      Math.round(
-                          stableMetricsWidth * (targetContainerSize / baselineContainerSize),
-                      ),
-                  ),
-              )
-            : targetContainerSize;
+    const maxGeometry = computeMobileBoardGeometry({
+        shellWidth: stableGeometry.shell.shellWidth,
+        shellHeight: stableGeometry.shell.shellHeight,
+        dividerRatio: 1,
+        boardSizingSlotWidth,
+        outerBoardSlotWidth: boardSizingSlotWidth,
+        horizontalInsetPx: horizontalInsetPx ?? 0,
+        reservedHeight: reservedHeight ?? 0,
+        verticalInsetPx: verticalInsetPx ?? 0,
+        squareFitReservedHeight: reservedHeight ?? 0,
+        squareFitExtraReservedHeight: verticalInsetPx ?? 0,
+        minBoardPaneHeight: 0,
+        maxBoardPaneHeight: stableGeometry.shell.shellHeight,
+        devicePixelRatio: 1,
+        boardWidth,
+        boardHeight,
+        showLabels,
+    });
+    const maxContainerSize = maxGeometry.gobanContainer.gobanContainerSize;
+    const maxPreviewContentSize = Math.min(
+        maxContainerSize,
+        maxGeometry.gobanContent.predictedNativeGobanContentSize ?? maxContainerSize,
+    );
+    const activePreviewContentSize = computeMobileScaledPreviewContentSize({
+        targetContainerSize,
+        maxContainerSize,
+        maxPreviewContentSize,
+    });
     const resolvedNativeBackingContentSize = firstPositiveFinite(
         stableGeometry.gobanContent.nativeGobanContentSize,
         stableGeometry.gobanContent.gobanContentSize,
         baselineGobanContentSize,
+        activePreviewContentSize,
     );
     const activePreviewTransformScale =
         activePreviewContentSize / (resolvedNativeBackingContentSize ?? stableMetricsWidth);
@@ -1111,6 +1156,7 @@ export function computeMobileResizeAppliedTarget({
         geometry.gobanContainer.gobanContainerLeft + activePreviewLeftInContainer;
     const activePreviewTopInSurface =
         geometry.gobanContainer.gobanContainerTop + activePreviewTopInContainer;
+    const visualScaleExceedsOne = activePreviewTransformScale > 1.0001;
 
     return {
         geometrySource: "computeMobileBoardGeometry",
@@ -1131,6 +1177,8 @@ export function computeMobileResizeAppliedTarget({
             leftInSurface: activePreviewLeftInSurface,
             topInSurface: activePreviewTopInSurface,
             transformScale: activePreviewTransformScale,
+            nativeBackingContentSize: resolvedNativeBackingContentSize ?? activePreviewContentSize,
+            visualScaleExceedsOne,
         },
         nativeFinalContent: {
             size: nativeFinalContentSize,
@@ -1153,6 +1201,12 @@ export function computeMobileResizeAppliedTarget({
             geometry.gobanContainer.gobanContainerSize / Math.max(1, geometry.fitBox.contentWidth),
         gobanLeft: activePreviewLeftInContainer,
         gobanTop: activePreviewTopInContainer,
+        mobileScaledVisualTarget: {
+            maxContainerSize,
+            maxPreviewContentSize,
+            targetContainerSize,
+            source: "max-preview-ratio",
+        },
         geometry,
     };
 }

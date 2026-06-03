@@ -418,6 +418,8 @@ describe("react board size catch-up", () => {
             leftInSurface: 0,
             topInSurface: 0,
             transformScale: 1,
+            nativeBackingContentSize: 382,
+            visualScaleExceedsOne: false,
         },
         nativeFinalContent: {
             size: 380,
@@ -435,6 +437,12 @@ describe("react board size catch-up", () => {
         dragScale: 1,
         gobanLeft: 0,
         gobanTop: 0,
+        mobileScaledVisualTarget: {
+            maxContainerSize: 382,
+            maxPreviewContentSize: 380,
+            targetContainerSize: 382,
+            source: "max-preview-ratio",
+        },
         geometry: computeMobileBoardGeometry({
             shellWidth: 390,
             shellHeight: 744,
@@ -649,7 +657,7 @@ describe("computeMobileResizeAppliedTarget", () => {
         expect(target!.boardSurfaceHeight).toBe(374);
         expect(target!.gobanContainerWidth).toBe(374);
         expect(target!.gobanContainerHeight).toBe(374);
-        expect(target!.gobanLeft).toBe(7);
+        expect(target!.gobanLeft).toBe(8);
     });
 
     it("fails closed when stable goban content metrics are missing", () => {
@@ -761,8 +769,125 @@ describe("computeMobileResizeAppliedTarget", () => {
 
         expect(target).not.toBeNull();
         expect(target!.gobanContainer.size).toBe(337);
-        expect(target!.activePreviewContent.size).toBe(337);
+        expect(target!.activePreviewContent.size).toBe(336);
         expect(target!.activePreviewContent.transformScale).toBeCloseTo(337 / 255);
+    });
+
+    it("uses max mobile preview content as the visual target at max size", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                measuredAt: 1,
+                shell: {
+                    shellWidth: 390,
+                    shellHeight: 744,
+                },
+                boardSizingSlot: {
+                    boardSizingSlotWidth: 382,
+                    boardSizingSlotHeight: 382,
+                },
+                boardSurface: {
+                    boardSurfaceWidth: 382,
+                    boardSurfaceHeight: 317,
+                },
+                gobanContainer: {
+                    gobanContainerWidth: 382,
+                    gobanContainerHeight: 317,
+                    gobanContainerSize: 382,
+                },
+                gobanContent: {
+                    gobanContentWidth: 240,
+                    gobanContentHeight: 240,
+                    gobanContentSize: 240,
+                    nativeGobanContentSize: 240,
+                },
+                divider: {
+                    dividerRatio: 0.48180779569892473,
+                },
+                derived: {
+                    horizontalInset: 0,
+                    boardVerticalChrome: 40,
+                    reservedHeight: 36,
+                    verticalInsetPx: 4,
+                },
+                source: "stable-observer" as const,
+            },
+            targetDividerRatio: 0.6901411290322581,
+            boardWidth: 13,
+            boardHeight: 13,
+            showLabels: true,
+            baselineGobanContentSize: 240,
+        });
+
+        expect(target).not.toBeNull();
+        expect(target!.gobanContainer.size).toBe(382);
+        expect(target!.activePreviewContent.size).toBeGreaterThanOrEqual(360);
+        expect(target!.nativeFinalContent.size).toBe(375);
+        expect(target!.activePreviewContent.nativeBackingContentSize).toBe(240);
+        expect(target!.activePreviewContent.transformScale).toBeCloseTo(
+            target!.activePreviewContent.size / 240,
+        );
+        expect(target!.mobileScaledVisualTarget.maxContainerSize).toBe(382);
+        expect(target!.mobileScaledVisualTarget.maxPreviewContentSize).toBe(375);
+        expect(target!.mobileScaledVisualTarget.targetContainerSize).toBe(382);
+    });
+
+    it("scales active preview from the max mobile content model when shrinking", () => {
+        const target = computeMobileResizeAppliedTarget({
+            stableGeometry: {
+                measuredAt: 1,
+                shell: {
+                    shellWidth: 390,
+                    shellHeight: 744,
+                },
+                boardSizingSlot: {
+                    boardSizingSlotWidth: 382,
+                    boardSizingSlotHeight: 382,
+                },
+                boardSurface: {
+                    boardSurfaceWidth: 382,
+                    boardSurfaceHeight: 382,
+                },
+                gobanContainer: {
+                    gobanContainerWidth: 382,
+                    gobanContainerHeight: 382,
+                    gobanContainerSize: 382,
+                },
+                gobanContent: {
+                    gobanContentWidth: 240,
+                    gobanContentHeight: 240,
+                    gobanContentSize: 240,
+                    nativeGobanContentSize: 240,
+                },
+                divider: {
+                    dividerRatio: 0.6901411290322581,
+                },
+                derived: {
+                    horizontalInset: 0,
+                    boardVerticalChrome: 40,
+                    reservedHeight: 36,
+                    verticalInsetPx: 4,
+                },
+                source: "stable-observer" as const,
+            },
+            targetDividerRatio: 309 / 744,
+            boardWidth: 13,
+            boardHeight: 13,
+            showLabels: true,
+            baselineGobanContentSize: 240,
+        });
+
+        expect(target).not.toBeNull();
+        expect(target!.gobanContainer.size).toBe(269);
+        expect(target!.activePreviewContent.size).toBeGreaterThanOrEqual(255);
+        expect(target!.activePreviewContent.size).toBeLessThanOrEqual(269);
+        expect(target!.activePreviewContent.size).toBeGreaterThan(200);
+        expect(target!.nativeFinalContent.size).toBe(255);
+        expect(target!.activePreviewContent.transformScale).toBeCloseTo(
+            target!.activePreviewContent.size / 240,
+        );
+        expect(target!.mobileScaledVisualTarget.maxContainerSize).toBe(382);
+        expect(target!.mobileScaledVisualTarget.maxPreviewContentSize).toBe(375);
+        expect(target!.mobileScaledVisualTarget.targetContainerSize).toBe(269);
     });
 
     it("uses labelled native sizing for release prediction when the board shows labels", () => {
@@ -1249,6 +1374,12 @@ describe("mobile geometry mismatch classification", () => {
             dragScale: 1,
             gobanLeft: 0,
             gobanTop: 0,
+            mobileScaledVisualTarget: {
+                maxContainerSize: 328,
+                maxPreviewContentSize: 308,
+                targetContainerSize: 328,
+                source: "max-preview-ratio" as const,
+            },
             boardSurface: {
                 width: 382,
                 height: 328,
@@ -1265,6 +1396,8 @@ describe("mobile geometry mismatch classification", () => {
                 leftInSurface: 0,
                 topInSurface: 0,
                 transformScale: 1,
+                nativeBackingContentSize: 328,
+                visualScaleExceedsOne: false,
             },
             nativeFinalContent: {
                 size: 308,
@@ -1382,6 +1515,12 @@ describe("mobile geometry mismatch classification", () => {
             dragScale: 1,
             gobanLeft: 0,
             gobanTop: 0,
+            mobileScaledVisualTarget: {
+                maxContainerSize: 378,
+                maxPreviewContentSize: 363,
+                targetContainerSize: 378,
+                source: "max-preview-ratio" as const,
+            },
             boardSurface: {
                 width: 378,
                 height: 386,
@@ -1398,6 +1537,8 @@ describe("mobile geometry mismatch classification", () => {
                 leftInSurface: 0,
                 topInSurface: 0,
                 transformScale: 1,
+                nativeBackingContentSize: 378,
+                visualScaleExceedsOne: false,
             },
             nativeFinalContent: {
                 size: 363,
@@ -1468,6 +1609,12 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                     dragScale: 1,
                     gobanLeft: 7,
                     gobanTop: 0,
+                    mobileScaledVisualTarget: {
+                        maxContainerSize: 374,
+                        maxPreviewContentSize: 360,
+                        targetContainerSize: 374,
+                        source: "max-preview-ratio" as const,
+                    },
                     boardSurface: {
                         width: 374,
                         height: 382,
@@ -1484,6 +1631,8 @@ describe("computeTransientDragReleaseGeometryFromAppliedTarget", () => {
                         leftInSurface: 7,
                         topInSurface: 7,
                         transformScale: 1,
+                        nativeBackingContentSize: 360,
+                        visualScaleExceedsOne: false,
                     },
                     nativeFinalContent: {
                         size: 360,
