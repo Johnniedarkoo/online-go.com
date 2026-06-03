@@ -46,6 +46,7 @@ import {
     resolveActualNativeFinalContentSize,
     shouldAnimateTransientRelease,
     shouldCommitMobileSplitRatioUpdate,
+    shouldPreserveCommittedMobileScaledPresentation,
     computeTransientDragVisualBoardSize,
     computeTransientDragScale,
     computeMeasuredTransientDragContentSize,
@@ -55,6 +56,7 @@ import {
     canClearTransientMobileSizing,
     type MobileResizeAppliedTarget,
 } from "./kibitzBoardSizing";
+import { applyCommittedMobileScaledPresentation } from "./KibitzBoard";
 
 describe("getMovePathToRestore", () => {
     it("uses the original source path when the current restore path is blank and the source is preferred", () => {
@@ -471,6 +473,72 @@ describe("react board size catch-up", () => {
                 displaySizeLatest: 382,
             }),
         ).toBe(true);
+    });
+});
+
+describe("committed mobile scaled presentation", () => {
+    it("preserves committed mobile scaled presentation only in mobile contain mode", () => {
+        expect(
+            shouldPreserveCommittedMobileScaledPresentation({
+                committedPresentation: {
+                    visualScale: 1.31905,
+                },
+                coordinateSafeInput: true,
+                fitMode: "contain",
+            }),
+        ).toBe(true);
+
+        expect(
+            shouldPreserveCommittedMobileScaledPresentation({
+                committedPresentation: null,
+                coordinateSafeInput: true,
+                fitMode: "contain",
+            }),
+        ).toBe(false);
+
+        expect(
+            shouldPreserveCommittedMobileScaledPresentation({
+                committedPresentation: {
+                    visualScale: 1.31905,
+                },
+                coordinateSafeInput: true,
+                fitMode: "native",
+            }),
+        ).toBe(false);
+    });
+
+    it("applies committed mobile scaled presentation styles directly", () => {
+        const host = document.createElement("div");
+        const container = document.createElement("div");
+        const goban = document.createElement("div");
+
+        applyCommittedMobileScaledPresentation({
+            host,
+            container,
+            gobanElement: goban,
+            committedPresentation: {
+                boardSurfaceWidth: 382,
+                boardSurfaceHeight: 298,
+                gobanContainerSize: 298,
+                gobanContainerLeftInSurface: 42,
+                gobanContainerTopInSurface: 0,
+                nativeBackingContentSize: 210,
+                visualContentSize: 277,
+                visualLeftInContainer: 10,
+                visualTopInContainer: 10,
+                visualScale: 1.31905,
+            },
+        });
+
+        expect(host.style.width).toBe("382px");
+        expect(host.style.height).toBe("298px");
+        expect(container.style.width).toBe("298px");
+        expect(container.style.left).toBe("42px");
+        expect(goban.style.width).toBe("210px");
+        expect(goban.style.height).toBe("210px");
+        expect(goban.style.left).toBe("10px");
+        expect(goban.style.top).toBe("10px");
+        expect(goban.style.transform).toBe("scale(1.31905)");
     });
 });
 

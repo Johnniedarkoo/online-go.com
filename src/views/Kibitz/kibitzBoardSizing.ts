@@ -240,6 +240,18 @@ export function hasReactBoardSizeCaughtUp({
     return sizePropReady && displaySizeReady;
 }
 
+export function shouldPreserveCommittedMobileScaledPresentation({
+    committedPresentation,
+    coordinateSafeInput,
+    fitMode,
+}: {
+    committedPresentation: { visualScale: number } | null;
+    coordinateSafeInput: boolean;
+    fitMode: "native" | "contain";
+}): boolean {
+    return Boolean(committedPresentation && coordinateSafeInput && fitMode === "contain");
+}
+
 /**
  * Mobile resize geometry terminology:
  *
