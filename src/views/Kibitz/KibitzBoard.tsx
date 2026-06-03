@@ -211,6 +211,121 @@ type CommittedMobileScaledPresentation = {
     visualScale: number;
 };
 
+function summarizeCommittedMobileScaledPresentationCheck({
+    host,
+    container,
+    gobanElement,
+    committedPresentation,
+}: {
+    host: HTMLElement | null;
+    container: HTMLElement | null;
+    gobanElement: HTMLElement | null;
+    committedPresentation: CommittedMobileScaledPresentation | null;
+}): Record<string, unknown> {
+    const hostRect = host?.getBoundingClientRect() ?? null;
+    const containerRect = container?.getBoundingClientRect() ?? null;
+    const gobanRect = gobanElement?.getBoundingClientRect() ?? null;
+
+    const expectedVisualContentSize =
+        committedPresentation?.nativeBackingContentSize != null
+            ? committedPresentation.nativeBackingContentSize * committedPresentation.visualScale
+            : null;
+
+    const actualVisualContentSize =
+        gobanRect != null && Number.isFinite(gobanRect.width) && Number.isFinite(gobanRect.height)
+            ? Math.min(gobanRect.width, gobanRect.height)
+            : null;
+
+    const visualContentDelta =
+        expectedVisualContentSize != null && actualVisualContentSize != null
+            ? actualVisualContentSize - expectedVisualContentSize
+            : null;
+
+    const actualNativeBackingSize =
+        gobanElement != null &&
+        Number.isFinite(gobanElement.offsetWidth) &&
+        Number.isFinite(gobanElement.offsetHeight)
+            ? Math.min(gobanElement.offsetWidth, gobanElement.offsetHeight)
+            : null;
+
+    const nativeBackingDelta =
+        committedPresentation != null && actualNativeBackingSize != null
+            ? actualNativeBackingSize - committedPresentation.nativeBackingContentSize
+            : null;
+
+    return {
+        committedPresentation,
+        expected: committedPresentation
+            ? {
+                  boardSurfaceWidth: committedPresentation.boardSurfaceWidth,
+                  boardSurfaceHeight: committedPresentation.boardSurfaceHeight,
+                  gobanContainerSize: committedPresentation.gobanContainerSize,
+                  nativeBackingContentSize: committedPresentation.nativeBackingContentSize,
+                  visualContentSize: committedPresentation.visualContentSize,
+                  visualScale: committedPresentation.visualScale,
+                  expectedVisualContentSize,
+                  visualLeftInContainer: committedPresentation.visualLeftInContainer,
+                  visualTopInContainer: committedPresentation.visualTopInContainer,
+              }
+            : null,
+        actual: {
+            hostRect: hostRect
+                ? {
+                      width: hostRect.width,
+                      height: hostRect.height,
+                      left: hostRect.left,
+                      top: hostRect.top,
+                  }
+                : null,
+            containerRect: containerRect
+                ? {
+                      width: containerRect.width,
+                      height: containerRect.height,
+                      left: containerRect.left,
+                      top: containerRect.top,
+                  }
+                : null,
+            gobanRect: gobanRect
+                ? {
+                      width: gobanRect.width,
+                      height: gobanRect.height,
+                      left: gobanRect.left,
+                      top: gobanRect.top,
+                  }
+                : null,
+            gobanOffsetWidth: gobanElement?.offsetWidth ?? null,
+            gobanOffsetHeight: gobanElement?.offsetHeight ?? null,
+            gobanClientWidth: gobanElement?.clientWidth ?? null,
+            gobanClientHeight: gobanElement?.clientHeight ?? null,
+            transform: gobanElement?.style.transform ?? null,
+            left: gobanElement?.style.left ?? null,
+            top: gobanElement?.style.top ?? null,
+            actualVisualContentSize,
+            actualNativeBackingSize,
+        },
+        deltas: {
+            visualContentDelta,
+            nativeBackingDelta,
+            hostWidthDelta:
+                committedPresentation && hostRect
+                    ? hostRect.width - committedPresentation.boardSurfaceWidth
+                    : null,
+            hostHeightDelta:
+                committedPresentation && hostRect
+                    ? hostRect.height - committedPresentation.boardSurfaceHeight
+                    : null,
+            containerWidthDelta:
+                committedPresentation && containerRect
+                    ? containerRect.width - committedPresentation.gobanContainerSize
+                    : null,
+            containerHeightDelta:
+                committedPresentation && containerRect
+                    ? containerRect.height - committedPresentation.gobanContainerSize
+                    : null,
+        },
+    };
+}
+
 export function getBoardHostReadiness(host: HTMLElement | null): BoardHostReadiness {
     if (!host) {
         return {
@@ -467,6 +582,7 @@ export function KibitzBoard({
     const allowTransientDragScalingRef = React.useRef(allowTransientDragScaling);
     const committedMobileScaledPresentationRef =
         React.useRef<CommittedMobileScaledPresentation | null>(null);
+    const committedScaledPostcheckFramesRef = React.useRef<number[]>([]);
     const pendingTransientDragFinalSizeRef = React.useRef<number | null>(null);
     const pendingTransientDragClearFrameRef = React.useRef<number | null>(null);
     const lastAppliedTransientContentSizeRef = React.useRef<number | null>(null);
@@ -539,6 +655,18 @@ export function KibitzBoard({
     }, [allowTransientDragScaling, coordinateSafeInput]);
 
     React.useEffect(() => {
+        if (committedMobileScaledPresentationRef.current) {
+            recordKibitzBoardSizeEvent("kibitz-board:committed-scaled-clear", {
+                reason: "mode-or-board-config-change",
+                committedPresentation: committedMobileScaledPresentationRef.current,
+                allowTransientDragScaling,
+                coordinateSafeInput,
+                fitMode,
+                width,
+                height,
+                showLabels,
+            });
+        }
         committedMobileScaledPresentationRef.current = null;
     }, [allowTransientDragScaling, coordinateSafeInput, fitMode, height, showLabels, width]);
 
@@ -917,6 +1045,53 @@ export function KibitzBoard({
         ],
     );
 
+    const recordCommittedScaledPresentationCheck = React.useCallback(
+        (reason: string) => {
+            const host = boardHostRef.current;
+            const container = gobanContainerRef.current;
+            const gobanElement = gobanDiv.current;
+            const committedPresentation = committedMobileScaledPresentationRef.current;
+
+            recordKibitzBoardSizeEvent(`kibitz-board:committed-scaled-check:${reason}`, {
+                ...getKibitzBoardMetricsSnapshot(`committed-scaled-check:${reason}`),
+                sizePropLatest: sizePropRef.current,
+                displaySizeLatest: displaySizeRef.current,
+                committedScaledActive: committedPresentation != null,
+                check: summarizeCommittedMobileScaledPresentationCheck({
+                    host,
+                    container,
+                    gobanElement,
+                    committedPresentation,
+                }),
+            });
+        },
+        [getKibitzBoardMetricsSnapshot],
+    );
+
+    const scheduleCommittedScaledPresentationPostchecks = React.useCallback(
+        (reason: string) => {
+            for (const frame of committedScaledPostcheckFramesRef.current) {
+                window.cancelAnimationFrame(frame);
+            }
+
+            committedScaledPostcheckFramesRef.current = [];
+
+            const frame1 = window.requestAnimationFrame(() => {
+                recordCommittedScaledPresentationCheck(`${reason}:raf1`);
+
+                const frame2 = window.requestAnimationFrame(() => {
+                    recordCommittedScaledPresentationCheck(`${reason}:raf2`);
+                    committedScaledPostcheckFramesRef.current = [];
+                });
+
+                committedScaledPostcheckFramesRef.current = [frame2];
+            });
+
+            committedScaledPostcheckFramesRef.current = [frame1];
+        },
+        [recordCommittedScaledPresentationCheck],
+    );
+
     const commitTransientScaledPresentation = React.useCallback(
         (
             target: MobileResizeAppliedTarget,
@@ -993,8 +1168,14 @@ export function KibitzBoard({
                 nativeQuantizedContentSize: releaseGeometry.finalNativeContentSize,
                 committedPresentation,
             });
+            recordCommittedScaledPresentationCheck("after-commit-immediate");
+            scheduleCommittedScaledPresentationPostchecks("after-commit");
         },
-        [getKibitzBoardMetricsSnapshot],
+        [
+            getKibitzBoardMetricsSnapshot,
+            recordCommittedScaledPresentationCheck,
+            scheduleCommittedScaledPresentationPostchecks,
+        ],
     );
 
     const finishTransientDragFromAppliedTarget = React.useCallback(
@@ -1449,6 +1630,7 @@ export function KibitzBoard({
                     ...getKibitzBoardMetricsSnapshot("after-recenter-committed-scaled"),
                     committedPresentation,
                 });
+                recordCommittedScaledPresentationCheck("after-recenter-committed-scaled");
                 return;
             }
 
@@ -1563,6 +1745,7 @@ export function KibitzBoard({
                     ...getKibitzBoardMetricsSnapshot("resize-committed-scaled-skip-native"),
                     committedPresentation,
                 });
+                recordCommittedScaledPresentationCheck("resize-skip-native");
                 return;
             }
 
@@ -1952,6 +2135,11 @@ export function KibitzBoard({
 
     React.useEffect(() => {
         return () => {
+            for (const frame of committedScaledPostcheckFramesRef.current) {
+                window.cancelAnimationFrame(frame);
+            }
+            committedScaledPostcheckFramesRef.current = [];
+
             if (resizeDebounceRef.current) {
                 clearTimeout(resizeDebounceRef.current);
                 resizeDebounceRef.current = null;
