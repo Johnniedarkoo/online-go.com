@@ -1170,6 +1170,8 @@
 @media (min-width: 1001px) {
     .Kibitz.is-streamer-mode {
         .KibitzRoomStage-boards.secondary-pane-equal {
+            --equal-main-track: minmax(0, 1fr);
+            --equal-secondary-track: minmax(0, 1fr);
             --equal-main-board-max-size: min(100%, 36rem, 55vh);
         }
     }
