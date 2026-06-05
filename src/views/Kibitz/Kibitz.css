@@ -465,7 +465,7 @@
             color: var(--text-color) !important;
             font-size: 0.66rem;
             line-height: 1.05;
-            max-width: min(12rem, calc(100vw - 12rem));
+            max-width: min(16rem, calc(100vw - 11rem));
             min-width: 0;
             padding: 0 0.2rem;
             overflow: hidden;
@@ -617,6 +617,10 @@
         .mobile-room-header-player .Player-rank {
             font-size: 0.86em;
             margin-left: 0.12rem;
+        }
+
+        .Kibitz-mobile-room-header.hide-main-game-timing .KibitzMainGameStats-clock {
+            display: none;
         }
 
         .mobile-room-header-meta {

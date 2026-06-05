@@ -1,0 +1,86 @@
+.KibitzMainGameStats {
+    min-width: 0;
+}
+
+.room-stage-header .players.player-pair.KibitzMainGameStats-desktop {
+    align-items: center;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    justify-content: center;
+    width: 100%;
+}
+
+.room-stage-header .players.player-pair.KibitzMainGameStats-desktop .KibitzMainGameStats-side {
+    align-items: center;
+    display: inline-flex;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.room-stage-header
+    .players.player-pair.KibitzMainGameStats-desktop
+    .KibitzMainGameStats-side-black {
+    justify-content: flex-start;
+}
+
+.room-stage-header
+    .players.player-pair.KibitzMainGameStats-desktop
+    .KibitzMainGameStats-side-white {
+    justify-content: flex-end;
+}
+
+.room-stage-header .players.player-pair.KibitzMainGameStats-desktop .KibitzMainGameStats-clock {
+    flex: 0 0 auto;
+    align-self: center;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.room-stage-header
+    .players.player-pair.KibitzMainGameStats-desktop
+    .KibitzMainGameStats-clock
+    .main-time {
+    align-items: center;
+    display: inline-flex;
+    line-height: 1;
+}
+
+.room-stage-header .players.player-pair.KibitzMainGameStats-desktop .KibitzMainGameStats-captures {
+    color: var(--text-color-faded);
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.room-stage-header .players.player-pair.KibitzMainGameStats-desktop .KibitzMainGameStats-state {
+    color: var(--text-color-faded);
+    flex: 0 0 auto;
+    font-size: 0.78em;
+    font-weight: 600;
+    margin-left: 0.2rem;
+    white-space: nowrap;
+}
+
+.room-stage-header
+    .players.player-pair.KibitzMainGameStats-desktop
+    .KibitzMainGameStats-playerBadge {
+    min-width: 0;
+}
+
+.KibitzMainGameStats-mobile .mobile-room-header-matchup-avatar-button {
+    all: unset;
+    align-items: center;
+    display: inline-flex;
+    cursor: pointer;
+    justify-content: center;
+}
+
+.KibitzMainGameStats-mobile .mobile-room-header-player {
+    gap: 0.22rem;
+}
+
+.KibitzMainGameStats-mobile .KibitzMainGameStats-captures,
+.KibitzMainGameStats-mobile .KibitzMainGameStats-clock {
+    font-size: 0.94em;
+}

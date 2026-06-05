@@ -28,7 +28,6 @@ import {
 } from "goban";
 import { Resizable } from "@/components/Resizable";
 import { KBShortcut } from "@/components/KBShortcut";
-import { Player } from "@/components/Player";
 import { GobanController, getMoveTreeTrunkTail } from "@/lib/GobanController";
 import { close_all_popovers, popover } from "@/lib/popover";
 import { get } from "@/lib/requests";
@@ -38,7 +37,6 @@ import type {
     KibitzProposal,
     KibitzRoomSummary,
     KibitzSecondaryPaneState,
-    KibitzRoomUser,
     KibitzVariationSummary,
     KibitzWatchedGame,
 } from "@/models/kibitz";
@@ -56,10 +54,10 @@ import { KibitzBoard, type KibitzBoardTransientDragController } from "./KibitzBo
 import { KibitzBoardControls } from "./KibitzBoardControls";
 import { KibitzDividerHandle } from "./KibitzDividerHandle";
 import { GobanAnalyzeButtonBar } from "@/components/GobanAnalyzeButtonBar/GobanAnalyzeButtonBar";
+import { KibitzMainGameStats } from "./KibitzMainGameStats";
 import { KibitzVariationComposer } from "./KibitzVariationComposer";
 import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
 import { KibitzNodeText } from "./KibitzNodeText";
-import { KibitzUserAvatar } from "./KibitzUserAvatar";
 import { KIBITZ_HELP_TARGETS } from "./HelpFlows/KibitzHelpTargets";
 import { useKibitzHelpTarget } from "./HelpFlows/useKibitzHelpTarget";
 import {
@@ -1689,37 +1687,6 @@ function loadSecondaryVariationBaseSnapshot(
         controllerGameId: controller.goban.config?.game_id ?? null,
         connected: Boolean(controller.goban.parent?.isConnected),
     });
-}
-
-function renderInlineAvatar(
-    user: KibitzRoomUser | null | undefined,
-    className: string,
-    iconClassName: string,
-): React.ReactElement {
-    return (
-        <KibitzUserAvatar
-            user={user}
-            size={16}
-            className={className}
-            iconClassName={iconClassName}
-        />
-    );
-}
-
-function renderRichPlayerBadge(
-    user: KibitzRoomUser | null | undefined,
-    fallbackName: string | undefined,
-): React.ReactElement {
-    return (
-        <div className="player-badge">
-            {renderInlineAvatar(user, "stage-avatar", "stage-avatar-image")}
-            {user ? (
-                <Player user={user} flag rank noextracontrols />
-            ) : (
-                <span className="player-name">{fallbackName}</span>
-            )}
-        </div>
-    );
 }
 
 function hasUsableMoveTreeContainerSize(container: HTMLElement | null): boolean {
@@ -5598,8 +5565,6 @@ export function KibitzRoomStage({
     ]);
 
     const displayedTitle = mainGame?.title;
-    const displayedBlack = mainGame?.black.username;
-    const displayedWhite = mainGame?.white.username;
     const displayedMoveNumber = mainGame?.move_number;
     const mobileBoardTotalMoves = mobileCompareTargetActive
         ? mobileSecondaryOwner === "variation"
@@ -6100,13 +6065,11 @@ export function KibitzRoomStage({
                             {room.title}
                         </div>
                     </div>
-                    <div className="players player-pair">
-                        {renderRichPlayerBadge(mainGame?.black, displayedBlack)}
-                        <span className="player-vs">
-                            {pgettext("Versus label shown between players in kibitz", "vs")}
-                        </span>
-                        {renderRichPlayerBadge(mainGame?.white, displayedWhite)}
-                    </div>
+                    <KibitzMainGameStats
+                        controller={mainBoardController}
+                        game={mainGame}
+                        variant="desktop"
+                    />
                     <div className="board-subtitle">
                         {mainGame ? (
                             <a
