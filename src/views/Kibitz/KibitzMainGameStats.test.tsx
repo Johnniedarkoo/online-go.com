@@ -112,6 +112,8 @@ type MockEngine = {
     mode: string;
     outcome: string;
     time_control: object | null;
+    winner?: number | "black" | "white";
+    paused_since?: number | null;
     playerToMove: () => number;
     computeScore: (only_prisoners?: boolean) => {
         black: { prisoners: number };
@@ -149,6 +151,7 @@ function makeController(engine: MockEngine): MockControllerBundle {
     const goban = {
         engine,
         mode: "play",
+        paused_since: engine.paused_since ?? undefined,
         on: emitter.on.bind(emitter),
         off: emitter.off.bind(emitter),
         emit: emitter.emit.bind(emitter),
@@ -181,6 +184,7 @@ describe("KibitzMainGameStats", () => {
             mode: "play",
             outcome: "",
             time_control: {},
+            winner: "black",
             playerToMove: () => 1,
             computeScore: () => ({
                 black: { prisoners: 24 },
@@ -194,6 +198,7 @@ describe("KibitzMainGameStats", () => {
         expect(screen.getByText("26")).toBeInTheDocument();
         expect(screen.getByTestId("clock-black")).toHaveTextContent("black");
         expect(screen.getByTestId("clock-white")).toHaveTextContent("white");
+        expect(screen.getByText("VS")).toBeInTheDocument();
         expect(clockSpy).toHaveBeenCalledWith(
             expect.objectContaining({ color: "black", goban: controller.goban }),
         );
@@ -209,6 +214,7 @@ describe("KibitzMainGameStats", () => {
             outcome: "",
             time_control: {},
             playerToMove: () => 1,
+            winner: "black",
             computeScore: () => ({
                 black: { prisoners: 1 },
                 white: { prisoners: 2 },
@@ -223,7 +229,7 @@ describe("KibitzMainGameStats", () => {
         expect(container.querySelector(".KibitzMainGameStats-side-black")).toHaveClass(
             "their-turn",
         );
-        expect(container.querySelector(".KibitzMainGameStats-state")).toBeNull();
+        expect(container.querySelector(".KibitzMainGameStats-chip-state")).toBeNull();
 
         act(() => {
             engine.playerToMove = () => 2;
@@ -235,7 +241,57 @@ describe("KibitzMainGameStats", () => {
         expect(container.querySelector(".KibitzMainGameStats-side-white")).toHaveClass(
             "their-turn",
         );
+        expect(screen.getByText("Score")).toBeInTheDocument();
         expect(screen.getByText("Stone removal")).toBeInTheDocument();
+    });
+
+    it("renders a paused center chip when the game is paused", () => {
+        const engine: MockEngine = {
+            phase: "play",
+            mode: "play",
+            outcome: "",
+            time_control: {},
+            paused_since: Date.now(),
+            playerToMove: () => 1,
+            winner: "black",
+            computeScore: () => ({
+                black: { prisoners: 1 },
+                white: { prisoners: 2 },
+            }),
+        };
+        const { controller, emitter } = makeController(engine);
+
+        const { container } = render(
+            <KibitzMainGameStats controller={controller} game={makeGame()} variant="desktop" />,
+        );
+
+        act(() => {
+            emitter.emit("paused", true);
+        });
+
+        expect(container.querySelector(".KibitzMainGameStats-chip-center")).toHaveTextContent(
+            "Paused",
+        );
+    });
+
+    it("renders a compact result token and finished status", () => {
+        const { controller } = makeController({
+            phase: "finished",
+            mode: "play",
+            outcome: "2.5",
+            time_control: {},
+            winner: "white",
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 1 },
+                white: { prisoners: 2 },
+            }),
+        });
+
+        render(<KibitzMainGameStats controller={controller} game={makeGame()} variant="desktop" />);
+
+        expect(screen.getByText("W+2.5")).toBeInTheDocument();
+        expect(screen.getByText("Game finished")).toBeInTheDocument();
     });
 
     it("renders finished state and omits game state on mobile", () => {
@@ -244,6 +300,7 @@ describe("KibitzMainGameStats", () => {
             mode: "play",
             outcome: "Resignation",
             time_control: {},
+            winner: "black",
             playerToMove: () => 1,
             computeScore: () => ({
                 black: { prisoners: 1 },
@@ -256,12 +313,14 @@ describe("KibitzMainGameStats", () => {
         );
 
         expect(screen.getByText("Game finished")).toBeInTheDocument();
+        expect(screen.getByText("B+R")).toBeInTheDocument();
 
         rerender(
             <KibitzMainGameStats controller={controller} game={makeGame()} variant="mobile" />,
         );
 
         expect(screen.queryByText("Game finished")).toBeNull();
+        expect(screen.queryByText("B+R")).toBeNull();
     });
 
     it("omits clock elements when the game has no time control", () => {
@@ -271,6 +330,7 @@ describe("KibitzMainGameStats", () => {
             outcome: "",
             time_control: null,
             playerToMove: () => 1,
+            winner: "black",
             computeScore: () => ({
                 black: { prisoners: 1 },
                 white: { prisoners: 2 },

@@ -39,6 +39,17 @@ interface GameScore {
     white: { prisoners: number };
 }
 
+interface GameSummary {
+    phase: string | null;
+    outcome: string | null;
+    winner: number | "black" | "white" | undefined;
+    pausedSince: number | null;
+}
+
+type KibitzGoban = Goban & {
+    paused_since?: number;
+};
+
 const useGameScore = generateGobanHook<GameScore | null, Goban | null>(
     (goban) => {
         if (!goban) {
@@ -63,20 +74,19 @@ const useGameScore = generateGobanHook<GameScore | null, Goban | null>(
     ["phase", "mode", "outcome", "stone-removal.accepted", "stone-removal.updated", "cur_move"],
 );
 
-const usePlayerToMove = generateGobanHook<number, Goban | null>(
-    (goban) => goban?.engine.playerToMove() ?? 0,
-    ["cur_move", "last_official_move"],
-);
-
-const useGameState = generateGobanHook<
-    { phase: string | null; outcome: string | null },
-    Goban | null
->(
+const useGameSummary = generateGobanHook<GameSummary, KibitzGoban | null>(
     (goban) => ({
         phase: goban?.engine.phase ?? null,
         outcome: goban?.engine.outcome ?? null,
+        winner: goban?.engine.winner,
+        pausedSince: goban?.paused_since ?? null,
     }),
-    ["phase", "outcome"],
+    ["phase", "outcome", "winner", "paused"],
+);
+
+const usePlayerToMove = generateGobanHook<number, Goban | null>(
+    (goban) => goban?.engine.playerToMove() ?? 0,
+    ["cur_move", "last_official_move"],
 );
 
 function openPlayerPopover(event: React.MouseEvent<HTMLButtonElement>, user: KibitzRoomUser): void {
@@ -91,9 +101,22 @@ function openPlayerPopover(event: React.MouseEvent<HTMLButtonElement>, user: Kib
     });
 }
 
-function renderDesktopIdentity(user: KibitzRoomUser) {
+function renderChip(
+    className: string,
+    content: React.ReactNode,
+    ariaLabel?: string,
+): React.ReactElement {
     return (
-        <div className="player-badge KibitzMainGameStats-playerBadge">
+        <span className={className} aria-label={ariaLabel}>
+            {content}
+        </span>
+    );
+}
+
+function renderDesktopIdentity(user: KibitzRoomUser): React.ReactElement {
+    return renderChip(
+        "player-badge KibitzMainGameStats-chip KibitzMainGameStats-playerBadge",
+        <>
             <KibitzUserAvatar
                 user={user}
                 size={16}
@@ -101,11 +124,11 @@ function renderDesktopIdentity(user: KibitzRoomUser) {
                 iconClassName="stage-avatar-image"
             />
             <Player user={user} flag rank noextracontrols />
-        </div>
+        </>,
     );
 }
 
-function renderMobileIdentity(user: KibitzRoomUser) {
+function renderMobileIdentity(user: KibitzRoomUser): React.ReactElement {
     return (
         <button
             type="button"
@@ -123,7 +146,14 @@ function renderMobileIdentity(user: KibitzRoomUser) {
     );
 }
 
-function renderClock(
+function renderMobilePlayerBadge(user: KibitzRoomUser): React.ReactElement {
+    return renderChip(
+        "player-badge KibitzMainGameStats-chip KibitzMainGameStats-playerBadge KibitzMainGameStats-playerBadge-mobile",
+        <Player user={user} flag rank noextracontrols />,
+    );
+}
+
+function renderClockChip(
     controller: GobanController | null,
     color: "black" | "white",
 ): React.ReactElement | null {
@@ -133,47 +163,111 @@ function renderClock(
         return null;
     }
 
-    return (
-        <Clock
-            goban={goban}
-            color={color}
-            compact
-            lineSummary={true}
-            className="KibitzMainGameStats-clock"
-        />
+    return renderChip(
+        "KibitzMainGameStats-chip KibitzMainGameStats-chip-clock KibitzMainGameStats-clock",
+        <Clock goban={goban} color={color} compact lineSummary={true} />,
     );
 }
 
-function renderCaptures(value: number | undefined | null): React.ReactElement | null {
+function renderCaptureChip(value: number | undefined | null): React.ReactElement | null {
     if (value == null) {
         return null;
     }
 
-    return (
-        <span
-            className="KibitzMainGameStats-captures"
-            aria-label={pgettext("Kibitz main game capture count", "Captured stones")}
-        >
-            {value}
-        </span>
+    return renderChip(
+        "KibitzMainGameStats-chip KibitzMainGameStats-chip-captures KibitzMainGameStats-captures",
+        value,
+        pgettext("Kibitz main game capture count", "Captured stones"),
     );
 }
 
-function renderStateLabel(phase: string | null, outcome: string | null): React.ReactElement | null {
-    if (phase === "stone removal") {
-        return (
-            <span className="KibitzMainGameStats-state">
-                {pgettext("Kibitz main game state", "Stone removal")}
-            </span>
+function renderStatusChip(text: string | null): React.ReactElement | null {
+    if (!text) {
+        return null;
+    }
+
+    return renderChip("KibitzMainGameStats-chip KibitzMainGameStats-chip-state", text);
+}
+
+function getWinnerColor(
+    game: KibitzWatchedGame,
+    winner: GameSummary["winner"],
+): "black" | "white" | null {
+    if (winner === "black" || winner === "white") {
+        return winner;
+    }
+
+    if (winner === game.black.id) {
+        return "black";
+    }
+
+    if (winner === game.white.id) {
+        return "white";
+    }
+
+    return null;
+}
+
+function getCompactResultToken(game: KibitzWatchedGame, summary: GameSummary): string {
+    const winnerColor = getWinnerColor(game, summary.winner);
+
+    if (!winnerColor) {
+        return pgettext("Kibitz main game compact result fallback", "Done");
+    }
+
+    const prefix = winnerColor === "black" ? "B" : "W";
+    const outcome = summary.outcome ?? "";
+
+    if (/[0-9.]+/.test(outcome)) {
+        const match = outcome.match(/([0-9.]+)/);
+        return `${prefix}+${match ? match[1] : outcome}`;
+    }
+
+    if (outcome === "Resignation" || outcome === "resign" || outcome === "r") {
+        return `${prefix}+R`;
+    }
+
+    return pgettext("Kibitz main game compact result fallback", "Done");
+}
+
+function renderDesktopStateChip(
+    summary: GameSummary,
+    game: KibitzWatchedGame,
+): React.ReactElement | null {
+    if (summary.phase === "stone removal") {
+        return renderChip(
+            "KibitzMainGameStats-chip KibitzMainGameStats-chip-center",
+            pgettext("Kibitz main game center token", "Score"),
         );
     }
 
-    if (phase === "finished" || Boolean(outcome)) {
-        return (
-            <span className="KibitzMainGameStats-state">
-                {pgettext("Kibitz main game state", "Game finished")}
-            </span>
+    if (summary.phase === "finished") {
+        return renderChip(
+            "KibitzMainGameStats-chip KibitzMainGameStats-chip-center",
+            getCompactResultToken(game, summary),
         );
+    }
+
+    if (summary.phase === "play" && summary.pausedSince) {
+        return renderChip(
+            "KibitzMainGameStats-chip KibitzMainGameStats-chip-center",
+            pgettext("Kibitz main game center token", "Paused"),
+        );
+    }
+
+    return renderChip(
+        "KibitzMainGameStats-chip KibitzMainGameStats-chip-center",
+        pgettext("Kibitz main game center token", "VS"),
+    );
+}
+
+function renderDesktopStatusChip(summary: GameSummary): React.ReactElement | null {
+    if (summary.phase === "stone removal") {
+        return renderStatusChip(pgettext("Kibitz main game phase status", "Stone removal"));
+    }
+
+    if (summary.phase === "finished") {
+        return renderStatusChip(pgettext("Kibitz main game phase status", "Game finished"));
     }
 
     return null;
@@ -184,31 +278,13 @@ function renderMobilePlayerLine(
     stoneColor: "black" | "white",
     captures: number | undefined | null,
     clock: React.ReactElement | null,
-    isTheirTurn: boolean,
 ): React.ReactElement {
     return (
-        <span
-            className={
-                "mobile-room-header-player mobile-room-header-player-" +
-                stoneColor +
-                (isTheirTurn ? " their-turn" : "")
-            }
-        >
-            {stoneColor === "black" ? (
-                <span
-                    className={`mobile-room-header-player-stone mobile-room-header-player-stone-${stoneColor}`}
-                    aria-hidden="true"
-                />
-            ) : null}
-            <Player user={user} flag rank noextracontrols />
-            {renderCaptures(captures)}
+        <span className={"mobile-room-header-player mobile-room-header-player-" + stoneColor}>
+            {stoneColor === "black" ? renderMobilePlayerBadge(user) : null}
+            {renderCaptureChip(captures)}
             {clock}
-            {stoneColor === "white" ? (
-                <span
-                    className={`mobile-room-header-player-stone mobile-room-header-player-stone-${stoneColor}`}
-                    aria-hidden="true"
-                />
-            ) : null}
+            {stoneColor === "white" ? renderMobilePlayerBadge(user) : null}
         </span>
     );
 }
@@ -221,7 +297,7 @@ export function KibitzMainGameStats({
     const goban = controller?.goban ?? null;
     const score = useGameScore(goban);
     const playerToMove = usePlayerToMove(goban);
-    const gameState = useGameState(goban);
+    const gameSummary = useGameSummary(goban);
 
     if (!game) {
         return null;
@@ -241,23 +317,31 @@ export function KibitzMainGameStats({
                     {renderMobileIdentity(black)}
                 </span>
                 <span className="mobile-room-header-matchup-content">
-                    <span className="mobile-room-header-matchup-first">
+                    <span
+                        className={
+                            "mobile-room-header-matchup-first" +
+                            (blackTheirTurn ? " their-turn" : "")
+                        }
+                    >
                         {renderMobilePlayerLine(
                             black,
                             "black",
                             blackCaptures,
-                            renderClock(controller, "black"),
-                            blackTheirTurn,
+                            renderClockChip(controller, "black"),
                         )}
                     </span>
                     <span className="mobile-room-header-matchup-second">
-                        <span className="mobile-room-header-matchup-second-name">
+                        <span
+                            className={
+                                "mobile-room-header-matchup-second-name" +
+                                (whiteTheirTurn ? " their-turn" : "")
+                            }
+                        >
                             {renderMobilePlayerLine(
                                 white,
                                 "white",
                                 whiteCaptures,
-                                renderClock(controller, "white"),
-                                whiteTheirTurn,
+                                renderClockChip(controller, "white"),
                             )}
                         </span>
                     </span>
@@ -277,12 +361,12 @@ export function KibitzMainGameStats({
                     (blackTheirTurn ? " their-turn" : "")
                 }
             >
-                {renderClock(controller, "black")}
-                {renderCaptures(blackCaptures)}
+                {renderClockChip(controller, "black")}
+                {renderCaptureChip(blackCaptures)}
                 {renderDesktopIdentity(black)}
             </span>
-            <span className="player-vs">
-                {pgettext("Versus label shown between players in kibitz", "vs")}
+            <span className="KibitzMainGameStats-center">
+                {renderDesktopStateChip(gameSummary, game)}
             </span>
             <span
                 className={
@@ -291,10 +375,10 @@ export function KibitzMainGameStats({
                 }
             >
                 {renderDesktopIdentity(white)}
-                {renderCaptures(whiteCaptures)}
-                {renderClock(controller, "white")}
+                {renderCaptureChip(whiteCaptures)}
+                {renderClockChip(controller, "white")}
             </span>
-            {renderStateLabel(gameState.phase, gameState.outcome)}
+            {renderDesktopStatusChip(gameSummary)}
         </div>
     );
 }
