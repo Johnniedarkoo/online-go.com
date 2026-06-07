@@ -17,7 +17,9 @@
 
 import * as React from "react";
 import { Flag } from "@/components/Flag/Flag";
+import { PlayerDetails } from "@/components/Player/PlayerDetails";
 import { rankString, getUserRating, PROVISIONAL_RATING_CUTOFF } from "@/lib/rank_utils";
+import { popover } from "@/lib/popover";
 import type { KibitzRoomUser } from "@/models/kibitz";
 import { KibitzUserAvatar } from "./KibitzUserAvatar";
 import "./kibitzScoreboardPlayerDisplay.css";
@@ -45,32 +47,51 @@ function getRankText(user: KibitzRoomUser): string {
     return rating.bounded_rank_label;
 }
 
+function openPlayerPopover(event: React.MouseEvent<HTMLButtonElement>, user: KibitzRoomUser): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    popover({
+        elt: <PlayerDetails playerId={user.id} />,
+        below: event.currentTarget,
+        minWidth: 240,
+        minHeight: 250,
+    });
+}
+
 export function KibitzScoreboardPlayerDisplay({
     user,
     side,
 }: KibitzScoreboardPlayerDisplayProps): React.ReactElement {
     return (
-        <span
-            className={"KibitzScoreboardPlayerDisplay KibitzScoreboardPlayerDisplay--" + side}
-            title={user.username}
-        >
-            <KibitzUserAvatar
-                user={user}
-                size={32}
-                className="KibitzScoreboardPlayerDisplay-avatar"
-                iconClassName="KibitzScoreboardPlayerDisplay-avatarImage"
-            />
-            {user.country ? (
-                <span className="KibitzScoreboardPlayerDisplay-flag" aria-hidden="true">
-                    <Flag country={user.country} />
+        <span className={"KibitzScoreboardPlayerDisplay KibitzScoreboardPlayerDisplay--" + side}>
+            <button
+                type="button"
+                className="KibitzScoreboardPlayerDisplay-link"
+                onClick={(event) => openPlayerPopover(event, user)}
+                aria-label={user.username}
+                title={user.username}
+            >
+                <KibitzUserAvatar
+                    user={user}
+                    size={32}
+                    className="KibitzScoreboardPlayerDisplay-avatar"
+                    iconClassName="KibitzScoreboardPlayerDisplay-avatarImage"
+                />
+                {user.country ? (
+                    <span className="KibitzScoreboardPlayerDisplay-flag" aria-hidden="true">
+                        <Flag country={user.country} />
+                    </span>
+                ) : null}
+                <span className="KibitzScoreboardPlayerDisplay-identity">
+                    <span className="KibitzDesktopMainGameScoreboard-playerName">
+                        {user.username}
+                    </span>
+                    <span className="KibitzDesktopMainGameScoreboard-playerRank">
+                        [{getRankText(user)}]
+                    </span>
                 </span>
-            ) : null}
-            <span className="KibitzScoreboardPlayerDisplay-identity">
-                <span className="KibitzDesktopMainGameScoreboard-playerName">{user.username}</span>
-                <span className="KibitzDesktopMainGameScoreboard-playerRank">
-                    [{getRankText(user)}]
-                </span>
-            </span>
+            </button>
         </span>
     );
 }

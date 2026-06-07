@@ -339,16 +339,10 @@ function renderPlayerLane(user: KibitzRoomUser, side: "black" | "white"): React.
     );
 }
 
-function getActiveSideAriaLabel(side: "black" | "white"): string {
-    return interpolate(
-        pgettext("Kibitz desktop scoreboard active side aria label", "{{color}} to move"),
-        {
-            color:
-                side === "black"
-                    ? pgettext("Game color", "Black")
-                    : pgettext("Game color", "White"),
-        },
-    );
+function getSideAriaLabel(side: "black" | "white"): string {
+    return side === "black"
+        ? pgettext("Kibitz desktop scoreboard side aria label", "Black player")
+        : pgettext("Kibitz desktop scoreboard side aria label", "White player");
 }
 
 export function KibitzDesktopMainGameScoreboard({
@@ -379,8 +373,14 @@ export function KibitzDesktopMainGameScoreboard({
                         (blackActive ? " is-active" : "")
                     }
                     role={blackActive ? "group" : undefined}
-                    aria-label={blackActive ? getActiveSideAriaLabel("black") : undefined}
+                    aria-label={getSideAriaLabel("black")}
                 >
+                    {blackActive ? (
+                        <span
+                            className="KibitzDesktopMainGameScoreboard-activeBackdrop"
+                            aria-hidden="true"
+                        />
+                    ) : null}
                     {renderClock(controller, state, "black")}
                     {renderCaptures(blackCaptures, "black")}
                     {renderPlayerLane(game.black, "black")}
@@ -399,8 +399,14 @@ export function KibitzDesktopMainGameScoreboard({
                         (whiteActive ? " is-active" : "")
                     }
                     role={whiteActive ? "group" : undefined}
-                    aria-label={whiteActive ? getActiveSideAriaLabel("white") : undefined}
+                    aria-label={getSideAriaLabel("white")}
                 >
+                    {whiteActive ? (
+                        <span
+                            className="KibitzDesktopMainGameScoreboard-activeBackdrop"
+                            aria-hidden="true"
+                        />
+                    ) : null}
                     {renderPlayerLane(game.white, "white")}
                     {renderCaptures(whiteCaptures, "white")}
                     {renderClock(controller, state, "white")}

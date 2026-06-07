@@ -6,6 +6,17 @@
     min-width: 0;
 }
 
+.KibitzScoreboardPlayerDisplay-link {
+    all: unset;
+    align-items: center;
+    color: inherit;
+    display: inline-flex;
+    gap: 0.42rem;
+    max-width: 100%;
+    min-width: 0;
+    cursor: pointer;
+}
+
 .KibitzScoreboardPlayerDisplay-avatar {
     flex: 0 0 auto;
 }

@@ -16,7 +16,9 @@
  */
 
 import * as React from "react";
-import { act, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import EventEmitter from "eventemitter3";
 import type { GobanController } from "@/lib/GobanController";
 import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
@@ -86,6 +88,20 @@ jest.mock("./KibitzUserAvatar", () => ({
 jest.mock("@/components/Flag/Flag", () => ({
     __esModule: true,
     Flag: ({ country }: { country: string }) => <span className="flag">{country}</span>,
+}));
+
+jest.mock("@/components/Player/PlayerDetails", () => ({
+    __esModule: true,
+    PlayerDetails: ({ playerId }: { playerId: number }) => (
+        <div data-testid="player-details">{playerId}</div>
+    ),
+}));
+
+const popoverSpy = jest.fn();
+
+jest.mock("@/lib/popover", () => ({
+    __esModule: true,
+    popover: (...args: unknown[]) => popoverSpy(...args),
 }));
 
 jest.mock("@/lib/translate", () => ({
@@ -193,6 +209,7 @@ function makeController(
 describe("KibitzDesktopMainGameScoreboard", () => {
     beforeEach(() => {
         clockSpy.mockClear();
+        popoverSpy.mockClear();
     });
 
     it("renders a single outer scoreboard container", () => {
@@ -306,6 +323,39 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         );
     });
 
+    it("labels the black and white lanes for screen readers without visible labels", () => {
+        const game = makeGame();
+        game.black.username = "logyf";
+        game.white.username = "illluck";
+
+        render(<KibitzDesktopMainGameScoreboard controller={null} game={game} />);
+
+        expect(screen.getByLabelText("Black player")).toHaveClass(
+            "KibitzDesktopMainGameScoreboard-side--black",
+        );
+        expect(screen.getByLabelText("White player")).toHaveClass(
+            "KibitzDesktopMainGameScoreboard-side--white",
+        );
+        expect(screen.queryByText("Black")).toBeNull();
+        expect(screen.queryByText("White")).toBeNull();
+    });
+
+    it("opens the player popover from each identity", () => {
+        render(<KibitzDesktopMainGameScoreboard controller={null} game={makeGame()} />);
+
+        fireEvent.click(screen.getByRole("button", { name: /Black/ }));
+        expect(popoverSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                below: expect.any(HTMLElement),
+                minWidth: 240,
+                minHeight: 250,
+            }),
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: /White/ }));
+        expect(popoverSpy).toHaveBeenCalledTimes(2);
+    });
+
     it("keeps player names in truncation-ready markup", () => {
         const game = makeGame();
         game.black.username = "AveryLongBlackPlayerNameThatShouldTruncate";
@@ -325,6 +375,42 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         render(<KibitzDesktopMainGameScoreboard controller={null} game={makeGame()} />);
 
         expect(document.querySelector(".KibitzMainGameStats-chip")).toBeNull();
-        expect(document.querySelectorAll("button")).toHaveLength(0);
+        expect(document.querySelectorAll("button")).toHaveLength(2);
+    });
+
+    it("uses theme-aware scoreboard colors and lane accents in the stylesheet", () => {
+        const css = readFileSync(
+            path.join(__dirname, "KibitzDesktopMainGameScoreboard.css"),
+            "utf8",
+        );
+
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard\s*{[^}]*--kibitz-scoreboard-text:\s*var\(--text-color\)[^}]*--kibitz-scoreboard-muted-text:\s*color-mix\(in srgb, var\(--text-color\) 70%, transparent\)[^}]*--kibitz-scoreboard-strong-text:\s*var\(--text-color\)/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-side--black::before\s*{[^}]*background:\s*linear-gradient\(180deg, rgba\(0, 0, 0, 0\.95\), rgba\(35, 35, 35, 0\.95\)\)[^}]*box-shadow:/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-side--white::after\s*{[^}]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.95\), rgba\(215, 215, 215, 0\.95\)\)[^}]*box-shadow:/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-activeWash\s*{[^}]*inset:\s*-1em;[^}]*background:\s*color-mix\(in srgb, var\(--text-color\) 5%, transparent\)/s,
+        );
+        expect(css).not.toContain(".KibitzDesktopMainGameScoreboard-side.is-active::after");
+        expect(css).toMatch(
+            /\[data-theme="light"] \.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*background:\s*linear-gradient\(/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-clock\s*{[^}]*color:\s*var\(--kibitz-scoreboard-strong-text\)/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-captures\s*{[^}]*color:\s*var\(--kibitz-scoreboard-muted-text\)/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-playerRank\s*{[^}]*color:\s*var\(--kibitz-scoreboard-muted-text\)/s,
+        );
+        expect(css).not.toContain("color: rgba(255, 255, 255, 0.92);");
+        expect(css).not.toContain("color: rgba(255, 255, 255, 0.7);");
+        expect(css).not.toContain("color: rgba(255, 255, 255, 0.75);");
     });
 });
