@@ -54,7 +54,7 @@ import { KibitzBoard, type KibitzBoardTransientDragController } from "./KibitzBo
 import { KibitzBoardControls } from "./KibitzBoardControls";
 import { KibitzDividerHandle } from "./KibitzDividerHandle";
 import { GobanAnalyzeButtonBar } from "@/components/GobanAnalyzeButtonBar/GobanAnalyzeButtonBar";
-import { KibitzMainGameStats } from "./KibitzMainGameStats";
+import { KibitzDesktopMainGameScoreboard } from "./KibitzDesktopMainGameScoreboard";
 import { KibitzVariationComposer } from "./KibitzVariationComposer";
 import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
 import { KibitzNodeText } from "./KibitzNodeText";
@@ -6065,10 +6065,9 @@ export function KibitzRoomStage({
                             {room.title}
                         </div>
                     </div>
-                    <KibitzMainGameStats
+                    <KibitzDesktopMainGameScoreboard
                         controller={mainBoardController}
                         game={mainGame}
-                        variant="desktop"
                     />
                     <div className="board-subtitle">
                         {mainGame ? (

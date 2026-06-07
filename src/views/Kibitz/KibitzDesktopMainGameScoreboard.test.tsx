@@ -1,0 +1,330 @@
+/*
+ * Copyright (C)  Online-Go.com
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+import * as React from "react";
+import { act, render, screen } from "@testing-library/react";
+import EventEmitter from "eventemitter3";
+import type { GobanController } from "@/lib/GobanController";
+import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
+import { KibitzDesktopMainGameScoreboard } from "./KibitzDesktopMainGameScoreboard";
+
+const clockSpy = jest.fn(({ color, goban }: { color: "black" | "white"; goban: unknown }) => (
+    <span data-testid={`clock-${color}`}>{goban ? color : "missing"}</span>
+));
+
+jest.mock("@/components/Clock/Clock", () => ({
+    __esModule: true,
+    Clock: (props: { color: "black" | "white"; goban: unknown }) => clockSpy(props),
+}));
+
+jest.mock("@/components/GobanView/hooks", () => {
+    return {
+        __esModule: true,
+        generateGobanHook:
+            <
+                T,
+                G extends {
+                    on?: (event: string, cb: () => void) => void;
+                    off?: (event: string, cb: () => void) => void;
+                },
+            >(
+                deriveProp: (goban: G) => T,
+                events: Array<string> = [],
+            ) =>
+            (goban: G) => {
+                const [prop, setProp] = React.useState(() => deriveProp(goban));
+
+                React.useEffect(() => {
+                    const syncProp = () => {
+                        setProp(deriveProp(goban));
+                    };
+
+                    syncProp();
+
+                    if (!goban) {
+                        return undefined;
+                    }
+
+                    const eventNames = ["load", ...events];
+                    for (const eventName of eventNames) {
+                        goban.on?.(eventName, syncProp);
+                    }
+
+                    return () => {
+                        for (const eventName of eventNames) {
+                            goban.off?.(eventName, syncProp);
+                        }
+                    };
+                }, [goban]);
+
+                return prop;
+            },
+    };
+});
+
+jest.mock("./KibitzUserAvatar", () => ({
+    __esModule: true,
+    KibitzUserAvatar: ({ user }: { user: KibitzRoomUser }) => (
+        <span className="KibitzUserAvatar">{user.username}</span>
+    ),
+}));
+
+jest.mock("@/components/Flag/Flag", () => ({
+    __esModule: true,
+    Flag: ({ country }: { country: string }) => <span className="flag">{country}</span>,
+}));
+
+jest.mock("@/lib/translate", () => ({
+    __esModule: true,
+    pgettext: (_context: string, text: string) => text,
+    interpolate: (template: string, values: Record<string, string | number>) =>
+        template.replace(/{{(\w+)}}/g, (_match, key) => String(values[key] ?? "")),
+    ngettext: (singular: string, plural: string, count: number) =>
+        count === 1 ? singular : plural,
+}));
+
+type MockClock = {
+    current_player: "black" | "white";
+    current_player_id: string;
+    time_of_last_move: number;
+    black_clock: { main_time: number };
+    white_clock: { main_time: number };
+    black_move_transmitting: number;
+    white_move_transmitting: number;
+};
+
+type MockEngine = {
+    phase: string;
+    mode: string;
+    outcome: string;
+    time_control: object | null;
+    winner?: number | "black" | "white";
+    playerToMove: () => number;
+    computeScore: (only_prisoners?: boolean) => {
+        black: { prisoners: number };
+        white: { prisoners: number };
+    };
+};
+
+type MockControllerBundle = {
+    controller: GobanController;
+    emitter: EventEmitter;
+    goban: {
+        engine: MockEngine;
+        mode: string;
+        paused_since?: number;
+        last_emitted_clock?: MockClock | null;
+        on: (event: string, cb: () => void) => void;
+        off: (event: string, cb: () => void) => void;
+        emit: (event: string) => void;
+    };
+};
+
+function makeGame(): KibitzWatchedGame {
+    const player = (id: number, username: string, country = "us"): KibitzRoomUser => ({
+        id,
+        username,
+        ranking: 1,
+        professional: false,
+        ui_class: "",
+        country,
+    });
+
+    return {
+        game_id: 42,
+        board_size: "19x19",
+        title: "Test game",
+        black: player(1, "Black"),
+        white: player(2, "White"),
+        live: true,
+        move_number: 12,
+    };
+}
+
+function makeClock(): MockClock {
+    return {
+        current_player: "black",
+        current_player_id: "1",
+        time_of_last_move: Date.now(),
+        black_clock: { main_time: 44000 },
+        white_clock: { main_time: 159000 },
+        black_move_transmitting: 0,
+        white_move_transmitting: 0,
+    };
+}
+
+function makeController(
+    engine: MockEngine,
+    clock: MockClock | null = makeClock(),
+): MockControllerBundle {
+    const emitter = new EventEmitter();
+    const goban = {
+        engine,
+        mode: "play",
+        last_emitted_clock: clock,
+        on: emitter.on.bind(emitter),
+        off: emitter.off.bind(emitter),
+        emit: emitter.emit.bind(emitter),
+    };
+
+    return {
+        controller: {
+            goban,
+        } as unknown as GobanController,
+        emitter,
+        goban,
+    };
+}
+
+describe("KibitzDesktopMainGameScoreboard", () => {
+    beforeEach(() => {
+        clockSpy.mockClear();
+    });
+
+    it("renders a single outer scoreboard container", () => {
+        render(<KibitzDesktopMainGameScoreboard controller={null} game={makeGame()} />);
+
+        expect(document.querySelectorAll(".KibitzDesktopMainGameScoreboard")).toHaveLength(1);
+        expect(document.querySelectorAll(".KibitzDesktopMainGameScoreboard-inner")).toHaveLength(1);
+    });
+
+    it("shows VS for a normal game", () => {
+        render(<KibitzDesktopMainGameScoreboard controller={null} game={makeGame()} />);
+
+        expect(screen.getByText("VS")).toBeInTheDocument();
+    });
+
+    it("shows Score during stone removal", () => {
+        const { controller } = makeController({
+            phase: "stone removal",
+            mode: "play",
+            outcome: "",
+            time_control: {},
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 1 },
+                white: { prisoners: 2 },
+            }),
+        });
+
+        render(<KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />);
+
+        expect(screen.getByText("Score")).toBeInTheDocument();
+    });
+
+    it("shows a compact result token when the game is finished", () => {
+        const { controller } = makeController({
+            phase: "finished",
+            mode: "play",
+            outcome: "2.5",
+            time_control: {},
+            winner: "white",
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 1 },
+                white: { prisoners: 2 },
+            }),
+        });
+
+        render(<KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />);
+
+        expect(screen.getByText("W+2.5")).toBeInTheDocument();
+    });
+
+    it("renders both clocks and both capture values when the controller is present", () => {
+        const { controller } = makeController({
+            phase: "play",
+            mode: "play",
+            outcome: "",
+            time_control: {},
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 24 },
+                white: { prisoners: 26 },
+            }),
+        });
+
+        render(<KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />);
+
+        expect(screen.getByTestId("clock-black")).toHaveTextContent("black");
+        expect(screen.getByTestId("clock-white")).toHaveTextContent("white");
+        expect(screen.getByText("24")).toBeInTheDocument();
+        expect(screen.getByText("26")).toBeInTheDocument();
+    });
+
+    it("omits clocks and captures when the controller is null", () => {
+        render(<KibitzDesktopMainGameScoreboard controller={null} game={makeGame()} />);
+
+        expect(screen.queryByTestId("clock-black")).toBeNull();
+        expect(screen.queryByTestId("clock-white")).toBeNull();
+        expect(screen.queryByText("24")).toBeNull();
+        expect(screen.queryByText("26")).toBeNull();
+    });
+
+    it("applies active side class to the player to move", () => {
+        const { controller, emitter, goban } = makeController({
+            phase: "play",
+            mode: "play",
+            outcome: "",
+            time_control: {},
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 1 },
+                white: { prisoners: 2 },
+            }),
+        });
+
+        const { container } = render(
+            <KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />,
+        );
+
+        expect(container.querySelector(".KibitzDesktopMainGameScoreboard-side--black")).toHaveClass(
+            "is-active",
+        );
+
+        act(() => {
+            goban.engine.playerToMove = () => 2;
+            emitter.emit("cur_move");
+        });
+
+        expect(container.querySelector(".KibitzDesktopMainGameScoreboard-side--white")).toHaveClass(
+            "is-active",
+        );
+    });
+
+    it("keeps player names in truncation-ready markup", () => {
+        const game = makeGame();
+        game.black.username = "AveryLongBlackPlayerNameThatShouldTruncate";
+        game.white.username = "AveryLongWhitePlayerNameThatShouldTruncate";
+
+        render(<KibitzDesktopMainGameScoreboard controller={null} game={game} />);
+
+        expect(screen.getAllByText(game.black.username)[1]).toHaveClass(
+            "KibitzDesktopMainGameScoreboard-playerName",
+        );
+        expect(screen.getAllByText(game.white.username)[1]).toHaveClass(
+            "KibitzDesktopMainGameScoreboard-playerName",
+        );
+    });
+
+    it("does not render chip or button-like stat structures", () => {
+        render(<KibitzDesktopMainGameScoreboard controller={null} game={makeGame()} />);
+
+        expect(document.querySelector(".KibitzMainGameStats-chip")).toBeNull();
+        expect(document.querySelectorAll("button")).toHaveLength(0);
+    });
+});
