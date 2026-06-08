@@ -19,8 +19,8 @@
     gap: 1.1rem;
 
     min-width: 0;
-    max-width: min(920px, 100%);
-    width: fit-content;
+    max-width: min(1280px, 100%);
+    width: 100%;
 
     padding: 0.65rem 1.3rem;
     border-radius: 10px;
