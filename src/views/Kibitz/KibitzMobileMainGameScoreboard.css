@@ -139,22 +139,18 @@
 }
 
 .KibitzMobileMainGameScoreboard-flag {
-    width: 0.74rem;
-    height: 0.5rem;
-    border-radius: 2px;
-    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
     flex: 0 0 auto;
+    line-height: 0;
 }
 
 .KibitzMobileMainGameScoreboard-flag .f32 {
     display: inline-flex;
-    width: 100%;
-    height: 100%;
 }
 
 .KibitzMobileMainGameScoreboard-flag .flag {
-    width: 100%;
-    height: 100%;
+    display: block;
 }
 
 .KibitzMobileMainGameScoreboard-player {
@@ -255,10 +251,4 @@ body.light .KibitzMobileMainGameScoreboard-row--white::before,
     box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.24),
         0 0 5px rgba(0, 0, 0, 0.08);
-}
-
-@media (max-width: 360px) {
-    .KibitzMobileMainGameScoreboard-flag {
-        display: none;
-    }
 }
