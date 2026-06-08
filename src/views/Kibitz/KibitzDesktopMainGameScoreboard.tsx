@@ -17,11 +17,12 @@
 
 import * as React from "react";
 import { Clock } from "@/components/Clock/Clock";
+import { shortShortTimeControl } from "@/components/TimeControl/util";
 import { generateGobanHook } from "@/components/GobanView/hooks";
 import { GobanController } from "@/lib/GobanController";
 import { interpolate, ngettext, pgettext } from "@/lib/translate";
 import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
-import type { Goban, JGOFClockWithTransmitting, JGOFPlayerClock } from "goban";
+import type { Goban, JGOFClockWithTransmitting, JGOFPlayerClock, JGOFTimeControl } from "goban";
 import { KibitzScoreboardPlayerDisplay } from "./kibitzScoreboardPlayerDisplay";
 import "./KibitzDesktopMainGameScoreboard.css";
 
@@ -47,6 +48,10 @@ type KibitzGoban = Goban & {
     paused_since?: number;
     last_emitted_clock?: JGOFClockWithTransmitting | null;
 };
+
+interface KibitzEngineMetadata {
+    handicap?: number | null;
+}
 
 const useGameScore = generateGobanHook<GameScore | null, KibitzGoban | null>(
     (goban) => {
@@ -199,6 +204,31 @@ function getStateToken(
         className: "",
         ariaLabel: pgettext("Kibitz desktop scoreboard center token", "Versus"),
     };
+}
+
+function formatHandicap(handicap: number | null | undefined): string {
+    if (handicap == null || !Number.isFinite(handicap) || handicap < 0) {
+        return "?";
+    }
+
+    return `H${Math.round(handicap)}`;
+}
+
+function getMetadataRowText(
+    timeControl: JGOFTimeControl | null | undefined,
+    config: KibitzEngineMetadata | null | undefined,
+): string {
+    const timeText =
+        shortShortTimeControl(timeControl) ||
+        pgettext("Kibitz desktop scoreboard metadata row value", "None");
+
+    return interpolate(
+        pgettext("Kibitz desktop scoreboard metadata row", "Time {{time}} · Handicap {{handicap}}"),
+        {
+            time: timeText,
+            handicap: formatHandicap(config?.handicap),
+        },
+    );
 }
 
 function renderClockLabel(
@@ -363,6 +393,8 @@ export function KibitzDesktopMainGameScoreboard({
     const blackActive = state.phase !== "finished" && playerToMove === game.black.id;
     const whiteActive = state.phase !== "finished" && playerToMove === game.white.id;
     const centerToken = getStateToken(game, state);
+    const timeControl = goban?.engine?.time_control ?? null;
+    const metadataConfig = goban?.engine?.config as KibitzEngineMetadata | undefined;
 
     return (
         <div className="KibitzDesktopMainGameScoreboard">
@@ -412,6 +444,19 @@ export function KibitzDesktopMainGameScoreboard({
                     {renderClock(controller, state, "white")}
                 </div>
             </div>
+            {controller ? (
+                <div
+                    className="KibitzDesktopMainGameScoreboard-metadataRow"
+                    aria-label={pgettext(
+                        "Kibitz desktop scoreboard metadata row aria label",
+                        "Game metadata",
+                    )}
+                >
+                    <span className="KibitzDesktopMainGameScoreboard-metadataText">
+                        {getMetadataRowText(timeControl, metadataConfig)}
+                    </span>
+                </div>
+            ) : null}
         </div>
     );
 }

@@ -4,8 +4,10 @@
     --kibitz-scoreboard-strong-text: var(--text-color);
 
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    gap: 0.24rem;
     min-width: 0;
     width: 100%;
 }
@@ -20,8 +22,8 @@
     max-width: min(920px, 100%);
     width: fit-content;
 
-    padding: 0.82rem 1.45rem;
-    border-radius: 14px;
+    padding: 0.65rem 1.3rem;
+    border-radius: 10px;
 
     background: linear-gradient(
         180deg,
@@ -40,7 +42,7 @@
 .KibitzDesktopMainGameScoreboard-side {
     display: flex;
     align-items: center;
-    gap: 0.78rem;
+    gap: 0.68rem;
     min-width: 0;
     flex: 1 1 0;
     position: relative;
@@ -49,13 +51,13 @@
 .KibitzDesktopMainGameScoreboard-side--black {
     justify-content: flex-end;
     text-align: right;
-    padding-left: 0.7rem;
+    padding-left: 0.55rem;
 }
 
 .KibitzDesktopMainGameScoreboard-side--white {
     justify-content: flex-start;
     text-align: left;
-    padding-right: 0.7rem;
+    padding-right: 0.55rem;
 }
 
 .KibitzDesktopMainGameScoreboard-side--black::before,
@@ -93,21 +95,21 @@
 
 .KibitzDesktopMainGameScoreboard-activeBackdrop {
     position: absolute;
-    inset: -0.5rem -1em;
-    border-radius: 12px;
+    inset: -0.35rem -0.8em;
+    border-radius: 8px;
     background: color-mix(in srgb, var(--text-color) 5%, transparent);
     pointer-events: none;
     z-index: 0;
 }
 
 .KibitzDesktopMainGameScoreboard-side.is-active {
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 .KibitzDesktopMainGameScoreboard-activeWash {
     position: absolute;
-    inset: -1em;
-    border-radius: 10px;
+    inset: -0.75em;
+    border-radius: 6px;
     background: color-mix(in srgb, var(--text-color) 5%, transparent);
     pointer-events: none;
     z-index: 0;
@@ -120,7 +122,7 @@
 .KibitzDesktopMainGameScoreboard-clock {
     flex: 0 0 auto;
     color: var(--kibitz-scoreboard-strong-text);
-    font-size: 1rem;
+    font-size: 0.96rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -143,10 +145,10 @@
 .KibitzDesktopMainGameScoreboard-captures {
     display: inline-flex;
     align-items: center;
-    gap: 0.24rem;
+    gap: 0.18rem;
     flex: 0 0 auto;
     color: var(--kibitz-scoreboard-muted-text);
-    font-size: 0.96rem;
+    font-size: 0.92rem;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
@@ -165,7 +167,7 @@
 .KibitzDesktopMainGameScoreboard-player {
     display: inline-flex;
     align-items: center;
-    gap: 0.42rem;
+    gap: 0.32rem;
     min-width: 0;
     max-width: 100%;
     overflow: hidden;
@@ -176,7 +178,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 1.02rem;
+    font-size: 0.97rem;
     font-weight: 700;
     line-height: 1.1;
 }
@@ -184,16 +186,16 @@
 .KibitzDesktopMainGameScoreboard-playerRank {
     flex: 0 0 auto;
     color: var(--kibitz-scoreboard-muted-text);
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     font-weight: 600;
     line-height: 1;
 }
 
 .KibitzDesktopMainGameScoreboard-center {
     flex: 0 0 auto;
-    padding: 0 0.35rem;
+    padding: 0 0.28rem;
     color: var(--kibitz-scoreboard-text);
-    font-size: 1.02rem;
+    font-size: 0.97rem;
     font-weight: 600;
     letter-spacing: 0.02em;
     line-height: 1;
@@ -244,6 +246,28 @@
 .KibitzDesktopMainGameScoreboard-flag .flag {
     height: 100%;
     width: 100%;
+}
+
+.KibitzDesktopMainGameScoreboard-metadataRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    max-width: min(920px, 100%);
+    width: fit-content;
+    padding: 0 0.2rem;
+    color: var(--kibitz-scoreboard-muted-text);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.KibitzDesktopMainGameScoreboard-metadataText {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 [data-theme="light"] .KibitzDesktopMainGameScoreboard-inner {

@@ -22,6 +22,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import EventEmitter from "eventemitter3";
 import type { GobanController } from "@/lib/GobanController";
 import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
+import type { JGOFTimeControl } from "goban";
 import { KibitzDesktopMainGameScoreboard } from "./KibitzDesktopMainGameScoreboard";
 
 const clockSpy = jest.fn(({ color, goban }: { color: "black" | "white"; goban: unknown }) => (
@@ -106,6 +107,7 @@ jest.mock("@/lib/popover", () => ({
 
 jest.mock("@/lib/translate", () => ({
     __esModule: true,
+    _: (text: string) => text,
     pgettext: (_context: string, text: string) => text,
     interpolate: (template: string, values: Record<string, string | number>) =>
         template.replace(/{{(\w+)}}/g, (_match, key) => String(values[key] ?? "")),
@@ -127,7 +129,10 @@ type MockEngine = {
     phase: string;
     mode: string;
     outcome: string;
-    time_control: object | null;
+    time_control: JGOFTimeControl | null;
+    config?: {
+        handicap?: number | null;
+    };
     winner?: number | "black" | "white";
     playerToMove: () => number;
     computeScore: (only_prisoners?: boolean) => {
@@ -183,6 +188,47 @@ function makeClock(): MockClock {
     };
 }
 
+function makeTimeControl(system: JGOFTimeControl["system"] = "fischer"): JGOFTimeControl {
+    switch (system) {
+        case "simple":
+            return {
+                system,
+                per_move: 30000,
+            } as JGOFTimeControl;
+        case "byoyomi":
+            return {
+                system,
+                main_time: 30000,
+                periods: 3,
+                period_time: 10000,
+            } as JGOFTimeControl;
+        case "canadian":
+            return {
+                system,
+                main_time: 30000,
+                period_time: 60000,
+                stones_per_period: 25,
+            } as JGOFTimeControl;
+        case "absolute":
+            return {
+                system,
+                total_time: 30000,
+            } as JGOFTimeControl;
+        case "none":
+            return {
+                system,
+            } as JGOFTimeControl;
+        case "fischer":
+        default:
+            return {
+                system: "fischer",
+                initial_time: 30000,
+                time_increment: 5000,
+                max_time: 90000,
+            } as JGOFTimeControl;
+    }
+}
+
 function makeController(
     engine: MockEngine,
     clock: MockClock | null = makeClock(),
@@ -230,7 +276,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             phase: "stone removal",
             mode: "play",
             outcome: "",
-            time_control: {},
+            time_control: makeTimeControl(),
             playerToMove: () => 1,
             computeScore: () => ({
                 black: { prisoners: 1 },
@@ -248,7 +294,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             phase: "finished",
             mode: "play",
             outcome: "2.5",
-            time_control: {},
+            time_control: makeTimeControl(),
             winner: "white",
             playerToMove: () => 1,
             computeScore: () => ({
@@ -267,7 +313,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             phase: "play",
             mode: "play",
             outcome: "",
-            time_control: {},
+            time_control: makeTimeControl(),
             playerToMove: () => 1,
             computeScore: () => ({
                 black: { prisoners: 24 },
@@ -281,6 +327,26 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         expect(screen.getByTestId("clock-white")).toHaveTextContent("white");
         expect(screen.getByText("24")).toBeInTheDocument();
         expect(screen.getByText("26")).toBeInTheDocument();
+    });
+
+    it("renders a compact metadata row below the scoreboard", () => {
+        const { controller } = makeController({
+            phase: "play",
+            mode: "play",
+            outcome: "",
+            time_control: makeTimeControl("fischer"),
+            config: { handicap: 6 },
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 24 },
+                white: { prisoners: 26 },
+            }),
+        });
+
+        render(<KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />);
+
+        expect(screen.getByLabelText("Game metadata")).toHaveTextContent("Handicap H6");
+        expect(screen.getByLabelText("Game metadata")).toHaveTextContent("Time");
     });
 
     it("omits clocks and captures when the controller is null", () => {
@@ -297,7 +363,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             phase: "play",
             mode: "play",
             outcome: "",
-            time_control: {},
+            time_control: makeTimeControl(),
             playerToMove: () => 1,
             computeScore: () => ({
                 black: { prisoners: 1 },
@@ -394,11 +460,14 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             /\.KibitzDesktopMainGameScoreboard-side--white::after\s*{[^}]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.95\), rgba\(215, 215, 215, 0\.95\)\)[^}]*box-shadow:/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-activeWash\s*{[^}]*inset:\s*-1em;[^}]*background:\s*color-mix\(in srgb, var\(--text-color\) 5%, transparent\)/s,
+            /\.KibitzDesktopMainGameScoreboard-activeWash\s*{[^}]*inset:\s*-0\.75em;[^}]*background:\s*color-mix\(in srgb, var\(--text-color\) 5%, transparent\)/s,
         );
         expect(css).not.toContain(".KibitzDesktopMainGameScoreboard-side.is-active::after");
         expect(css).toMatch(
             /\[data-theme="light"] \.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*background:\s*linear-gradient\(/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-metadataRow\s*{[^}]*display:\s*flex/s,
         );
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-clock\s*{[^}]*color:\s*var\(--kibitz-scoreboard-strong-text\)/s,
