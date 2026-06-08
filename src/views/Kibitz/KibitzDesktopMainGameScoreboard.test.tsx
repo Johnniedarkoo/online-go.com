@@ -23,7 +23,10 @@ import EventEmitter from "eventemitter3";
 import type { GobanController } from "@/lib/GobanController";
 import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
 import type { JGOFTimeControl } from "goban";
-import { KibitzDesktopMainGameScoreboard } from "./KibitzDesktopMainGameScoreboard";
+import {
+    getDesktopMainGameMetadataRowText,
+    KibitzDesktopMainGameScoreboard,
+} from "./KibitzDesktopMainGameScoreboard";
 
 const clockSpy = jest.fn(({ color, goban }: { color: "black" | "white"; goban: unknown }) => (
     <span data-testid={`clock-${color}`}>{goban ? color : "missing"}</span>
@@ -329,24 +332,13 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         expect(screen.getByText("26")).toBeInTheDocument();
     });
 
-    it("renders a compact metadata row below the scoreboard", () => {
-        const { controller } = makeController({
-            phase: "play",
-            mode: "play",
-            outcome: "",
-            time_control: makeTimeControl("fischer"),
-            config: { handicap: 6 },
-            playerToMove: () => 1,
-            computeScore: () => ({
-                black: { prisoners: 24 },
-                white: { prisoners: 26 },
-            }),
+    it("formats the metadata lines for reuse under the board subtitle", () => {
+        const metadata = getDesktopMainGameMetadataRowText(makeTimeControl("fischer"), {
+            handicap: 6,
         });
 
-        render(<KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />);
-
-        expect(screen.getByLabelText("Game metadata")).toHaveTextContent("Handicap H6");
-        expect(screen.getByLabelText("Game metadata")).toHaveTextContent("Time");
+        expect(metadata.timeText).toContain("Time");
+        expect(metadata.handicapText).toContain("Handicap H6");
     });
 
     it("omits clocks and captures when the controller is null", () => {
@@ -465,9 +457,6 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         expect(css).not.toContain(".KibitzDesktopMainGameScoreboard-side.is-active::after");
         expect(css).toMatch(
             /\[data-theme="light"] \.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*background:\s*linear-gradient\(/s,
-        );
-        expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-metadataRow\s*{[^}]*display:\s*flex/s,
         );
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-clock\s*{[^}]*color:\s*var\(--kibitz-scoreboard-strong-text\)/s,

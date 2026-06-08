@@ -54,7 +54,10 @@ import { KibitzBoard, type KibitzBoardTransientDragController } from "./KibitzBo
 import { KibitzBoardControls } from "./KibitzBoardControls";
 import { KibitzDividerHandle } from "./KibitzDividerHandle";
 import { GobanAnalyzeButtonBar } from "@/components/GobanAnalyzeButtonBar/GobanAnalyzeButtonBar";
-import { KibitzDesktopMainGameScoreboard } from "./KibitzDesktopMainGameScoreboard";
+import {
+    getDesktopMainGameMetadataRowText,
+    KibitzDesktopMainGameScoreboard,
+} from "./KibitzDesktopMainGameScoreboard";
 import { KibitzVariationComposer } from "./KibitzVariationComposer";
 import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
 import { KibitzNodeText } from "./KibitzNodeText";
@@ -5565,6 +5568,12 @@ export function KibitzRoomStage({
     ]);
 
     const displayedTitle = mainGame?.title;
+    const mainGameMetadata = mainBoardController
+        ? getDesktopMainGameMetadataRowText(
+              mainBoardController.goban?.engine?.time_control ?? null,
+              mainBoardController.goban?.engine?.config as { handicap?: number | null } | undefined,
+          )
+        : null;
     const displayedMoveNumber = mainGame?.move_number;
     const mobileBoardTotalMoves = mobileCompareTargetActive
         ? mobileSecondaryOwner === "variation"
@@ -6071,18 +6080,30 @@ export function KibitzRoomStage({
                     />
                     <div className="board-subtitle">
                         {mainGame ? (
-                            <a
-                                className="board-subtitle-link"
-                                href={`/game/${mainGame.game_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={pgettext(
-                                    "Aria label for opening the original game from Kibitz",
-                                    "Open original game",
-                                )}
-                            >
-                                {displayedTitle}
-                            </a>
+                            <>
+                                <a
+                                    className="board-subtitle-link"
+                                    href={`/game/${mainGame.game_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label={pgettext(
+                                        "Aria label for opening the original game from Kibitz",
+                                        "Open original game",
+                                    )}
+                                >
+                                    {displayedTitle}
+                                </a>
+                                {mainGameMetadata ? (
+                                    <span className="board-subtitle-meta">
+                                        <span className="board-subtitle-meta-line">
+                                            {mainGameMetadata.timeText}
+                                        </span>
+                                        <span className="board-subtitle-meta-line">
+                                            {mainGameMetadata.handicapText}
+                                        </span>
+                                    </span>
+                                ) : null}
+                            </>
                         ) : (
                             pgettext(
                                 "Placeholder when no main game is loaded in a kibitz room",

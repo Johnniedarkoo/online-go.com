@@ -93,13 +93,15 @@
     }
 
     .room-stage-header .board-subtitle {
+        align-items: flex-end;
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
         justify-self: end;
         max-width: min(100%, 18rem);
         min-width: 0;
         overflow: hidden;
         text-align: right;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
 
     .room-stage-header .board-subtitle-link {
@@ -109,6 +111,25 @@
         overflow: hidden;
         text-overflow: ellipsis;
         vertical-align: bottom;
+        white-space: nowrap;
+    }
+
+    .room-stage-header .board-subtitle-meta {
+        align-items: flex-end;
+        color: var(--text-color-faded);
+        display: flex;
+        flex-direction: column;
+        font-size: 0.8rem;
+        font-weight: 600;
+        line-height: 1.1;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .room-stage-header .board-subtitle-meta-line {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
     }
 

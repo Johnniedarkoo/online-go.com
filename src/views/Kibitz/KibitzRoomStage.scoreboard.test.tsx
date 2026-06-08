@@ -23,6 +23,10 @@ import { KibitzRoomStage } from "./KibitzRoomStage";
 jest.mock("./KibitzDesktopMainGameScoreboard", () => ({
     __esModule: true,
     KibitzDesktopMainGameScoreboard: () => <div data-testid="desktop-scoreboard" />,
+    getDesktopMainGameMetadataRowText: () => ({
+        timeText: "Time 5m",
+        handicapText: "Handicap H6",
+    }),
 }));
 
 jest.mock("@/lib/GobanController", () => ({

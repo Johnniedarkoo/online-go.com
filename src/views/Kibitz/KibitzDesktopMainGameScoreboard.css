@@ -248,28 +248,6 @@
     width: 100%;
 }
 
-.KibitzDesktopMainGameScoreboard-metadataRow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 0;
-    max-width: min(920px, 100%);
-    width: fit-content;
-    padding: 0 0.2rem;
-    color: var(--kibitz-scoreboard-muted-text);
-    font-size: 0.8rem;
-    font-weight: 600;
-    line-height: 1;
-    white-space: nowrap;
-}
-
-.KibitzDesktopMainGameScoreboard-metadataText {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 [data-theme="light"] .KibitzDesktopMainGameScoreboard-inner {
     background: linear-gradient(180deg, rgba(0, 0, 0, 0.045) 0%, rgba(0, 0, 0, 0.025) 100%);
     box-shadow:

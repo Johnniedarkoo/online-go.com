@@ -214,21 +214,25 @@ function formatHandicap(handicap: number | null | undefined): string {
     return `H${Math.round(handicap)}`;
 }
 
-function getMetadataRowText(
+export function getDesktopMainGameMetadataRowText(
     timeControl: JGOFTimeControl | null | undefined,
     config: KibitzEngineMetadata | null | undefined,
-): string {
+): { handicapText: string; timeText: string } {
     const timeText =
         shortShortTimeControl(timeControl) ||
         pgettext("Kibitz desktop scoreboard metadata row value", "None");
 
-    return interpolate(
-        pgettext("Kibitz desktop scoreboard metadata row", "Time {{time}} · Handicap {{handicap}}"),
-        {
+    return {
+        timeText: interpolate(pgettext("Kibitz desktop scoreboard metadata row", "Time {{time}}"), {
             time: timeText,
-            handicap: formatHandicap(config?.handicap),
-        },
-    );
+        }),
+        handicapText: interpolate(
+            pgettext("Kibitz desktop scoreboard metadata row", "Handicap {{handicap}}"),
+            {
+                handicap: formatHandicap(config?.handicap),
+            },
+        ),
+    };
 }
 
 function renderClockLabel(
@@ -393,8 +397,6 @@ export function KibitzDesktopMainGameScoreboard({
     const blackActive = state.phase !== "finished" && playerToMove === game.black.id;
     const whiteActive = state.phase !== "finished" && playerToMove === game.white.id;
     const centerToken = getStateToken(game, state);
-    const timeControl = goban?.engine?.time_control ?? null;
-    const metadataConfig = goban?.engine?.config as KibitzEngineMetadata | undefined;
 
     return (
         <div className="KibitzDesktopMainGameScoreboard">
@@ -444,19 +446,6 @@ export function KibitzDesktopMainGameScoreboard({
                     {renderClock(controller, state, "white")}
                 </div>
             </div>
-            {controller ? (
-                <div
-                    className="KibitzDesktopMainGameScoreboard-metadataRow"
-                    aria-label={pgettext(
-                        "Kibitz desktop scoreboard metadata row aria label",
-                        "Game metadata",
-                    )}
-                >
-                    <span className="KibitzDesktopMainGameScoreboard-metadataText">
-                        {getMetadataRowText(timeControl, metadataConfig)}
-                    </span>
-                </div>
-            ) : null}
         </div>
     );
 }
