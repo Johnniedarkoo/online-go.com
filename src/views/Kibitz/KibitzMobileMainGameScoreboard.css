@@ -29,7 +29,7 @@
 .KibitzMobileMainGameScoreboard-row {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 0.34rem;
 
