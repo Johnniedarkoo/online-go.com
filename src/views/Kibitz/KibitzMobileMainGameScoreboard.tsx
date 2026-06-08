@@ -674,7 +674,7 @@ export function KibitzMobileMainGameScoreboard({
                 setCycleFace(nextFace);
                 schedule(
                     nextFace === "player" ? "metadata" : "player",
-                    nextFace === "player" ? 8000 : 2000,
+                    nextFace === "player" ? 10000 : 3000,
                 );
             }, delayMs);
         };
