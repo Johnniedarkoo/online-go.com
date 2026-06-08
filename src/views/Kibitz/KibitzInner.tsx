@@ -3807,6 +3807,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                         controller={mainBoardController}
                                         game={mobileMatchup}
                                         isMainBoardVisible={!mobileCompareActive}
+                                        isInteractionPaused={mobileDividerDragging}
                                     />
                                 ) : null}
                                 <button

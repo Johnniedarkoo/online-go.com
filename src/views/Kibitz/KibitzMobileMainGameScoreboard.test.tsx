@@ -20,6 +20,7 @@ import { act, render, screen } from "@testing-library/react";
 import EventEmitter from "eventemitter3";
 import type { GobanController } from "@/lib/GobanController";
 import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
+import type { JGOFTimeControl } from "goban";
 import { KibitzMobileMainGameScoreboard } from "./KibitzMobileMainGameScoreboard";
 
 const clockSpy = jest.fn(({ color, goban }: { color: "black" | "white"; goban: unknown }) => (
@@ -100,8 +101,18 @@ jest.mock("@/lib/popover", () => ({
 
 jest.mock("@/lib/translate", () => ({
     __esModule: true,
-    interpolate: (template: string, values: Record<string, string | number>) =>
-        template.replace(/{{(\w+)}}/g, (_match, key) => String(values[key] ?? "")),
+    _: (text: string) => text,
+    interpolate: (
+        template: string,
+        values: Record<string, string | number> | Array<string | number>,
+    ) => {
+        if (Array.isArray(values)) {
+            let index = 0;
+            return template.replace(/%s/g, () => String(values[index++] ?? ""));
+        }
+
+        return template.replace(/{{(\w+)}}/g, (_match, key) => String(values[key] ?? ""));
+    },
     ngettext: (singular: string, plural: string, count: number) =>
         count === 1 ? singular : plural,
     pgettext: (_context: string, text: string) => text,
@@ -121,7 +132,11 @@ type MockEngine = {
     phase: string;
     mode: string;
     outcome: string;
-    time_control: object | null;
+    time_control: JGOFTimeControl | null;
+    config?: {
+        handicap?: number | null;
+        komi?: number | null;
+    };
     paused_since?: number | null;
     winner?: number | "black" | "white";
     playerToMove: () => number;
@@ -177,6 +192,62 @@ function makeClock(): MockClock {
     };
 }
 
+function makeTimeControl(system: JGOFTimeControl["system"] = "fischer"): JGOFTimeControl {
+    switch (system) {
+        case "simple":
+            return {
+                system,
+                per_move: 30000,
+            } as JGOFTimeControl;
+        case "byoyomi":
+            return {
+                system,
+                main_time: 30000,
+                periods: 3,
+                period_time: 10000,
+            } as JGOFTimeControl;
+        case "canadian":
+            return {
+                system,
+                main_time: 30000,
+                period_time: 60000,
+                stones_per_period: 25,
+            } as JGOFTimeControl;
+        case "absolute":
+            return {
+                system,
+                total_time: 30000,
+            } as JGOFTimeControl;
+        case "none":
+            return {
+                system,
+            } as JGOFTimeControl;
+        case "fischer":
+        default:
+            return {
+                system: "fischer",
+                initial_time: 30000,
+                time_increment: 5000,
+                max_time: 90000,
+            } as JGOFTimeControl;
+    }
+}
+
+function setMatchMedia(matches: boolean): void {
+    Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        writable: true,
+        value: jest.fn().mockImplementation((query: string) => ({
+            matches,
+            media: query,
+            onchange: null,
+            addEventListener: jest.fn(),
+            removeEventListener: jest.fn(),
+            dispatchEvent: jest.fn(),
+        })),
+    });
+}
+
 function makeController(
     engine: MockEngine,
     clock: MockClock | null = makeClock(),
@@ -204,6 +275,13 @@ function makeController(
 describe("KibitzMobileMainGameScoreboard", () => {
     beforeEach(() => {
         clockSpy.mockClear();
+        jest.useFakeTimers();
+        setMatchMedia(false);
+    });
+
+    afterEach(() => {
+        jest.clearAllTimers();
+        jest.useRealTimers();
     });
 
     it("returns null when the main board is not visible", () => {
@@ -256,7 +334,7 @@ describe("KibitzMobileMainGameScoreboard", () => {
             phase: "play",
             mode: "play",
             outcome: "",
-            time_control: {},
+            time_control: makeTimeControl(),
             playerToMove: () => 1,
             computeScore: () => ({
                 black: { prisoners: 24 },
@@ -305,7 +383,7 @@ describe("KibitzMobileMainGameScoreboard", () => {
             phase: "play",
             mode: "play",
             outcome: "",
-            time_control: {},
+            time_control: makeTimeControl(),
             playerToMove: () => 1,
             computeScore: () => ({
                 black: { prisoners: 1 },
@@ -347,7 +425,7 @@ describe("KibitzMobileMainGameScoreboard", () => {
                     phase: "stone removal",
                     mode: "play",
                     outcome: "",
-                    time_control: {},
+                    time_control: makeTimeControl(),
                     playerToMove: () => 1,
                     computeScore: () => ({
                         black: { prisoners: 1 },
@@ -362,7 +440,7 @@ describe("KibitzMobileMainGameScoreboard", () => {
                     phase: "play",
                     mode: "play",
                     outcome: "",
-                    time_control: {},
+                    time_control: makeTimeControl(),
                     paused_since: Date.now(),
                     playerToMove: () => 1,
                     computeScore: () => ({
@@ -378,7 +456,7 @@ describe("KibitzMobileMainGameScoreboard", () => {
                     phase: "finished",
                     mode: "play",
                     outcome: "2.5",
-                    time_control: {},
+                    time_control: makeTimeControl(),
                     winner: "white",
                     playerToMove: () => 1,
                     computeScore: () => ({
@@ -399,8 +477,130 @@ describe("KibitzMobileMainGameScoreboard", () => {
                 />,
             );
 
-            expect(screen.getByText(scenario.expected)).toBeInTheDocument();
+            expect(screen.getAllByText(scenario.expected)).toHaveLength(1);
             unmount();
         }
+    });
+
+    it("cycles from the player face to the metadata face and back", () => {
+        const { controller } = makeController({
+            phase: "play",
+            mode: "play",
+            outcome: "",
+            time_control: makeTimeControl("fischer"),
+            config: { handicap: 6, komi: 6.5 },
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 3 },
+                white: { prisoners: 5 },
+            }),
+        });
+
+        const { container } = render(
+            <KibitzMobileMainGameScoreboard
+                controller={controller}
+                game={makeGame()}
+                isMainBoardVisible={true}
+            />,
+        );
+
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--player[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
+            ),
+        ).toHaveLength(0);
+
+        act(() => {
+            jest.advanceTimersByTime(8000);
+        });
+
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
+        expect(screen.getAllByText("Time")).toHaveLength(1);
+        expect(screen.getAllByText("H6 · Komi 6.5")).toHaveLength(1);
+
+        act(() => {
+            jest.advanceTimersByTime(2000);
+        });
+
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--player[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
+    });
+
+    it("locks to the metadata face for urgent states", () => {
+        const { controller } = makeController({
+            phase: "finished",
+            mode: "play",
+            outcome: "2.5",
+            time_control: makeTimeControl("fischer"),
+            winner: "white",
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 3 },
+                white: { prisoners: 5 },
+            }),
+        });
+
+        const { container } = render(
+            <KibitzMobileMainGameScoreboard
+                controller={controller}
+                game={makeGame()}
+                isMainBoardVisible={true}
+            />,
+        );
+
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
+        expect(screen.getAllByText("State")).toHaveLength(1);
+        expect(screen.getAllByText("W+2.5")).toHaveLength(1);
+    });
+
+    it("does not suppress metadata when reduced motion is enabled", () => {
+        setMatchMedia(true);
+
+        const { controller } = makeController({
+            phase: "play",
+            mode: "play",
+            outcome: "",
+            time_control: makeTimeControl("fischer"),
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 3 },
+                white: { prisoners: 5 },
+            }),
+        });
+
+        const { container } = render(
+            <KibitzMobileMainGameScoreboard
+                controller={controller}
+                game={makeGame()}
+                isMainBoardVisible={true}
+            />,
+        );
+
+        act(() => {
+            jest.advanceTimersByTime(8000);
+        });
+
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
+        expect(screen.getAllByText("Time")).toHaveLength(1);
     });
 });

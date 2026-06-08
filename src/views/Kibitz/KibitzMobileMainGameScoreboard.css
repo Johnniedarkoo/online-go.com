@@ -26,30 +26,16 @@
     box-shadow: none;
 }
 
-.KibitzMobileMainGameScoreboard-state {
-    position: absolute;
-    top: -0.02rem;
-    right: 0;
-
-    font-size: 0.62rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--kibitz-mobile-scoreboard-muted-text);
-    text-transform: none;
-    pointer-events: none;
-    z-index: 2;
-}
-
 .KibitzMobileMainGameScoreboard-row {
     position: relative;
     display: grid;
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 0.34rem;
 
     min-width: 0;
-    min-height: 1.48rem;
-    padding: 0.07rem 0.16rem 0.07rem 0.44rem;
+    min-height: 2.1rem;
+    padding: 0.12rem 0.16rem 0.12rem 0.44rem;
     border-radius: 7px;
     overflow: hidden;
 }
@@ -71,6 +57,66 @@
 
 .KibitzMobileMainGameScoreboard-row.is-active .KibitzMobileMainGameScoreboard-clock {
     font-weight: 750;
+}
+
+.KibitzMobileMainGameScoreboard-faceStage {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+}
+
+.KibitzMobileMainGameScoreboard-face {
+    display: grid;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 250ms ease;
+}
+
+.KibitzMobileMainGameScoreboard-face.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.KibitzMobileMainGameScoreboard-face--player {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.06rem;
+}
+
+.KibitzMobileMainGameScoreboard-face--metadata {
+    position: absolute;
+    inset: 0;
+    align-content: center;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 0.28rem;
+    row-gap: 0.04rem;
+    padding: 0.12rem 0.16rem 0.12rem 0.44rem;
+}
+
+.KibitzMobileMainGameScoreboard-metadataLabel {
+    min-width: 0;
+    font-size: 0.63rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--kibitz-mobile-scoreboard-muted-text);
+    white-space: nowrap;
+}
+
+.KibitzMobileMainGameScoreboard-metadataValue {
+    min-width: 0;
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--kibitz-mobile-scoreboard-strong-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .KibitzMobileMainGameScoreboard-row--black::before,
@@ -181,6 +227,10 @@
     color: var(--kibitz-mobile-scoreboard-muted-text);
 }
 
+.KibitzMobileMainGameScoreboard-player.is-active-player .KibitzMobileMainGameScoreboard-playerName {
+    color: var(--kibitz-mobile-scoreboard-strong-text);
+}
+
 .KibitzMobileMainGameScoreboard-clock {
     flex: 0 0 auto;
     font-size: 0.74rem;
@@ -251,4 +301,10 @@ body.light .KibitzMobileMainGameScoreboard-row--white::before,
     box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.24),
         0 0 5px rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .KibitzMobileMainGameScoreboard-face {
+        transition: none;
+    }
 }

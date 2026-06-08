@@ -19,11 +19,12 @@ import * as React from "react";
 import { Clock } from "@/components/Clock/Clock";
 import { Flag } from "@/components/Flag/Flag";
 import { PlayerDetails } from "@/components/Player/PlayerDetails";
+import { shortShortTimeControl } from "@/components/TimeControl/util";
 import { generateGobanHook } from "@/components/GobanView/hooks";
 import { GobanController } from "@/lib/GobanController";
 import { interpolate, ngettext, pgettext } from "@/lib/translate";
 import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
-import type { Goban, JGOFClockWithTransmitting, JGOFPlayerClock } from "goban";
+import type { Goban, JGOFClockWithTransmitting, JGOFPlayerClock, JGOFTimeControl } from "goban";
 import { KibitzUserAvatar } from "./KibitzUserAvatar";
 import { popover } from "@/lib/popover";
 import "./KibitzMobileMainGameScoreboard.css";
@@ -32,6 +33,7 @@ interface KibitzMobileMainGameScoreboardProps {
     controller: GobanController | null;
     game: KibitzWatchedGame | undefined;
     isMainBoardVisible: boolean;
+    isInteractionPaused?: boolean;
 }
 
 interface GameScore {
@@ -51,6 +53,18 @@ type KibitzGoban = Goban & {
     paused_since?: number;
     last_emitted_clock?: JGOFClockWithTransmitting | null;
 };
+
+type ScoreboardFace = "player" | "metadata";
+
+interface KibitzEngineMetadata {
+    handicap?: number | null;
+    komi?: number | null;
+}
+
+interface MetadataFaceLine {
+    label: string;
+    value: string;
+}
 
 const useGameScore = generateGobanHook<GameScore | null, KibitzGoban | null>(
     (goban) => {
@@ -104,6 +118,39 @@ function getRankText(user: KibitzRoomUser): string {
     }
 
     return "?";
+}
+
+function formatKomi(komi: number | null | undefined): string {
+    if (komi == null || Number.isNaN(komi)) {
+        return "?";
+    }
+
+    return Number.isInteger(komi) ? String(komi) : komi.toFixed(1);
+}
+
+function formatHandicap(handicap: number | null | undefined): string {
+    if (handicap == null || !Number.isFinite(handicap) || handicap < 0) {
+        return "?";
+    }
+
+    return String(Math.round(handicap));
+}
+
+function getMetadataGameLine(config: KibitzEngineMetadata | null | undefined): string {
+    return interpolate(
+        pgettext("Kibitz mobile scoreboard metadata game line", "H{{handicap}} · Komi {{komi}}"),
+        {
+            handicap: formatHandicap(config?.handicap),
+            komi: formatKomi(config?.komi),
+        },
+    );
+}
+
+function getTimeControlSummary(timeControl: JGOFTimeControl | null | undefined): string {
+    return (
+        shortShortTimeControl(timeControl) ||
+        pgettext("Kibitz mobile scoreboard metadata time value", "None")
+    );
 }
 
 function openPlayerPopover(event: React.MouseEvent<HTMLButtonElement>, user: KibitzRoomUser): void {
@@ -201,6 +248,41 @@ function getStateToken(
     }
 
     return null;
+}
+
+function getMetadataFaceLines(
+    game: KibitzWatchedGame,
+    controller: GobanController | null,
+    state: ScoreboardState,
+): [MetadataFaceLine, MetadataFaceLine] {
+    const goban = controller?.goban;
+    const timeControl = goban?.engine?.time_control;
+    const config = goban?.engine?.config as KibitzEngineMetadata | undefined;
+    const urgentState = getStateToken(game, state);
+
+    if (urgentState) {
+        return [
+            {
+                label: pgettext("Kibitz mobile scoreboard metadata label", "State"),
+                value: urgentState.text,
+            },
+            {
+                label: pgettext("Kibitz mobile scoreboard metadata label", "Game"),
+                value: getMetadataGameLine(config),
+            },
+        ];
+    }
+
+    return [
+        {
+            label: pgettext("Kibitz mobile scoreboard metadata label", "Time"),
+            value: getTimeControlSummary(timeControl),
+        },
+        {
+            label: pgettext("Kibitz mobile scoreboard metadata label", "Game"),
+            value: getMetadataGameLine(config),
+        },
+    ];
 }
 
 function prettyClockTime(ms: number): string {
@@ -333,12 +415,14 @@ function renderCaptures(
     );
 }
 
-function renderAvatar(user: KibitzRoomUser): React.ReactElement {
+function renderAvatar(user: KibitzRoomUser, interactive: boolean): React.ReactElement {
     return (
         <button
             type="button"
             className="KibitzMobileMainGameScoreboard-avatarButton"
             onClick={(event) => openPlayerPopover(event, user)}
+            tabIndex={interactive ? 0 : -1}
+            aria-hidden={interactive ? undefined : true}
             aria-label={user.username}
             title={user.username}
         >
@@ -352,35 +436,41 @@ function renderAvatar(user: KibitzRoomUser): React.ReactElement {
     );
 }
 
-function renderRow(
+function renderPlayerRow(
     user: KibitzRoomUser,
     color: "black" | "white",
     active: boolean,
-    captures: number | undefined | null,
+    interactive: boolean,
     controller: GobanController | null,
     state: ScoreboardState,
+    captures: number | undefined | null,
 ): React.ReactElement {
-    const rowClassName =
-        "KibitzMobileMainGameScoreboard-row KibitzMobileMainGameScoreboard-row--" +
-        color +
-        (active ? " is-active" : "");
-
     return (
         <div
-            className={rowClassName}
+            className={
+                "KibitzMobileMainGameScoreboard-row KibitzMobileMainGameScoreboard-row--" +
+                color +
+                (active ? " is-active" : "")
+            }
             aria-label={
                 color === "black"
                     ? pgettext("Kibitz mobile scoreboard row aria label", "Black player")
                     : pgettext("Kibitz mobile scoreboard row aria label", "White player")
             }
         >
-            <span className="KibitzMobileMainGameScoreboard-avatarSlot">{renderAvatar(user)}</span>
+            <span className="KibitzMobileMainGameScoreboard-avatarSlot">
+                {renderAvatar(user, interactive)}
+            </span>
             {user.country ? (
                 <span className="KibitzMobileMainGameScoreboard-flag" aria-hidden="true">
                     <Flag country={user.country} />
                 </span>
             ) : null}
-            <span className="KibitzMobileMainGameScoreboard-player">
+            <span
+                className={
+                    "KibitzMobileMainGameScoreboard-player" + (active ? " is-active-player" : "")
+                }
+            >
                 <span className="KibitzMobileMainGameScoreboard-playerName">{user.username}</span>
                 <span className="KibitzMobileMainGameScoreboard-playerRank">
                     [{getRankText(user)}]
@@ -392,20 +482,76 @@ function renderRow(
     );
 }
 
-export function KibitzMobileMainGameScoreboard({
-    controller,
-    game,
-    isMainBoardVisible,
-}: KibitzMobileMainGameScoreboardProps): React.ReactElement | null {
-    const goban = controller?.goban ?? null;
-    const score = useGameScore(goban);
-    const state = useScoreboardState(goban);
-    const playerToMove = usePlayerToMove(goban);
+function renderPlayerFace(
+    black: KibitzRoomUser,
+    blackActive: boolean,
+    blackCaptures: number | undefined | null,
+    white: KibitzRoomUser,
+    whiteActive: boolean,
+    whiteCaptures: number | undefined | null,
+    controller: GobanController | null,
+    state: ScoreboardState,
+    visible: boolean,
+): React.ReactElement {
+    return (
+        <div
+            className={
+                "KibitzMobileMainGameScoreboard-face KibitzMobileMainGameScoreboard-face--player" +
+                (visible ? " is-visible" : "")
+            }
+            aria-hidden={!visible}
+        >
+            {renderPlayerRow(
+                black,
+                "black",
+                blackActive,
+                visible,
+                controller,
+                state,
+                blackCaptures,
+            )}
+            {renderPlayerRow(
+                white,
+                "white",
+                whiteActive,
+                visible,
+                controller,
+                state,
+                whiteCaptures,
+            )}
+        </div>
+    );
+}
 
-    if (!game || !isMainBoardVisible) {
-        return null;
-    }
+function renderMetadataFace(
+    lines: [MetadataFaceLine, MetadataFaceLine],
+    visible: boolean,
+): React.ReactElement {
+    return (
+        <div
+            className={
+                "KibitzMobileMainGameScoreboard-face KibitzMobileMainGameScoreboard-face--metadata" +
+                (visible ? " is-visible" : "")
+            }
+            aria-hidden={!visible}
+        >
+            <span className="KibitzMobileMainGameScoreboard-metadataLabel">{lines[0].label}</span>
+            <span className="KibitzMobileMainGameScoreboard-metadataValue">{lines[0].value}</span>
+            <span className="KibitzMobileMainGameScoreboard-metadataLabel">{lines[1].label}</span>
+            <span className="KibitzMobileMainGameScoreboard-metadataValue">{lines[1].value}</span>
+        </div>
+    );
+}
 
+function renderScoreboardFace(
+    game: KibitzWatchedGame,
+    controller: GobanController | null,
+    state: ScoreboardState,
+    score: GameScore | null,
+    playerToMove: number,
+    face: ScoreboardFace,
+    metadataLines: [MetadataFaceLine, MetadataFaceLine],
+): React.ReactElement {
     const blackCaptures = controller ? score?.black?.prisoners : null;
     const whiteCaptures = controller ? score?.white?.prisoners : null;
     const blackActive = controller
@@ -414,21 +560,154 @@ export function KibitzMobileMainGameScoreboard({
     const whiteActive = controller
         ? state.phase !== "finished" && playerToMove === game.white.id
         : false;
-    const stateToken = controller ? getStateToken(game, state) : null;
+
+    return (
+        <div className="KibitzMobileMainGameScoreboard-faceStage">
+            {renderPlayerFace(
+                game.black,
+                blackActive,
+                blackCaptures,
+                game.white,
+                whiteActive,
+                whiteCaptures,
+                controller,
+                state,
+                face === "player",
+            )}
+            {renderMetadataFace(metadataLines, face === "metadata")}
+        </div>
+    );
+}
+
+export function KibitzMobileMainGameScoreboard({
+    controller,
+    game,
+    isMainBoardVisible,
+    isInteractionPaused = false,
+}: KibitzMobileMainGameScoreboardProps): React.ReactElement | null {
+    const goban = controller?.goban ?? null;
+    const score = useGameScore(goban);
+    const state = useScoreboardState(goban);
+    const playerToMove = usePlayerToMove(goban);
+    const [localInteractionPaused, setLocalInteractionPaused] = React.useState(false);
+    const [cycleFace, setCycleFace] = React.useState<ScoreboardFace>("player");
+
+    React.useEffect(() => {
+        if (!isMainBoardVisible) {
+            setLocalInteractionPaused(false);
+        }
+    }, [isMainBoardVisible]);
+
+    React.useEffect(() => {
+        if (typeof window === "undefined") {
+            return undefined;
+        }
+
+        const isRelevantTarget = (event: Event): boolean =>
+            event.target instanceof Element &&
+            event.target.closest(".Kibitz-mobile-room-header, .Kibitz-mobile-board-host") != null;
+
+        const pause = () => {
+            setLocalInteractionPaused(true);
+        };
+
+        const resume = () => {
+            setLocalInteractionPaused(false);
+        };
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (isRelevantTarget(event)) {
+                pause();
+            }
+        };
+
+        const handlePointerUp = () => {
+            resume();
+        };
+
+        const handleTouchStart = (event: TouchEvent) => {
+            if (isRelevantTarget(event)) {
+                pause();
+            }
+        };
+
+        const handleTouchEnd = () => {
+            resume();
+        };
+
+        window.addEventListener("pointerdown", handlePointerDown, true);
+        window.addEventListener("pointerup", handlePointerUp, true);
+        window.addEventListener("pointercancel", handlePointerUp, true);
+        window.addEventListener("touchstart", handleTouchStart, true);
+        window.addEventListener("touchend", handleTouchEnd, true);
+        window.addEventListener("touchcancel", handleTouchEnd, true);
+
+        return () => {
+            window.removeEventListener("pointerdown", handlePointerDown, true);
+            window.removeEventListener("pointerup", handlePointerUp, true);
+            window.removeEventListener("pointercancel", handlePointerUp, true);
+            window.removeEventListener("touchstart", handleTouchStart, true);
+            window.removeEventListener("touchend", handleTouchEnd, true);
+            window.removeEventListener("touchcancel", handleTouchEnd, true);
+        };
+    }, []);
+
+    const interactionPaused = Boolean(isInteractionPaused || localInteractionPaused);
+    const urgentState = controller && game ? getStateToken(game, state) : null;
+    const shouldCycleFace = Boolean(controller && game) && !interactionPaused && !urgentState;
+
+    React.useEffect(() => {
+        if (!shouldCycleFace) {
+            setCycleFace("player");
+            return undefined;
+        }
+
+        let cancelled = false;
+        let timeoutId: number | null = null;
+
+        const schedule = (nextFace: ScoreboardFace, delayMs: number) => {
+            timeoutId = window.setTimeout(() => {
+                if (cancelled) {
+                    return;
+                }
+
+                setCycleFace(nextFace);
+                schedule(
+                    nextFace === "player" ? "metadata" : "player",
+                    nextFace === "player" ? 8000 : 2000,
+                );
+            }, delayMs);
+        };
+
+        setCycleFace("player");
+        schedule("metadata", 8000);
+
+        return () => {
+            cancelled = true;
+            if (timeoutId !== null) {
+                window.clearTimeout(timeoutId);
+            }
+        };
+    }, [shouldCycleFace, game?.game_id]);
+
+    if (!game || !isMainBoardVisible) {
+        return null;
+    }
+    const metadataLines = getMetadataFaceLines(game, controller, state);
+    const visibleFace: ScoreboardFace = urgentState ? "metadata" : cycleFace;
 
     return (
         <div className="KibitzMobileMainGameScoreboard">
             <div className="KibitzMobileMainGameScoreboard-inner">
-                {stateToken ? (
-                    <span
-                        className={"KibitzMobileMainGameScoreboard-state " + stateToken.className}
-                        aria-label={stateToken.ariaLabel}
-                    >
-                        {stateToken.text}
-                    </span>
-                ) : null}
-                {renderRow(game.black, "black", blackActive, blackCaptures, controller, state)}
-                {renderRow(game.white, "white", whiteActive, whiteCaptures, controller, state)}
+                {renderScoreboardFace(
+                    game,
+                    controller,
+                    state,
+                    score,
+                    playerToMove,
+                    visibleFace,
+                    metadataLines,
+                )}
             </div>
         </div>
     );
