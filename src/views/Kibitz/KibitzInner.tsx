@@ -39,7 +39,7 @@ import { KibitzDebugPanel } from "./KibitzDebugPanel";
 import { KibitzRoomList } from "./KibitzRoomList";
 import { KibitzRoomStage } from "./KibitzRoomStage";
 import type { MobileBoardResizeOwner } from "./KibitzRoomStage";
-import { KibitzMainGameStats } from "./KibitzMainGameStats";
+import { KibitzMobileMainGameScoreboard } from "./KibitzMobileMainGameScoreboard";
 import type { KibitzCurrentGameBaseSnapshot } from "./kibitzCurrentGameBaseSnapshotTypes";
 import { KibitzSharedStreamPanel } from "./KibitzSharedStreamPanel";
 import { KibitzPresence } from "./KibitzPresence";
@@ -3784,10 +3784,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                             <div
                                 className={
                                     "Kibitz-mobile-room-header" +
-                                    (canOpenRoomSettings ? " has-settings" : "") +
-                                    (mobileCompareActive || !visibleMainBoardMounted
-                                        ? " hide-main-game-timing"
-                                        : "")
+                                    (canOpenRoomSettings ? " has-settings" : "")
                                 }
                             >
                                 <button
@@ -3806,10 +3803,10 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                                     />
                                 </button>
                                 {mobileMatchup ? (
-                                    <KibitzMainGameStats
+                                    <KibitzMobileMainGameScoreboard
                                         controller={mainBoardController}
                                         game={mobileMatchup}
-                                        variant="mobile"
+                                        isMainBoardVisible={!mobileCompareActive}
                                     />
                                 ) : null}
                                 <button
