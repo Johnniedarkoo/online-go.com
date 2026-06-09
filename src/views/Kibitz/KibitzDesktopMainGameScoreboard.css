@@ -145,14 +145,16 @@
     justify-self: end;
 }
 
-.KibitzDesktopMainGameScoreboard-avatarCell::before {
+.KibitzDesktopMainGameScoreboard-avatarCell::before,
+.KibitzDesktopMainGameScoreboard-avatarCell::after,
+.KibitzDesktopMainGameScoreboard-row::after {
     content: "";
     position: absolute;
     pointer-events: none;
-    z-index: 1;
 }
 
 .KibitzDesktopMainGameScoreboard-avatarCell::before {
+    z-index: 1;
     top: 0.18rem;
     bottom: 0.18rem;
     width: 2px;
@@ -178,13 +180,10 @@
 
 .KibitzDesktopMainGameScoreboard-avatarCell::after,
 .KibitzDesktopMainGameScoreboard-row::after {
-    content: "";
-    position: absolute;
     inset: 0;
     border-radius: 8px;
     background: var(--kibitz-scoreboard-turn-highlight);
     opacity: 0;
-    pointer-events: none;
     transition: opacity 160ms ease;
     z-index: 0;
 }
@@ -195,19 +194,19 @@
 }
 
 .KibitzDesktopMainGameScoreboard-avatarCell--black.is-active::after {
-    inset: 0 0 0 -0.5rem;
+    inset: 0 -0.25rem 0 -0.5rem;
 }
 
 .KibitzDesktopMainGameScoreboard-avatarCell--white.is-active::after {
-    inset: 0 -0.5rem 0 0;
+    inset: 0 -0.5rem 0 -0.25rem;
 }
 
 .KibitzDesktopMainGameScoreboard-row--black.is-active::after {
-    inset: -0.1rem -0.1rem -0.1rem -2.25rem;
+    inset: -0.1rem -0.1rem -0.1rem -0.95rem;
 }
 
 .KibitzDesktopMainGameScoreboard-row--white.is-active::after {
-    inset: -0.1rem -2.25rem -0.1rem -0.1rem;
+    inset: -0.1rem -0.95rem -0.1rem -0.1rem;
 }
 
 .KibitzDesktopMainGameScoreboard-avatarCell > *,

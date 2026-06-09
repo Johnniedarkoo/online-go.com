@@ -453,16 +453,28 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             /\.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;/s,
         );
         expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatarCell--black\s*{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1 \/ span 2;[^}]*justify-self:\s*start;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatarCell--white\s*{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1 \/ span 2;[^}]*justify-self:\s*end;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-row--black\s*{[^}]*grid-column:\s*2;[^}]*grid-row:\s*1;[^}]*justify-content:\s*space-between;[^}]*text-align:\s*left;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-row--white\s*{[^}]*grid-column:\s*2;[^}]*grid-row:\s*2;[^}]*justify-content:\s*space-between;[^}]*text-align:\s*right;/s,
+        );
+        expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-row\s*{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto 0\.5rem;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-rowGroup--start\s*{[^}]*grid-column:\s*1;[^}]*width:\s*100%;/s,
+            /\.KibitzDesktopMainGameScoreboard-avatarCell::before\s*{[^}]*z-index:\s*1;[^}]*top:\s*0\.18rem;[^}]*width:\s*2px;[^}]*border-radius:\s*999px;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-rowGroup--end\s*{[^}]*grid-column:\s*2;[^}]*justify-self:\s*end;/s,
+            /\.KibitzDesktopMainGameScoreboard-avatarCell::after,\s*\.KibitzDesktopMainGameScoreboard-row::after\s*{[^}]*pointer-events:\s*none;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-avatarCell::before\s*{[^}]*top:\s*0\.18rem;[^}]*width:\s*2px;[^}]*border-radius:\s*999px;/s,
+            /\.KibitzDesktopMainGameScoreboard-avatarCell::after,\s*\.KibitzDesktopMainGameScoreboard-row::after\s*{[^}]*inset:\s*0;[^}]*border-radius:\s*8px;[^}]*background:\s*var\(--kibitz-scoreboard-turn-highlight\);[^}]*opacity:\s*0;[^}]*transition:\s*opacity 160ms ease;[^}]*z-index:\s*0;/s,
         );
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-avatarCell--black::before\s*{[^}]*left:\s*-0\.3rem;[^}]*background:\s*linear-gradient\(180deg, rgba\(0, 0, 0, 0\.95\), rgba\(35, 35, 35, 0\.95\)\);/s,
@@ -471,28 +483,19 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             /\.KibitzDesktopMainGameScoreboard-avatarCell--white::before\s*{[^}]*right:\s*-0\.3rem;[^}]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.95\), rgba\(215, 215, 215, 0\.95\)\);/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-avatarCell,\s*\.KibitzDesktopMainGameScoreboard-row\s*{[^}]*position:\s*relative;[^}]*z-index:\s*1;/s,
+            /\.KibitzDesktopMainGameScoreboard-avatarCell.is-active::after,\s*\.KibitzDesktopMainGameScoreboard-row.is-active::after\s*{[^}]*opacity:\s*1;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-avatarCell::before\s*{[^}]*z-index:\s*1;/s,
+            /\.KibitzDesktopMainGameScoreboard-avatarCell--black.is-active::after\s*{[^}]*inset:\s*0 -0\.25rem 0 -0\.5rem;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-avatarCell::after,\s*\.KibitzDesktopMainGameScoreboard-row::after\s*{[^}]*inset:\s*0;[^}]*border-radius:\s*8px;[^}]*background:\s*var\(--kibitz-scoreboard-turn-highlight\);[^}]*opacity:\s*0;[^}]*transition:\s*opacity 160ms ease;[^}]*z-index:\s*0;/s,
+            /\.KibitzDesktopMainGameScoreboard-avatarCell--white.is-active::after\s*{[^}]*inset:\s*0 -0\.5rem 0 -0\.25rem;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-avatarCell\.is-active::after,\s*\.KibitzDesktopMainGameScoreboard-row\.is-active::after\s*{[^}]*opacity:\s*1;/s,
+            /\.KibitzDesktopMainGameScoreboard-row--black.is-active::after\s*{[^}]*inset:\s*-0\.1rem -0\.1rem -0\.1rem -0\.95rem;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-avatarCell--black\.is-active::after\s*{[^}]*inset:\s*0 0 0 -0\.5rem;/s,
-        );
-        expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-avatarCell--white\.is-active::after\s*{[^}]*inset:\s*0 -0\.5rem 0 0;/s,
-        );
-        expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-row--black\.is-active::after\s*{[^}]*inset:\s*-0\.1rem -0\.1rem -0\.1rem -2\.25rem;/s,
-        );
-        expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-row--white\.is-active::after\s*{[^}]*inset:\s*-0\.1rem -2\.25rem -0\.1rem -0\.1rem;/s,
+            /\.KibitzDesktopMainGameScoreboard-row--white.is-active::after\s*{[^}]*inset:\s*-0\.1rem -0\.95rem -0\.1rem -0\.1rem;/s,
         );
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-playerFlag\s*{[^}]*display:\s*contents;/s,
@@ -518,7 +521,6 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         expect(css).not.toContain("color: rgba(255, 255, 255, 0.92);");
         expect(css).not.toContain("color: rgba(255, 255, 255, 0.7);");
         expect(css).not.toContain("color: rgba(255, 255, 255, 0.75);");
-        expect(css).not.toContain("KibitzDesktopMainGameScoreboard-turnHighlight");
-        expect(css).not.toContain("KibitzDesktopMainGameScoreboard-turnHighlightCutout");
+        expect(css).not.toContain("KibitzDesktopMainGameScoreboard-playerSide");
     });
 });
