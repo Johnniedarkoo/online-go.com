@@ -471,6 +471,12 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             /\.KibitzDesktopMainGameScoreboard-avatarCell--white::before\s*{[^}]*right:\s*-0\.3rem;[^}]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.95\), rgba\(215, 215, 215, 0\.95\)\);/s,
         );
         expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-playerFlag\s*{[^}]*display:\s*contents;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-playerFlag \.flag\s*{[^}]*margin-left:\s*0\.1rem;[^}]*margin-right:\s*0\.3rem;/s,
+        );
+        expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-avatarCell--black\.is-active::after\s*{[^}]*inset:\s*-0\.1rem -0\.55rem -0\.1rem -0\.1rem;[^}]*border-top-right-radius:\s*10px;[^}]*border-bottom-right-radius:\s*10px;/s,
         );
         expect(css).toMatch(

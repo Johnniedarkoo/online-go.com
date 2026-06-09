@@ -283,30 +283,16 @@
 }
 
 .KibitzDesktopMainGameScoreboard-playerFlag {
-    flex: 0 0 auto;
-    width: 1.35rem;
-    min-width: 1.35rem;
-    height: 0.95rem;
-    border-radius: 2px;
-    overflow: hidden;
+    display: contents;
 }
 
 .KibitzDesktopMainGameScoreboard-playerFlag .f32 {
-    display: block;
-    height: 100%;
-    width: 100%;
-}
-
-.KibitzDesktopMainGameScoreboard-playerFlag .f32.flag-small {
-    margin: 0;
-    transform: none;
+    display: inline-flex;
 }
 
 .KibitzDesktopMainGameScoreboard-playerFlag .flag {
-    display: block;
-    height: 100%;
-    width: 100%;
-    margin-bottom: 0;
+    margin-left: 0.1rem;
+    margin-right: 0.3rem;
 }
 
 .KibitzDesktopMainGameScoreboard-playerIdentity {
