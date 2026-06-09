@@ -9,23 +9,23 @@
     justify-content: center;
     align-items: stretch;
     gap: 0.24rem;
-    justify-self: center;
+    justify-self: stretch;
     min-width: 0;
     max-width: 100%;
-    width: fit-content;
+    width: 100%;
 }
 
 .KibitzDesktopMainGameScoreboard-inner {
     box-sizing: border-box;
     display: grid;
     align-items: center;
-    column-gap: 0.5rem;
-    row-gap: 0.16rem;
+    column-gap: 0.4rem;
+    row-gap: 0.12rem;
     min-width: 0;
     max-width: min(1320px, 100%);
     width: 100%;
 
-    padding: 0.55rem 1rem;
+    padding: 0.45rem 0.8rem;
     border-radius: 10px;
 
     background: linear-gradient(
@@ -77,16 +77,16 @@
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    width: 2rem;
-    height: 2rem;
+    width: 1.85rem;
+    height: 1.85rem;
     line-height: 0;
     position: relative;
     z-index: 1;
 }
 
 .KibitzDesktopMainGameScoreboard-avatar {
-    width: 2rem;
-    height: 2rem;
+    width: 1.85rem;
+    height: 1.85rem;
     border-radius: 6px;
     flex: 0 0 auto;
     object-fit: cover;
@@ -94,21 +94,20 @@
 
 .KibitzDesktopMainGameScoreboard-avatarImage {
     display: block;
-    width: 2rem !important;
-    height: 2rem !important;
+    width: 1.85rem !important;
+    height: 1.85rem !important;
     object-fit: cover;
 }
 
 .KibitzDesktopMainGameScoreboard-row {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     width: 100%;
-    justify-self: stretch;
     border-radius: 8px;
     overflow: hidden;
-    padding: 0.2rem 0.28rem;
-    gap: 0.55rem;
+    padding: 0.16rem 0.24rem;
+    column-gap: 0.4rem;
 }
 
 .KibitzDesktopMainGameScoreboard-row--black {
@@ -128,17 +127,20 @@
 .KibitzDesktopMainGameScoreboard-rowGroup {
     display: flex;
     align-items: center;
-    flex: 1 1 0;
     min-width: 0;
-    gap: 0.45rem;
+    gap: 0.32rem;
 }
 
 .KibitzDesktopMainGameScoreboard-rowGroup--start {
+    grid-column: 1;
     justify-content: flex-start;
+    width: 100%;
 }
 
 .KibitzDesktopMainGameScoreboard-rowGroup--end {
+    grid-column: 2;
     justify-content: flex-end;
+    justify-self: end;
 }
 
 .KibitzDesktopMainGameScoreboard-avatarCell::after,
@@ -213,7 +215,7 @@
 .KibitzDesktopMainGameScoreboard-captures {
     display: inline-flex;
     align-items: center;
-    gap: 0.18rem;
+    gap: 0.14rem;
     flex: 0 0 auto;
     color: var(--kibitz-scoreboard-muted-text);
     font-size: 0.9rem;
@@ -251,21 +253,29 @@
 
 .KibitzDesktopMainGameScoreboard-playerFlag {
     flex: 0 0 auto;
-    width: 1.15rem;
-    height: 0.82rem;
+    width: 1.35rem;
+    min-width: 1.35rem;
+    height: 0.95rem;
     border-radius: 2px;
     overflow: hidden;
 }
 
 .KibitzDesktopMainGameScoreboard-playerFlag .f32 {
-    display: inline-flex;
+    display: block;
     height: 100%;
     width: 100%;
 }
 
+.KibitzDesktopMainGameScoreboard-playerFlag .f32.flag-small {
+    margin: 0;
+    transform: none;
+}
+
 .KibitzDesktopMainGameScoreboard-playerFlag .flag {
+    display: block;
     height: 100%;
     width: 100%;
+    margin-bottom: 0;
 }
 
 .KibitzDesktopMainGameScoreboard-playerIdentity {

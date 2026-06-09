@@ -348,11 +348,11 @@ function renderPlayerRowContent(
     ) : (
         <>
             <div className="KibitzDesktopMainGameScoreboard-rowGroup KibitzDesktopMainGameScoreboard-rowGroup--start">
-                {renderCaptures(captures, side)}
-                {renderClock(controller, state, side)}
+                {renderPlayerIdentity(user, side)}
             </div>
             <div className="KibitzDesktopMainGameScoreboard-rowGroup KibitzDesktopMainGameScoreboard-rowGroup--end">
-                {renderPlayerIdentity(user, side)}
+                {renderCaptures(captures, side)}
+                {renderClock(controller, state, side)}
             </div>
         </>
     );
