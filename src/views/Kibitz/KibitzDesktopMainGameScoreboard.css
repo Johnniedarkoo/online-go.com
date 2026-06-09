@@ -2,6 +2,7 @@
     --kibitz-scoreboard-text: var(--text-color);
     --kibitz-scoreboard-muted-text: color-mix(in srgb, var(--text-color) 70%, transparent);
     --kibitz-scoreboard-strong-text: var(--text-color);
+    --kibitz-scoreboard-turn-highlight: color-mix(in srgb, var(--text-color) 20%, transparent);
 
     box-sizing: border-box;
     display: flex;
@@ -50,6 +51,7 @@
     align-items: center;
     min-width: 0;
     position: relative;
+    z-index: 1;
 }
 
 .KibitzDesktopMainGameScoreboard-avatarCell {
@@ -143,13 +145,11 @@
     justify-self: end;
 }
 
-.KibitzDesktopMainGameScoreboard-avatarCell::before,
-.KibitzDesktopMainGameScoreboard-avatarCell::after,
-.KibitzDesktopMainGameScoreboard-row::after {
+.KibitzDesktopMainGameScoreboard-avatarCell::before {
     content: "";
     position: absolute;
     pointer-events: none;
-    z-index: 0;
+    z-index: 1;
 }
 
 .KibitzDesktopMainGameScoreboard-avatarCell::before {
@@ -178,9 +178,11 @@
 
 .KibitzDesktopMainGameScoreboard-avatarCell::after,
 .KibitzDesktopMainGameScoreboard-row::after {
+    content: "";
+    position: absolute;
     inset: 0;
-    border-radius: inherit;
-    background: color-mix(in srgb, var(--text-color) 5%, transparent);
+    border-radius: 8px;
+    background: var(--kibitz-scoreboard-turn-highlight);
     opacity: 0;
     pointer-events: none;
     transition: opacity 160ms ease;
@@ -192,32 +194,26 @@
     opacity: 1;
 }
 
+.KibitzDesktopMainGameScoreboard-avatarCell--black.is-active::after {
+    inset: 0 0 0 -0.5rem;
+}
+
+.KibitzDesktopMainGameScoreboard-avatarCell--white.is-active::after {
+    inset: 0 -0.5rem 0 0;
+}
+
+.KibitzDesktopMainGameScoreboard-row--black.is-active::after {
+    inset: -0.1rem -0.1rem -0.1rem -2.25rem;
+}
+
+.KibitzDesktopMainGameScoreboard-row--white.is-active::after {
+    inset: -0.1rem -2.25rem -0.1rem -0.1rem;
+}
+
 .KibitzDesktopMainGameScoreboard-avatarCell > *,
 .KibitzDesktopMainGameScoreboard-row > * {
     position: relative;
     z-index: 1;
-}
-
-.KibitzDesktopMainGameScoreboard-avatarCell--black.is-active::after {
-    inset: -0.1rem -0.55rem -0.1rem -0.1rem;
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
-}
-
-.KibitzDesktopMainGameScoreboard-avatarCell--white.is-active::after {
-    inset: -0.1rem -0.1rem -0.1rem -0.55rem;
-    border-top-left-radius: 10px;
-    border-bottom-left-radius: 10px;
-}
-
-.KibitzDesktopMainGameScoreboard-row--black.is-active::after {
-    border-top-left-radius: 10px;
-    border-bottom-left-radius: 10px;
-}
-
-.KibitzDesktopMainGameScoreboard-row--white.is-active::after {
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
 }
 
 .KibitzDesktopMainGameScoreboard-clock {
@@ -337,7 +333,6 @@
         0 6px 24px rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="light"] .KibitzDesktopMainGameScoreboard-avatarCell::after,
-[data-theme="light"] .KibitzDesktopMainGameScoreboard-row::after {
-    background: color-mix(in srgb, var(--text-color) 6%, transparent);
+[data-theme="light"] .KibitzDesktopMainGameScoreboard {
+    --kibitz-scoreboard-turn-highlight: color-mix(in srgb, var(--text-color) 18%, transparent);
 }
