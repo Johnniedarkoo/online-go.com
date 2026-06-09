@@ -101,12 +101,12 @@
 
 .KibitzDesktopMainGameScoreboard-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto 0.5rem;
     align-items: center;
     width: 100%;
     border-radius: 8px;
     overflow: hidden;
-    padding: 0.16rem 0.24rem;
+    padding: 0.16rem 0;
     column-gap: 0.4rem;
 }
 

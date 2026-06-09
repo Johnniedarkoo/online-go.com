@@ -453,7 +453,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             /\.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-row\s*{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto;/s,
+            /\.KibitzDesktopMainGameScoreboard-row\s*{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto 0\.5rem;/s,
         );
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-rowGroup--start\s*{[^}]*grid-column:\s*1;[^}]*width:\s*100%;/s,
