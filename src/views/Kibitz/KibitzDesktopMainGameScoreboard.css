@@ -3,16 +3,19 @@
     --kibitz-scoreboard-muted-text: color-mix(in srgb, var(--text-color) 70%, transparent);
     --kibitz-scoreboard-strong-text: var(--text-color);
 
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: stretch;
     gap: 0.24rem;
     min-width: 0;
+    max-width: 100%;
     width: 100%;
 }
 
 .KibitzDesktopMainGameScoreboard-inner {
+    box-sizing: border-box;
     display: grid;
     align-items: center;
     column-gap: 0.5rem;
