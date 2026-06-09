@@ -106,6 +106,36 @@ const usePlayerToMove = generateGobanHook<number, KibitzGoban | null>(
     ["cur_move", "last_official_move"],
 );
 
+function usePrefersReducedMotion(): boolean {
+    const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(() => {
+        if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+            return false;
+        }
+
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    });
+
+    React.useEffect(() => {
+        if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+            return undefined;
+        }
+
+        const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+        const sync = (event?: MediaQueryListEvent) => {
+            setPrefersReducedMotion(event?.matches ?? mediaQuery.matches);
+        };
+
+        sync();
+        mediaQuery.addEventListener("change", sync);
+
+        return () => {
+            mediaQuery.removeEventListener("change", sync);
+        };
+    }, []);
+
+    return prefersReducedMotion;
+}
+
 function getRankText(user: KibitzRoomUser): string {
     const ranking = Math.round(user.ranking || 0);
 
@@ -206,65 +236,68 @@ function getCompactResultToken(game: KibitzWatchedGame, state: ScoreboardState):
     return null;
 }
 
-function getStateToken(
-    game: KibitzWatchedGame,
-    state: ScoreboardState,
-): {
-    text: string;
-    className: string;
-    ariaLabel: string;
-} | null {
-    if (state.phase === "stone removal") {
-        return {
-            text: pgettext("Kibitz mobile scoreboard state token", "Score"),
-            className: "is-state",
-            ariaLabel: pgettext("Kibitz mobile scoreboard state token", "Score"),
-        };
+function getStateToken(game: KibitzWatchedGame, state: ScoreboardState): string | null {
+    if (state.phase === "stone removal" || state.phase === "scoring") {
+        return pgettext("Kibitz mobile scoreboard state token", "Score");
     }
 
     if (state.phase === "finished") {
         const token = getCompactResultToken(game, state);
-        if (token) {
-            return {
-                text: token,
-                className: "is-state",
-                ariaLabel: token,
-            };
-        }
-
-        return {
-            text: pgettext("Kibitz mobile scoreboard state token", "Done"),
-            className: "is-state",
-            ariaLabel: pgettext("Kibitz mobile scoreboard state token", "Game finished"),
-        };
+        return token || pgettext("Kibitz mobile scoreboard state token", "Done");
     }
 
     if (state.phase === "play" && state.pausedSince) {
-        return {
-            text: pgettext("Kibitz mobile scoreboard state token", "Pause"),
-            className: "is-state",
-            ariaLabel: pgettext("Kibitz mobile scoreboard state token", "Game paused"),
-        };
+        return pgettext("Kibitz mobile scoreboard state token", "Pause");
     }
 
     return null;
+}
+
+function getShouldPinMetadataFace(state: ScoreboardState): boolean {
+    return state.phase === "stone removal" || state.phase === "scoring";
 }
 
 function getMetadataFaceLines(
     game: KibitzWatchedGame,
     controller: GobanController | null,
     state: ScoreboardState,
+    stateToken: string | null,
 ): [MetadataFaceLine, MetadataFaceLine] {
     const goban = controller?.goban;
     const timeControl = goban?.engine?.time_control;
     const config = goban?.engine?.config as KibitzEngineMetadata | undefined;
-    const urgentState = getStateToken(game, state);
 
-    if (urgentState) {
+    if (state.phase === "finished") {
+        return [
+            {
+                label: pgettext("Kibitz mobile scoreboard metadata label", "Result"),
+                value: stateToken || pgettext("Kibitz mobile scoreboard state token", "Done"),
+            },
+            {
+                label: pgettext("Kibitz mobile scoreboard metadata label", "Game"),
+                value: getMetadataGameLine(config),
+            },
+        ];
+    }
+
+    if (state.phase === "play" && state.pausedSince) {
         return [
             {
                 label: pgettext("Kibitz mobile scoreboard metadata label", "State"),
-                value: urgentState.text,
+                value: stateToken || pgettext("Kibitz mobile scoreboard state token", "Pause"),
+            },
+            {
+                label: pgettext("Kibitz mobile scoreboard metadata label", "Time"),
+                value: getTimeControlSummary(timeControl),
+            },
+        ];
+    }
+
+    if (state.phase === "stone removal" || state.phase === "scoring") {
+        return [
+            {
+                label: pgettext("Kibitz mobile scoreboard metadata label", "State"),
+                value: stateToken || pgettext("Kibitz mobile scoreboard state token", "Score"),
             },
             {
                 label: pgettext("Kibitz mobile scoreboard metadata label", "Game"),
@@ -591,6 +624,7 @@ export function KibitzMobileMainGameScoreboard({
     const playerToMove = usePlayerToMove(goban);
     const [localInteractionPaused, setLocalInteractionPaused] = React.useState(false);
     const [cycleFace, setCycleFace] = React.useState<ScoreboardFace>("player");
+    const prefersReducedMotion = usePrefersReducedMotion();
 
     React.useEffect(() => {
         if (!isMainBoardVisible) {
@@ -653,48 +687,53 @@ export function KibitzMobileMainGameScoreboard({
     }, []);
 
     const interactionPaused = Boolean(isInteractionPaused || localInteractionPaused);
-    const urgentState = controller && game ? getStateToken(game, state) : null;
-    const shouldCycleFace = Boolean(controller && game) && !interactionPaused && !urgentState;
+    const stateToken = controller && game ? getStateToken(game, state) : null;
+    const shouldPinMetadataFace = getShouldPinMetadataFace(state);
+    const shouldCycleFace =
+        Boolean(controller && game && isMainBoardVisible) &&
+        !interactionPaused &&
+        !prefersReducedMotion &&
+        !shouldPinMetadataFace;
 
     React.useEffect(() => {
         if (!shouldCycleFace) {
-            setCycleFace("player");
+            setCycleFace(shouldPinMetadataFace ? "metadata" : "player");
             return undefined;
         }
 
         let cancelled = false;
-        let timeoutId: number | null = null;
+        const intervalId = window.setInterval(() => {
+            if (cancelled) {
+                return;
+            }
 
-        const schedule = (nextFace: ScoreboardFace, delayMs: number) => {
-            timeoutId = window.setTimeout(() => {
+            setCycleFace("metadata");
+            metadataTimeout = window.setTimeout(() => {
                 if (cancelled) {
                     return;
                 }
 
-                setCycleFace(nextFace);
-                schedule(
-                    nextFace === "player" ? "metadata" : "player",
-                    nextFace === "player" ? 10000 : 3000,
-                );
-            }, delayMs);
-        };
+                setCycleFace("player");
+            }, 2000);
+        }, 10000);
+        let metadataTimeout: number | undefined;
 
         setCycleFace("player");
-        schedule("metadata", 8000);
 
         return () => {
             cancelled = true;
-            if (timeoutId !== null) {
-                window.clearTimeout(timeoutId);
+            window.clearInterval(intervalId);
+            if (metadataTimeout !== undefined) {
+                window.clearTimeout(metadataTimeout);
             }
         };
-    }, [shouldCycleFace, game?.game_id]);
+    }, [shouldCycleFace, shouldPinMetadataFace, game?.game_id]);
 
     if (!game || !isMainBoardVisible) {
         return null;
     }
-    const metadataLines = getMetadataFaceLines(game, controller, state);
-    const visibleFace: ScoreboardFace = urgentState ? "metadata" : cycleFace;
+    const metadataLines = getMetadataFaceLines(game, controller, state, stateToken);
+    const visibleFace: ScoreboardFace = shouldPinMetadataFace ? "metadata" : cycleFace;
 
     return (
         <div className="KibitzMobileMainGameScoreboard">

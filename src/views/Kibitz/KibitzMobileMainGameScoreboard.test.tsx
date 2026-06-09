@@ -516,7 +516,7 @@ describe("KibitzMobileMainGameScoreboard", () => {
         ).toHaveLength(0);
 
         act(() => {
-            jest.advanceTimersByTime(8000);
+            jest.advanceTimersByTime(10000);
         });
 
         expect(
@@ -538,7 +538,47 @@ describe("KibitzMobileMainGameScoreboard", () => {
         ).toHaveLength(1);
     });
 
-    it("locks to the metadata face for urgent states", () => {
+    it("pins the metadata face for stone removal", () => {
+        const { controller } = makeController({
+            phase: "stone removal",
+            mode: "play",
+            outcome: "",
+            time_control: makeTimeControl("fischer"),
+            playerToMove: () => 1,
+            computeScore: () => ({
+                black: { prisoners: 3 },
+                white: { prisoners: 5 },
+            }),
+        });
+
+        const { container } = render(
+            <KibitzMobileMainGameScoreboard
+                controller={controller}
+                game={makeGame()}
+                isMainBoardVisible={true}
+            />,
+        );
+
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
+        expect(screen.getAllByText("State")).toHaveLength(1);
+        expect(screen.getAllByText("Score")).toHaveLength(1);
+
+        act(() => {
+            jest.advanceTimersByTime(12000);
+        });
+
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
+    });
+
+    it("cycles finished games without pinning metadata", () => {
         const { controller } = makeController({
             phase: "finished",
             mode: "play",
@@ -562,11 +602,31 @@ describe("KibitzMobileMainGameScoreboard", () => {
 
         expect(
             container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--player[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
+
+        act(() => {
+            jest.advanceTimersByTime(10000);
+        });
+
+        expect(
+            container.querySelectorAll(
                 '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
             ),
         ).toHaveLength(1);
-        expect(screen.getAllByText("State")).toHaveLength(1);
+        expect(screen.getAllByText("Result")).toHaveLength(1);
         expect(screen.getAllByText("W+2.5")).toHaveLength(1);
+
+        act(() => {
+            jest.advanceTimersByTime(2000);
+        });
+
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--player[aria-hidden="false"]',
+            ),
+        ).toHaveLength(1);
     });
 
     it("does not suppress metadata when reduced motion is enabled", () => {
@@ -593,14 +653,18 @@ describe("KibitzMobileMainGameScoreboard", () => {
         );
 
         act(() => {
-            jest.advanceTimersByTime(8000);
+            jest.advanceTimersByTime(12000);
         });
 
         expect(
             container.querySelectorAll(
-                '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
+                '.KibitzMobileMainGameScoreboard-face--player[aria-hidden="false"]',
             ),
         ).toHaveLength(1);
-        expect(screen.getAllByText("Time")).toHaveLength(1);
+        expect(
+            container.querySelectorAll(
+                '.KibitzMobileMainGameScoreboard-face--metadata[aria-hidden="false"]',
+            ),
+        ).toHaveLength(0);
     });
 });
