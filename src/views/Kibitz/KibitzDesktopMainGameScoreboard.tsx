@@ -17,13 +17,17 @@
 
 import * as React from "react";
 import { Clock } from "@/components/Clock/Clock";
+import { Flag } from "@/components/Flag/Flag";
+import { PlayerDetails } from "@/components/Player/PlayerDetails";
 import { shortShortTimeControl } from "@/components/TimeControl/util";
 import { generateGobanHook } from "@/components/GobanView/hooks";
 import { GobanController } from "@/lib/GobanController";
+import { popover } from "@/lib/popover";
+import { getUserRating, PROVISIONAL_RATING_CUTOFF, rankString } from "@/lib/rank_utils";
 import { interpolate, ngettext, pgettext } from "@/lib/translate";
 import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
 import type { Goban, JGOFClockWithTransmitting, JGOFPlayerClock, JGOFTimeControl } from "goban";
-import { KibitzScoreboardPlayerDisplay } from "./kibitzScoreboardPlayerDisplay";
+import { KibitzUserAvatar } from "./KibitzUserAvatar";
 import "./KibitzDesktopMainGameScoreboard.css";
 
 interface KibitzDesktopMainGameScoreboardProps {
@@ -93,117 +97,22 @@ const usePlayerToMove = generateGobanHook<number, KibitzGoban | null>(
     ["cur_move", "last_official_move"],
 );
 
-function getWinnerColor(
-    game: KibitzWatchedGame,
-    winner: ScoreboardState["winner"],
-): "black" | "white" | null {
-    if (winner === "black" || winner === "white") {
-        return winner;
+function getRankText(user: KibitzRoomUser): string {
+    const rating = getUserRating(user, "overall", 0);
+
+    if (user.professional) {
+        return rankString(user);
     }
 
-    if (winner === game.black.id) {
-        return "black";
+    if (rating.unset && ((user.ranking || 0) > 0 || user.professional)) {
+        return rankString(user);
     }
 
-    if (winner === game.white.id) {
-        return "white";
+    if (rating.deviation >= PROVISIONAL_RATING_CUTOFF) {
+        return "?";
     }
 
-    return null;
-}
-
-function getCompactResultToken(game: KibitzWatchedGame, state: ScoreboardState): string | null {
-    const winnerColor = getWinnerColor(game, state.winner);
-
-    if (!winnerColor) {
-        return null;
-    }
-
-    const outcome = state.outcome ?? "";
-    const prefix = winnerColor === "black" ? "B" : "W";
-
-    if (/[0-9.]+/.test(outcome)) {
-        const match = outcome.match(/([0-9.]+)/);
-        return `${prefix}+${match ? match[1] : outcome}`;
-    }
-
-    if (outcome === "Resignation" || outcome === "resign" || outcome === "r") {
-        return `${prefix}+R`;
-    }
-
-    return null;
-}
-
-function getStateToken(
-    game: KibitzWatchedGame,
-    state: ScoreboardState,
-): {
-    text: string;
-    className: string;
-    ariaLabel: string;
-} {
-    if (state.phase === "stone removal") {
-        return {
-            text: pgettext("Kibitz desktop scoreboard center token", "Score"),
-            className: "is-state",
-            ariaLabel: pgettext("Kibitz desktop scoreboard center token", "Score"),
-        };
-    }
-
-    if (state.phase === "finished") {
-        const token = getCompactResultToken(game, state);
-        if (token) {
-            const winnerColor = getWinnerColor(game, state.winner);
-            const colorLabel =
-                winnerColor === "black"
-                    ? pgettext("Game winner color", "Black")
-                    : pgettext("Game winner color", "White");
-            const outcomeLabel =
-                state.outcome === "Resignation" ||
-                state.outcome === "resign" ||
-                state.outcome === "r"
-                    ? pgettext("Game outcome", "Resignation")
-                    : token.slice(2);
-
-            return {
-                text: token,
-                className: "is-state",
-                ariaLabel: interpolate(
-                    pgettext(
-                        "Kibitz desktop scoreboard result aria label",
-                        "{{color}} wins by {{outcome}}",
-                    ),
-                    {
-                        color: colorLabel,
-                        outcome:
-                            outcomeLabel === token.slice(2)
-                                ? `${token.slice(2)} ${pgettext("Kibitz desktop scoreboard result suffix", "points")}`
-                                : outcomeLabel,
-                    },
-                ),
-            };
-        }
-
-        return {
-            text: pgettext("Kibitz desktop scoreboard center token", "Done"),
-            className: "is-state",
-            ariaLabel: pgettext("Kibitz desktop scoreboard center token", "Game finished"),
-        };
-    }
-
-    if (state.phase === "play" && state.pausedSince) {
-        return {
-            text: pgettext("Kibitz desktop scoreboard center token", "Pause"),
-            className: "is-state",
-            ariaLabel: pgettext("Kibitz desktop scoreboard center token", "Game paused"),
-        };
-    }
-
-    return {
-        text: pgettext("Kibitz desktop scoreboard center token", "VS"),
-        className: "",
-        ariaLabel: pgettext("Kibitz desktop scoreboard center token", "Versus"),
-    };
+    return rating.bounded_rank_label;
 }
 
 function formatHandicap(handicap: number | null | undefined): string {
@@ -365,11 +274,128 @@ function renderCaptures(
     );
 }
 
-function renderPlayerLane(user: KibitzRoomUser, side: "black" | "white"): React.ReactElement {
+function openPlayerPopover(event: React.MouseEvent<HTMLButtonElement>, user: KibitzRoomUser): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    popover({
+        elt: <PlayerDetails playerId={user.id} />,
+        below: event.currentTarget,
+        minWidth: 240,
+        minHeight: 250,
+    });
+}
+
+function renderAvatarButton(user: KibitzRoomUser): React.ReactElement {
     return (
-        <span className="KibitzDesktopMainGameScoreboard-player">
-            <KibitzScoreboardPlayerDisplay user={user} side={side} />
+        <button
+            type="button"
+            className="KibitzDesktopMainGameScoreboard-avatarButton"
+            onClick={(event) => openPlayerPopover(event, user)}
+            aria-label={user.username}
+            title={user.username}
+        >
+            <KibitzUserAvatar
+                user={user}
+                size={32}
+                className="KibitzDesktopMainGameScoreboard-avatar"
+                iconClassName="KibitzDesktopMainGameScoreboard-avatarImage"
+            />
+        </button>
+    );
+}
+
+function renderPlayerIdentity(user: KibitzRoomUser, side: "black" | "white"): React.ReactElement {
+    return (
+        <span
+            className={
+                "KibitzDesktopMainGameScoreboard-player KibitzDesktopMainGameScoreboard-player--" +
+                side
+            }
+        >
+            {user.country ? (
+                <span className="KibitzDesktopMainGameScoreboard-playerFlag" aria-hidden="true">
+                    <Flag country={user.country} />
+                </span>
+            ) : null}
+            <span className="KibitzDesktopMainGameScoreboard-playerIdentity">
+                <span className="KibitzDesktopMainGameScoreboard-playerName">{user.username}</span>
+                <span className="KibitzDesktopMainGameScoreboard-playerRank">
+                    [{getRankText(user)}]
+                </span>
+            </span>
         </span>
+    );
+}
+
+function renderPlayerRowContent(
+    user: KibitzRoomUser,
+    side: "black" | "white",
+    controller: GobanController | null,
+    state: ScoreboardState,
+    captures: number | undefined | null,
+): React.ReactElement {
+    return side === "black" ? (
+        <>
+            <div className="KibitzDesktopMainGameScoreboard-rowGroup KibitzDesktopMainGameScoreboard-rowGroup--start">
+                {renderPlayerIdentity(user, side)}
+            </div>
+            <div className="KibitzDesktopMainGameScoreboard-rowGroup KibitzDesktopMainGameScoreboard-rowGroup--end">
+                {renderCaptures(captures, side)}
+                {renderClock(controller, state, side)}
+            </div>
+        </>
+    ) : (
+        <>
+            <div className="KibitzDesktopMainGameScoreboard-rowGroup KibitzDesktopMainGameScoreboard-rowGroup--start">
+                {renderCaptures(captures, side)}
+                {renderClock(controller, state, side)}
+            </div>
+            <div className="KibitzDesktopMainGameScoreboard-rowGroup KibitzDesktopMainGameScoreboard-rowGroup--end">
+                {renderPlayerIdentity(user, side)}
+            </div>
+        </>
+    );
+}
+
+function renderAvatarCell(
+    user: KibitzRoomUser,
+    side: "black" | "white",
+    active: boolean,
+): React.ReactElement {
+    return (
+        <div
+            className={
+                "KibitzDesktopMainGameScoreboard-avatarCell KibitzDesktopMainGameScoreboard-avatarCell--" +
+                side +
+                (active ? " is-active" : "")
+            }
+        >
+            {renderAvatarButton(user)}
+        </div>
+    );
+}
+
+function renderPlayerRow(
+    user: KibitzRoomUser,
+    side: "black" | "white",
+    active: boolean,
+    controller: GobanController | null,
+    state: ScoreboardState,
+    captures: number | undefined | null,
+): React.ReactElement {
+    return (
+        <div
+            className={
+                "KibitzDesktopMainGameScoreboard-row KibitzDesktopMainGameScoreboard-row--" +
+                side +
+                (active ? " is-active" : "")
+            }
+            role={active ? "group" : undefined}
+            aria-label={getSideAriaLabel(side)}
+        >
+            {renderPlayerRowContent(user, side, controller, state, captures)}
+        </div>
     );
 }
 
@@ -396,55 +422,28 @@ export function KibitzDesktopMainGameScoreboard({
     const whiteCaptures = score?.white?.prisoners;
     const blackActive = state.phase !== "finished" && playerToMove === game.black.id;
     const whiteActive = state.phase !== "finished" && playerToMove === game.white.id;
-    const centerToken = getStateToken(game, state);
 
     return (
         <div className="KibitzDesktopMainGameScoreboard">
             <div className="KibitzDesktopMainGameScoreboard-inner">
-                <div
-                    className={
-                        "KibitzDesktopMainGameScoreboard-side KibitzDesktopMainGameScoreboard-side--black" +
-                        (blackActive ? " is-active" : "")
-                    }
-                    role={blackActive ? "group" : undefined}
-                    aria-label={getSideAriaLabel("black")}
-                >
-                    {blackActive ? (
-                        <span
-                            className="KibitzDesktopMainGameScoreboard-activeBackdrop"
-                            aria-hidden="true"
-                        />
-                    ) : null}
-                    {renderClock(controller, state, "black")}
-                    {renderCaptures(blackCaptures, "black")}
-                    {renderPlayerLane(game.black, "black")}
-                </div>
-
-                <div
-                    className={"KibitzDesktopMainGameScoreboard-center " + centerToken.className}
-                    aria-label={centerToken.ariaLabel}
-                >
-                    {centerToken.text}
-                </div>
-
-                <div
-                    className={
-                        "KibitzDesktopMainGameScoreboard-side KibitzDesktopMainGameScoreboard-side--white" +
-                        (whiteActive ? " is-active" : "")
-                    }
-                    role={whiteActive ? "group" : undefined}
-                    aria-label={getSideAriaLabel("white")}
-                >
-                    {whiteActive ? (
-                        <span
-                            className="KibitzDesktopMainGameScoreboard-activeBackdrop"
-                            aria-hidden="true"
-                        />
-                    ) : null}
-                    {renderPlayerLane(game.white, "white")}
-                    {renderCaptures(whiteCaptures, "white")}
-                    {renderClock(controller, state, "white")}
-                </div>
+                {renderAvatarCell(game.black, "black", blackActive)}
+                {renderPlayerRow(
+                    game.black,
+                    "black",
+                    blackActive,
+                    controller,
+                    state,
+                    blackCaptures,
+                )}
+                {renderPlayerRow(
+                    game.white,
+                    "white",
+                    whiteActive,
+                    controller,
+                    state,
+                    whiteCaptures,
+                )}
+                {renderAvatarCell(game.white, "white", whiteActive)}
             </div>
         </div>
     );

@@ -266,15 +266,19 @@ describe("KibitzDesktopMainGameScoreboard", () => {
 
         expect(document.querySelectorAll(".KibitzDesktopMainGameScoreboard")).toHaveLength(1);
         expect(document.querySelectorAll(".KibitzDesktopMainGameScoreboard-inner")).toHaveLength(1);
+        expect(document.querySelectorAll(".KibitzDesktopMainGameScoreboard-row")).toHaveLength(2);
+        expect(
+            document.querySelectorAll(".KibitzDesktopMainGameScoreboard-avatarCell"),
+        ).toHaveLength(2);
     });
 
-    it("shows VS for a normal game", () => {
+    it("shows a two-row scoreboard for a normal game", () => {
         render(<KibitzDesktopMainGameScoreboard controller={null} game={makeGame()} />);
 
-        expect(screen.getByText("VS")).toBeInTheDocument();
+        expect(screen.queryByText("VS")).toBeNull();
     });
 
-    it("shows Score during stone removal", () => {
+    it("keeps the two-row layout during stone removal", () => {
         const { controller } = makeController({
             phase: "stone removal",
             mode: "play",
@@ -289,10 +293,10 @@ describe("KibitzDesktopMainGameScoreboard", () => {
 
         render(<KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />);
 
-        expect(screen.getByText("Score")).toBeInTheDocument();
+        expect(screen.queryByText("VS")).toBeNull();
     });
 
-    it("shows a compact result token when the game is finished", () => {
+    it("keeps the two-row layout when the game is finished", () => {
         const { controller } = makeController({
             phase: "finished",
             mode: "play",
@@ -308,7 +312,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
 
         render(<KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />);
 
-        expect(screen.getByText("W+2.5")).toBeInTheDocument();
+        expect(screen.queryByText("VS")).toBeNull();
     });
 
     it("renders both clocks and both capture values when the controller is present", () => {
@@ -367,7 +371,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             <KibitzDesktopMainGameScoreboard controller={controller} game={makeGame()} />,
         );
 
-        expect(container.querySelector(".KibitzDesktopMainGameScoreboard-side--black")).toHaveClass(
+        expect(container.querySelector(".KibitzDesktopMainGameScoreboard-row--black")).toHaveClass(
             "is-active",
         );
 
@@ -376,7 +380,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             emitter.emit("cur_move");
         });
 
-        expect(container.querySelector(".KibitzDesktopMainGameScoreboard-side--white")).toHaveClass(
+        expect(container.querySelector(".KibitzDesktopMainGameScoreboard-row--white")).toHaveClass(
             "is-active",
         );
     });
@@ -389,10 +393,10 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         render(<KibitzDesktopMainGameScoreboard controller={null} game={game} />);
 
         expect(screen.getByLabelText("Black player")).toHaveClass(
-            "KibitzDesktopMainGameScoreboard-side--black",
+            "KibitzDesktopMainGameScoreboard-row--black",
         );
         expect(screen.getByLabelText("White player")).toHaveClass(
-            "KibitzDesktopMainGameScoreboard-side--white",
+            "KibitzDesktopMainGameScoreboard-row--white",
         );
         expect(screen.queryByText("Black")).toBeNull();
         expect(screen.queryByText("White")).toBeNull();
@@ -421,12 +425,12 @@ describe("KibitzDesktopMainGameScoreboard", () => {
 
         render(<KibitzDesktopMainGameScoreboard controller={null} game={game} />);
 
-        expect(screen.getAllByText(game.black.username)[1]).toHaveClass(
-            "KibitzDesktopMainGameScoreboard-playerName",
-        );
-        expect(screen.getAllByText(game.white.username)[1]).toHaveClass(
-            "KibitzDesktopMainGameScoreboard-playerName",
-        );
+        expect(
+            document.querySelectorAll(".KibitzDesktopMainGameScoreboard-playerName")[0],
+        ).toHaveTextContent(game.black.username);
+        expect(
+            document.querySelectorAll(".KibitzDesktopMainGameScoreboard-playerName")[1],
+        ).toHaveTextContent(game.white.username);
     });
 
     it("does not render chip or button-like stat structures", () => {
@@ -446,15 +450,20 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             /\.KibitzDesktopMainGameScoreboard\s*{[^}]*--kibitz-scoreboard-text:\s*var\(--text-color\)[^}]*--kibitz-scoreboard-muted-text:\s*color-mix\(in srgb, var\(--text-color\) 70%, transparent\)[^}]*--kibitz-scoreboard-strong-text:\s*var\(--text-color\)/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-side--black::before\s*{[^}]*background:\s*linear-gradient\(180deg, rgba\(0, 0, 0, 0\.95\), rgba\(35, 35, 35, 0\.95\)\)[^}]*box-shadow:/s,
+            /\.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-side--white::after\s*{[^}]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.95\), rgba\(215, 215, 215, 0\.95\)\)[^}]*box-shadow:/s,
+            /\.KibitzDesktopMainGameScoreboard-rowGroup\s*{[^}]*display:\s*flex;[^}]*flex:\s*1 1 0;/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-activeWash\s*{[^}]*inset:\s*-0\.75em;[^}]*background:\s*color-mix\(in srgb, var\(--text-color\) 5%, transparent\)/s,
+            /\.KibitzDesktopMainGameScoreboard-avatarCell--black\.is-active::after\s*{[^}]*inset:\s*-0\.1rem -0\.55rem -0\.1rem -0\.1rem;[^}]*border-top-right-radius:\s*10px;[^}]*border-bottom-right-radius:\s*10px;/s,
         );
-        expect(css).not.toContain(".KibitzDesktopMainGameScoreboard-side.is-active::after");
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatarCell--white\.is-active::after\s*{[^}]*inset:\s*-0\.1rem -0\.1rem -0\.1rem -0\.55rem;[^}]*border-top-left-radius:\s*10px;[^}]*border-bottom-left-radius:\s*10px;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-row--white\.is-active::after\s*{[^}]*border-top-right-radius:\s*10px;[^}]*border-bottom-right-radius:\s*10px;/s,
+        );
         expect(css).toMatch(
             /\[data-theme="light"] \.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*background:\s*linear-gradient\(/s,
         );
