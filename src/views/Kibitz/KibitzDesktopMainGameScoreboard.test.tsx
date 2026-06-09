@@ -462,6 +462,15 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             /\.KibitzDesktopMainGameScoreboard-rowGroup--end\s*{[^}]*grid-column:\s*2;[^}]*justify-self:\s*end;/s,
         );
         expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatarCell::before\s*{[^}]*top:\s*0\.18rem;[^}]*width:\s*2px;[^}]*border-radius:\s*999px;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatarCell--black::before\s*{[^}]*left:\s*-0\.3rem;[^}]*background:\s*linear-gradient\(180deg, rgba\(0, 0, 0, 0\.95\), rgba\(35, 35, 35, 0\.95\)\);/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatarCell--white::before\s*{[^}]*right:\s*-0\.3rem;[^}]*background:\s*linear-gradient\(180deg, rgba\(255, 255, 255, 0\.95\), rgba\(215, 215, 215, 0\.95\)\);/s,
+        );
+        expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-avatarCell--black\.is-active::after\s*{[^}]*inset:\s*-0\.1rem -0\.55rem -0\.1rem -0\.1rem;[^}]*border-top-right-radius:\s*10px;[^}]*border-bottom-right-radius:\s*10px;/s,
         );
         expect(css).toMatch(

@@ -143,10 +143,41 @@
     justify-self: end;
 }
 
+.KibitzDesktopMainGameScoreboard-avatarCell::before,
 .KibitzDesktopMainGameScoreboard-avatarCell::after,
 .KibitzDesktopMainGameScoreboard-row::after {
     content: "";
     position: absolute;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.KibitzDesktopMainGameScoreboard-avatarCell::before {
+    top: 0.18rem;
+    bottom: 0.18rem;
+    width: 2px;
+    border-radius: 999px;
+    opacity: 1;
+}
+
+.KibitzDesktopMainGameScoreboard-avatarCell--black::before {
+    left: -0.3rem;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.95), rgba(35, 35, 35, 0.95));
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.08),
+        0 0 6px rgba(255, 255, 255, 0.08);
+}
+
+.KibitzDesktopMainGameScoreboard-avatarCell--white::before {
+    right: -0.3rem;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(215, 215, 215, 0.95));
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.22),
+        0 0 6px rgba(255, 255, 255, 0.14);
+}
+
+.KibitzDesktopMainGameScoreboard-avatarCell::after,
+.KibitzDesktopMainGameScoreboard-row::after {
     inset: 0;
     border-radius: inherit;
     background: color-mix(in srgb, var(--text-color) 5%, transparent);
