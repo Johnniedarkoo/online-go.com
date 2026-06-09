@@ -22,9 +22,16 @@
         align-items: center;
         display: grid;
         gap: 0.75rem;
-        grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);
+        grid-template-columns: minmax(10rem, 1fr) minmax(0, 2.5fr) minmax(10rem, 1fr);
         min-width: 0;
         width: 100%;
+    }
+
+    @media (max-width: 1700px) {
+        .room-stage-header .board-title-row {
+            gap: 0.5rem;
+            grid-template-columns: minmax(0, 0.85fr) minmax(0, 3fr) minmax(0, 0.85fr);
+        }
     }
 
     .room-stage-header .board-titleRowMain {

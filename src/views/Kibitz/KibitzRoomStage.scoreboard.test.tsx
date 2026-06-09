@@ -16,6 +16,8 @@
  */
 
 import * as React from "react";
+import { readFileSync } from "fs";
+import path from "path";
 import { render, screen } from "@testing-library/react";
 import type { KibitzRoomSummary, KibitzWatchedGame } from "@/models/kibitz";
 import { KibitzRoomStage } from "./KibitzRoomStage";
@@ -197,5 +199,16 @@ describe("KibitzRoomStage header scoreboard integration", () => {
 
         expect(screen.getByTestId("desktop-scoreboard")).toBeInTheDocument();
         expect(screen.queryByTestId("mobile-stats")).toBeNull();
+    });
+
+    it("gives the scoreboard room to expand in the desktop header grid", () => {
+        const css = readFileSync(path.join(__dirname, "KibitzRoomStage.css"), "utf8");
+
+        expect(css).toMatch(
+            /\.room-stage-header \.board-title-row\s*{[^}]*grid-template-columns:\s*minmax\(10rem, 1fr\) minmax\(0, 2\.5fr\) minmax\(10rem, 1fr\);/s,
+        );
+        expect(css).toMatch(
+            /@media \(max-width: 1700px\)\s*{\s*\.room-stage-header \.board-title-row\s*{[^}]*gap:\s*0\.5rem;[^}]*grid-template-columns:\s*minmax\(0, 0\.85fr\) minmax\(0, 3fr\) minmax\(0, 0\.85fr\);/s,
+        );
     });
 });

@@ -450,7 +450,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
             /\.KibitzDesktopMainGameScoreboard\s*{[^}]*--kibitz-scoreboard-text:\s*var\(--text-color\)[^}]*--kibitz-scoreboard-muted-text:\s*color-mix\(in srgb, var\(--text-color\) 70%, transparent\)[^}]*--kibitz-scoreboard-strong-text:\s*var\(--text-color\)[^}]*--kibitz-scoreboard-turn-highlight:\s*color-mix\(in srgb, var\(--text-color\) 20%, transparent\);/s,
         );
         expect(css).toMatch(
-            /\.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;/s,
+            /\.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*display:\s*grid;[^}]*max-width:\s*min\(1600px, 100%\);[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;/s,
         );
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-avatarCell--black\s*{[^}]*grid-column:\s*1;[^}]*grid-row:\s*1 \/ span 2;[^}]*justify-self:\s*start;/s,
@@ -466,6 +466,15 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         );
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-row\s*{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto 0\.5rem;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatarButton\s*{[^}]*width:\s*2\.5rem;[^}]*height:\s*2\.5rem;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatar\s*{[^}]*width:\s*2\.5rem;[^}]*height:\s*2\.5rem;/s,
+        );
+        expect(css).toMatch(
+            /\.KibitzDesktopMainGameScoreboard-avatarImage\s*{[^}]*width:\s*2\.5rem !important;[^}]*height:\s*2\.5rem !important;/s,
         );
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-avatarCell::before\s*{[^}]*z-index:\s*1;[^}]*top:\s*0\.18rem;[^}]*width:\s*2px;[^}]*border-radius:\s*999px;/s,

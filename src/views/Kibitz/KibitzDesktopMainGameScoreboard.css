@@ -23,7 +23,7 @@
     column-gap: 0.4rem;
     row-gap: 0.12rem;
     min-width: 0;
-    max-width: min(1320px, 100%);
+    max-width: min(1600px, 100%);
     width: 100%;
 
     padding: 0.45rem 0.8rem;
@@ -79,16 +79,16 @@
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    width: 1.85rem;
-    height: 1.85rem;
+    width: 2.5rem;
+    height: 2.5rem;
     line-height: 0;
     position: relative;
     z-index: 1;
 }
 
 .KibitzDesktopMainGameScoreboard-avatar {
-    width: 1.85rem;
-    height: 1.85rem;
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: 6px;
     flex: 0 0 auto;
     object-fit: cover;
@@ -96,8 +96,8 @@
 
 .KibitzDesktopMainGameScoreboard-avatarImage {
     display: block;
-    width: 1.85rem !important;
-    height: 1.85rem !important;
+    width: 2.5rem !important;
+    height: 2.5rem !important;
     object-fit: cover;
 }
 
