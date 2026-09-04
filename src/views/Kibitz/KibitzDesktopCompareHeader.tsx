@@ -29,10 +29,6 @@ interface KibitzDesktopCompareHeaderProps {
     selectedVariation: KibitzVariationSummary | undefined;
     selectedVariationSourceGame: KibitzWatchedGame | undefined;
     onOpenRoomSettings: React.MouseEventHandler<HTMLButtonElement>;
-    designClockLabels?: {
-        black: string;
-        white: string;
-    };
     roomTitleRef?: React.RefCallback<HTMLDivElement>;
     roomSettingsRef?: React.RefCallback<HTMLButtonElement>;
 }
@@ -161,38 +157,6 @@ function renderVariationSource(
     );
 }
 
-function renderDesignScoreboard(
-    game: KibitzWatchedGame | undefined,
-    clockLabels: { black: string; white: string },
-): React.ReactElement | null {
-    if (!game) {
-        return null;
-    }
-
-    return (
-        <div
-            className="KibitzDesktopCompareHeader-designScoreboard"
-            aria-label={pgettext(
-                "Aria label for the Kibitz current game fixture scoreboard",
-                "Current game players and clocks",
-            )}
-        >
-            <div className="KibitzDesktopCompareHeader-designPlayerRow">
-                <span className="KibitzDesktopCompareHeader-designPlayerName KibitzDesktopCompareHeader-designPlayerName--black">
-                    {game.black.username}
-                </span>
-                <span className="KibitzDesktopCompareHeader-designClock">{clockLabels.black}</span>
-            </div>
-            <div className="KibitzDesktopCompareHeader-designPlayerRow">
-                <span className="KibitzDesktopCompareHeader-designPlayerName KibitzDesktopCompareHeader-designPlayerName--white">
-                    {game.white.username}
-                </span>
-                <span className="KibitzDesktopCompareHeader-designClock">{clockLabels.white}</span>
-            </div>
-        </div>
-    );
-}
-
 export function KibitzDesktopCompareHeader({
     room,
     mainGame,
@@ -200,11 +164,10 @@ export function KibitzDesktopCompareHeader({
     selectedVariation,
     selectedVariationSourceGame,
     onOpenRoomSettings,
-    designClockLabels,
     roomTitleRef,
     roomSettingsRef,
 }: KibitzDesktopCompareHeaderProps): React.ReactElement {
-    const isLive = mainGame?.live !== false;
+    const isLive = mainGame?.live === true;
 
     return (
         <div className="KibitzDesktopCompareHeader">
@@ -245,14 +208,7 @@ export function KibitzDesktopCompareHeader({
                         </span>
                     </div>
                 </div>
-                {designClockLabels ? (
-                    renderDesignScoreboard(mainGame, designClockLabels)
-                ) : (
-                    <KibitzDesktopMainGameScoreboard
-                        controller={mainBoardController}
-                        game={mainGame}
-                    />
-                )}
+                <KibitzDesktopMainGameScoreboard controller={mainBoardController} game={mainGame} />
                 <div className="KibitzDesktopCompareHeader-mainGameLinkRow">
                     {mainGame ? (
                         <a
