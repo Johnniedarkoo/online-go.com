@@ -159,6 +159,7 @@
     --fg: var(--fixture-fg);
     --primary: var(--fixture-primary);
     --supporter: #f0b269;
+    --text-color: var(--fixture-fg);
     --user: #94c9ff;
 }
 
@@ -476,40 +477,24 @@
 }
 
 .KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designScoreboard {
-    background: var(--compare-header-soft);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
     display: grid;
     gap: 0.22rem;
     min-width: 0;
-    padding: 0.24rem 0.38rem;
+    padding: 0;
 }
 
 .KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designPlayerRow {
     align-items: center;
     display: grid;
     gap: 0.35rem;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     min-width: 0;
 }
 
-.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designStone {
-    border-radius: 50%;
-    display: inline-block;
-    height: 0.78rem;
-    width: 0.78rem;
-}
-
-.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designStone--black {
-    background: #14171b;
-}
-
-.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designStone--white {
-    background: #f0f2f3;
-}
-
 .KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designPlayerName {
-    font-size: 0.78rem;
     font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;

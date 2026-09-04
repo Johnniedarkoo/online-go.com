@@ -111,11 +111,14 @@ function renderVariationSource(
             {isCurrentGame ? (
                 typeof variation.analysis_from === "number" ? (
                     <span className="KibitzDesktopCompareHeader-sourceDetail">
+                        <span
+                            className="KibitzDesktopCompareHeader-sourceDivider"
+                            aria-hidden="true"
+                        >
+                            ·
+                        </span>
                         {interpolate(
-                            pgettext(
-                                "Kibitz variation source move label",
-                                "starting at move {{move}}",
-                            ),
+                            pgettext("Kibitz variation source move label", "move {{move}}"),
                             { move: variation.analysis_from },
                         )}
                     </span>
@@ -175,20 +178,12 @@ function renderDesignScoreboard(
             )}
         >
             <div className="KibitzDesktopCompareHeader-designPlayerRow">
-                <span
-                    className="KibitzDesktopCompareHeader-designStone KibitzDesktopCompareHeader-designStone--black"
-                    aria-hidden="true"
-                />
                 <span className="KibitzDesktopCompareHeader-designPlayerName KibitzDesktopCompareHeader-designPlayerName--black">
                     {game.black.username}
                 </span>
                 <span className="KibitzDesktopCompareHeader-designClock">{clockLabels.black}</span>
             </div>
             <div className="KibitzDesktopCompareHeader-designPlayerRow">
-                <span
-                    className="KibitzDesktopCompareHeader-designStone KibitzDesktopCompareHeader-designStone--white"
-                    aria-hidden="true"
-                />
                 <span className="KibitzDesktopCompareHeader-designPlayerName KibitzDesktopCompareHeader-designPlayerName--white">
                     {game.white.username}
                 </span>
@@ -250,6 +245,14 @@ export function KibitzDesktopCompareHeader({
                         </span>
                     </div>
                 </div>
+                {designClockLabels ? (
+                    renderDesignScoreboard(mainGame, designClockLabels)
+                ) : (
+                    <KibitzDesktopMainGameScoreboard
+                        controller={mainBoardController}
+                        game={mainGame}
+                    />
+                )}
                 <div className="KibitzDesktopCompareHeader-mainGameLinkRow">
                     {mainGame ? (
                         <a
@@ -273,14 +276,6 @@ export function KibitzDesktopCompareHeader({
                         </span>
                     )}
                 </div>
-                {designClockLabels ? (
-                    renderDesignScoreboard(mainGame, designClockLabels)
-                ) : (
-                    <KibitzDesktopMainGameScoreboard
-                        controller={mainBoardController}
-                        game={mainGame}
-                    />
-                )}
             </section>
             <section
                 className="KibitzDesktopCompareHeader-variation"
@@ -296,9 +291,6 @@ export function KibitzDesktopCompareHeader({
                     className="KibitzDesktopCompareHeader-variationTitle"
                     title={getVariationTitle(selectedVariation)}
                 >
-                    <span className="KibitzDesktopCompareHeader-variationPrefix">
-                        {pgettext("Kibitz variation header title prefix", "Variation")}:
-                    </span>{" "}
                     <span className="KibitzDesktopCompareHeader-variationName">
                         {getVariationTitle(selectedVariation)}
                     </span>

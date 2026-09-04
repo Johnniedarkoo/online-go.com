@@ -110,9 +110,9 @@
 
 .KibitzDesktopCompareHeader-mainGameLinkRow {
     color: var(--compare-header-muted);
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     line-height: 1.2;
-    margin: 0.12rem 0 0.16rem 1.95rem;
+    margin: 0.22rem 0 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -129,32 +129,37 @@
 }
 
 .KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-inner {
-    background: var(--compare-header-soft);
-    border-radius: 8px;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 46%, transparent);
-    padding: 0.24rem 0.38rem;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    column-gap: 0;
+    padding: 0;
+    grid-template-columns: minmax(0, 1fr);
 }
 
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-avatarButton,
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-avatar,
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-avatarImage {
-    height: 2rem;
-    width: 2rem;
+.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-avatarCell,
+.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-playerFlag,
+.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-playerRank,
+.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-captures {
+    display: none;
+}
+
+.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-row {
+    border-radius: 0;
+    grid-column: 1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.13rem 0;
 }
 
 .KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-playerName {
-    font-size: 0.84rem;
-}
-
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-playerRank {
-    font-size: 0.72rem;
-}
-
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-clock {
     font-size: 0.82rem;
 }
 
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-captures {
+.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-clock {
+    font-size: 0.84rem;
+}
+
+.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-row::after {
     display: none;
 }
 
@@ -168,18 +173,13 @@
 
 .KibitzDesktopCompareHeader-variationTitle {
     color: var(--fg);
-    font-size: 0.98rem;
+    font-size: 1rem;
     font-weight: 700;
     line-height: 1.2;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.KibitzDesktopCompareHeader-variationPrefix {
-    color: var(--compare-header-muted);
-    font-weight: 600;
 }
 
 .KibitzDesktopCompareHeader-variationName {
@@ -195,22 +195,24 @@
 
 .KibitzDesktopCompareHeader-sourceLine {
     align-items: baseline;
-    color: var(--compare-header-muted);
+    color: var(--fg);
     display: flex;
     flex-wrap: wrap;
-    font-size: 0.76rem;
+    font-size: 0.82rem;
     gap: 0.26rem;
+    font-weight: 600;
     line-height: 1.25;
     min-width: 0;
 }
 
 .KibitzDesktopCompareHeader-sourceLabel {
     color: var(--primary);
-    font-weight: 750;
+    font-weight: 800;
 }
 
 .KibitzDesktopCompareHeader-sourceDetail {
     color: var(--compare-header-muted);
+    font-weight: 500;
 }
 
 .KibitzDesktopCompareHeader-sourceDivider {
@@ -250,7 +252,7 @@
 
 .KibitzDesktopCompareHeader-sourceTitle {
     color: var(--fg);
-    font-weight: 600;
+    font-weight: 700;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -273,7 +275,7 @@
     }
 
     .KibitzDesktopCompareHeader-mainGameLinkRow {
-        margin-left: 1.8rem;
+        margin-top: 0.18rem;
     }
 
     .KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-playerName {
@@ -281,7 +283,11 @@
     }
 
     .KibitzDesktopCompareHeader-variationTitle {
-        font-size: 0.9rem;
+        font-size: 0.92rem;
+    }
+
+    .KibitzDesktopCompareHeader-sourceLine {
+        font-size: 0.76rem;
     }
 }
 
