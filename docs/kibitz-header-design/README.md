@@ -9,7 +9,7 @@ present.
 
 - Branch: `codex/kibitz-header-design`
 - Starting SHA: `567469131e9b271f67cadbfabc19b0750c71ad08` (`origin/main` on 2026-09-04)
-- Resulting SHA (prototype implementation and screenshots): `50aaeadf8`
+- Resulting SHA (latest prototype snapshot): `ebf35bc11`
 
 ## Screenshots
 
@@ -50,6 +50,13 @@ The deterministic fixture can be opened locally with:
   the historical source cannot be mistaken for the live board.
 - Streamer mode reuses the same component and information architecture; only
   the board/header track proportions change to equal columns.
+- The refinement pass flattens the split header: the live side is now two
+  unboxed name/clock rows, and the variation side uses one eyebrow, one
+  title/author line, and a stronger source line.
+- Only the current-game normal, previous-game normal, and previous-game
+  streamer screenshots were regenerated for this pass; the other scenario
+  captures were left unchanged. The contact sheet was refreshed from the
+  preserved and regenerated captures.
 - The production-facing header component receives the existing
   `selectedVariationSourceGame` value from `KibitzRoomStage`. It does not add a
   second source-game lookup path.
