@@ -1,0 +1,560 @@
+.KibitzHeaderDesignFixture {
+    --fixture-bg: #171b23;
+    --fixture-panel: #232936;
+    --fixture-panel-raised: #2b3342;
+    --fixture-border: rgba(255, 255, 255, 0.11);
+    --fixture-muted: rgba(240, 244, 248, 0.64);
+    --fixture-fg: #f3f5f7;
+    --fixture-primary: #73d5a4;
+    --fixture-board: #c79a5c;
+    --fixture-board-dark: #ab7f49;
+    background: var(--fixture-bg);
+    color: var(--fixture-fg);
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+    height: 100vh;
+    min-height: 640px;
+    min-width: 1000px;
+    overflow: hidden;
+    width: 100vw;
+}
+
+.KibitzHeaderDesignFixture * {
+    box-sizing: border-box;
+}
+
+.KibitzHeaderDesignFixture-topbar {
+    align-items: center;
+    background: #11151c;
+    border-bottom: 1px solid var(--fixture-border);
+    color: var(--fixture-muted);
+    display: flex;
+    font-size: 0.76rem;
+    gap: 0.7rem;
+    height: 2.7rem;
+    letter-spacing: 0.06em;
+    padding: 0 1.25rem;
+    text-transform: uppercase;
+}
+
+.KibitzHeaderDesignFixture-brand {
+    color: var(--fixture-primary);
+    font-size: 1.05rem;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+}
+
+.KibitzHeaderDesignFixture-topbarHint {
+    border-left: 1px solid var(--fixture-border);
+    margin-left: 0.3rem;
+    padding-left: 0.8rem;
+}
+
+.KibitzHeaderDesignFixture-app {
+    display: grid;
+    grid-template-columns: 14.25rem minmax(0, 1fr);
+    height: calc(100% - 2.7rem);
+    min-height: 0;
+}
+
+.KibitzHeaderDesignFixture-rail {
+    background: #1d222c;
+    border-right: 1px solid var(--fixture-border);
+    min-width: 0;
+    padding: 1rem 0.75rem;
+}
+
+.KibitzHeaderDesignFixture-railLabel {
+    color: var(--fixture-muted);
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    margin: 0.3rem 0.45rem 0.6rem;
+}
+
+.KibitzHeaderDesignFixture-railLabel.is-people {
+    border-top: 1px solid var(--fixture-border);
+    margin-top: 1.2rem;
+    padding-top: 1.1rem;
+}
+
+.KibitzHeaderDesignFixture-roomItem {
+    border-radius: 7px;
+    color: var(--fixture-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    min-width: 0;
+    padding: 0.7rem 0.65rem;
+}
+
+.KibitzHeaderDesignFixture-roomItem.is-active {
+    background: rgba(115, 213, 164, 0.12);
+    box-shadow: inset 3px 0 0 var(--fixture-primary);
+    color: var(--fixture-fg);
+}
+
+.KibitzHeaderDesignFixture-roomItem span {
+    font-size: 0.78rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.KibitzHeaderDesignFixture-roomItem small,
+.KibitzHeaderDesignFixture-presence {
+    color: var(--fixture-muted);
+    font-size: 0.68rem;
+}
+
+.KibitzHeaderDesignFixture-presence {
+    line-height: 1.55;
+    padding: 0 0.45rem;
+}
+
+.KibitzHeaderDesignFixture-main {
+    min-width: 0;
+}
+
+.KibitzHeaderDesignFixture-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    height: 100%;
+    min-height: 0;
+}
+
+.KibitzHeaderDesignFixture-stage {
+    background: var(--fixture-bg);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+    padding: 0 0.4rem 0.5rem;
+}
+
+.KibitzHeaderDesignFixture-compareHeader,
+.KibitzHeaderDesignFixture-legacyHeader {
+    background: var(--fixture-panel);
+    border-bottom: 1px solid var(--fixture-border);
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+.KibitzHeaderDesignFixture-compareHeader {
+    padding: 0.45rem 0;
+}
+
+.KibitzHeaderDesignFixture-compareHeader .KibitzDesktopCompareHeader {
+    --border-color: var(--fixture-border);
+    --board-divider-width: 0.65rem;
+    --compare-header-border: rgba(255, 255, 255, 0.12);
+    --compare-header-muted: rgba(240, 244, 248, 0.64);
+    --compare-header-soft: rgba(255, 255, 255, 0.06);
+    --fg: var(--fixture-fg);
+    --primary: var(--fixture-primary);
+    --supporter: #f0b269;
+    --user: #94c9ff;
+}
+
+.KibitzHeaderDesignFixture-compareHeader .KibitzDesktopCompareHeader-main {
+    padding-left: 0.85rem;
+}
+
+.KibitzHeaderDesignFixture-compareHeader .KibitzDesktopCompareHeader-variation {
+    padding-right: 0.85rem;
+}
+
+.KibitzHeaderDesignFixture.is-compare:not(.is-streamer) .KibitzDesktopCompareHeader {
+    grid-template-columns: minmax(0, 0.58fr) 0.65rem minmax(0, 1.42fr);
+}
+
+.KibitzHeaderDesignFixture.is-streamer .KibitzDesktopCompareHeader {
+    grid-template-columns: minmax(0, 1fr) 0.65rem minmax(0, 1fr);
+}
+
+.KibitzHeaderDesignFixture-legacyHeader {
+    align-items: center;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(12rem, 1fr) minmax(18rem, 2.3fr) minmax(12rem, 1fr);
+    min-height: 5.9rem;
+    padding: 0.7rem 1rem;
+}
+
+.KibitzHeaderDesignFixture-legacyRoom,
+.KibitzHeaderDesignFixture-legacyGame {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.KibitzHeaderDesignFixture-legacyRoom {
+    align-items: flex-start;
+}
+
+.KibitzHeaderDesignFixture-legacyRoom button {
+    background: transparent;
+    border: 0;
+    color: var(--fixture-muted);
+    font-size: 0.9rem;
+    padding: 0.1rem 0;
+}
+
+.KibitzHeaderDesignFixture-legacyRoom strong {
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.KibitzHeaderDesignFixture-legacyGame {
+    align-items: flex-end;
+    color: var(--fixture-fg);
+    text-align: right;
+}
+
+.KibitzHeaderDesignFixture-legacyGame a {
+    color: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.KibitzHeaderDesignFixture-legacyGame span {
+    color: var(--fixture-muted);
+    font-size: 0.68rem;
+}
+
+.KibitzHeaderDesignFixture-legacyScoreboard {
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    display: grid;
+    gap: 0.22rem;
+    min-width: 0;
+    padding: 0.35rem 0.6rem;
+}
+
+.KibitzHeaderDesignFixture-legacyPlayer {
+    align-items: center;
+    display: grid;
+    gap: 0.45rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-width: 0;
+}
+
+.KibitzHeaderDesignFixture-legacyPlayer > span:not(.KibitzHeaderDesignFixture-legacyStone) {
+    font-size: 0.84rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.KibitzHeaderDesignFixture-legacyPlayer strong {
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.KibitzHeaderDesignFixture-legacyPlayer--black > span:not(.KibitzHeaderDesignFixture-legacyStone) {
+    color: #f0b269;
+}
+
+.KibitzHeaderDesignFixture-legacyPlayer--white > span:not(.KibitzHeaderDesignFixture-legacyStone) {
+    color: #94c9ff;
+}
+
+.KibitzHeaderDesignFixture-legacyStone,
+.KibitzHeaderDesignFixture-designStone {
+    border-radius: 50%;
+    box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.2),
+        0 1px 2px rgba(0, 0, 0, 0.35);
+    display: inline-block;
+    height: 0.85rem;
+    width: 0.85rem;
+}
+
+.KibitzHeaderDesignFixture-legacyStone--black,
+.KibitzHeaderDesignFixture-designStone--black {
+    background: #14171b;
+}
+
+.KibitzHeaderDesignFixture-legacyStone--white,
+.KibitzHeaderDesignFixture-designStone--white {
+    background: #f0f2f3;
+}
+
+.KibitzHeaderDesignFixture-boards {
+    display: grid;
+    flex: 1 1 auto;
+    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+}
+
+.KibitzHeaderDesignFixture.is-compare:not(.is-streamer) .KibitzHeaderDesignFixture-boards {
+    grid-template-columns: minmax(0, 0.58fr) 0.65rem minmax(0, 1.42fr);
+}
+
+.KibitzHeaderDesignFixture.is-streamer .KibitzHeaderDesignFixture-boards {
+    grid-template-columns: minmax(0, 1fr) 0.65rem minmax(0, 1fr);
+}
+
+.KibitzHeaderDesignFixture-boardPanel {
+    align-items: center;
+    background: #202630;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0.65rem;
+}
+
+.KibitzHeaderDesignFixture-boardPanel--main {
+    grid-column: 1;
+}
+
+.KibitzHeaderDesignFixture-boardPanel--variation {
+    background: #1c2430;
+    grid-column: 3;
+}
+
+.KibitzHeaderDesignFixture-divider {
+    background: #10141a;
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    grid-column: 2;
+}
+
+.KibitzHeaderDesignFixture-boardWrap {
+    max-height: 100%;
+    max-width: 100%;
+    width: min(100%, calc(100vh - 11rem));
+}
+
+.KibitzHeaderDesignFixture-board {
+    aspect-ratio: 1;
+    background-color: var(--fixture-board);
+    background-image:
+        linear-gradient(to right, transparent 4.8%, rgba(64, 38, 15, 0.64) 5%, transparent 5.2%),
+        linear-gradient(to bottom, transparent 4.8%, rgba(64, 38, 15, 0.64) 5%, transparent 5.2%),
+        linear-gradient(to right, transparent 49.8%, rgba(64, 38, 15, 0.64) 50%, transparent 50.2%),
+        linear-gradient(to bottom, transparent 49.8%, rgba(64, 38, 15, 0.64) 50%, transparent 50.2%);
+    background-size:
+        5.5555% 100%,
+        100% 5.5555%,
+        5.5555% 100%,
+        100% 5.5555%;
+    border: 0.65rem solid var(--fixture-board);
+    box-shadow:
+        0 0 0 1px rgba(45, 27, 9, 0.85),
+        0 16px 30px rgba(0, 0, 0, 0.26);
+    min-height: 0;
+    position: relative;
+    width: 100%;
+}
+
+.KibitzHeaderDesignFixture-board::before,
+.KibitzHeaderDesignFixture-board::after {
+    background: rgba(60, 36, 13, 0.78);
+    content: "";
+    height: 1.2%;
+    left: 0;
+    position: absolute;
+    top: 50%;
+    width: 100%;
+}
+
+.KibitzHeaderDesignFixture-board::after {
+    height: 100%;
+    left: 50%;
+    top: 0;
+    width: 1.2%;
+}
+
+.KibitzHeaderDesignFixture-boardGrid {
+    background-image:
+        repeating-linear-gradient(
+            to right,
+            rgba(60, 36, 13, 0.78) 0,
+            rgba(60, 36, 13, 0.78) 1.2%,
+            transparent 1.2%,
+            transparent 11.111%
+        ),
+        repeating-linear-gradient(
+            to bottom,
+            rgba(60, 36, 13, 0.78) 0,
+            rgba(60, 36, 13, 0.78) 1.2%,
+            transparent 1.2%,
+            transparent 11.111%
+        );
+    inset: 5.555% 5.555%;
+    position: absolute;
+}
+
+.KibitzHeaderDesignFixture-stone {
+    border-radius: 50%;
+    box-shadow:
+        inset 0 2px 3px rgba(255, 255, 255, 0.23),
+        0 3px 4px rgba(0, 0, 0, 0.36);
+    height: 6.4%;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 6.4%;
+}
+
+.KibitzHeaderDesignFixture-stone--black {
+    background: radial-gradient(circle at 35% 28%, #62666c 0, #181c22 34%, #090b0e 100%);
+}
+
+.KibitzHeaderDesignFixture-stone--white {
+    background: radial-gradient(circle at 35% 28%, #ffffff 0, #e9e9e3 40%, #a8a69d 100%);
+}
+
+.KibitzHeaderDesignFixture-mark {
+    border: 2px solid #e04455;
+    height: 5.2%;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 5.2%;
+}
+
+.KibitzHeaderDesignFixture-boardCaption {
+    color: var(--fixture-muted);
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    margin-top: 0.55rem;
+    text-transform: uppercase;
+}
+
+.KibitzHeaderDesignFixture-boardTools {
+    color: var(--fixture-muted);
+    font-size: 0.66rem;
+    margin-top: 0.45rem;
+}
+
+.KibitzHeaderDesignFixture-stream {
+    background: #1d232d;
+    border-left: 1px solid var(--fixture-border);
+    min-width: 0;
+    overflow: hidden;
+    padding: 1rem 0.85rem;
+}
+
+.KibitzHeaderDesignFixture-streamHeader {
+    border-bottom: 1px solid var(--fixture-border);
+    color: var(--fixture-muted);
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    padding-bottom: 0.7rem;
+}
+
+.KibitzHeaderDesignFixture-streamItem {
+    border-bottom: 1px solid var(--fixture-border);
+    color: var(--fixture-muted);
+    font-size: 0.74rem;
+    line-height: 1.5;
+    padding: 0.9rem 0.15rem;
+}
+
+.KibitzHeaderDesignFixture-streamItem strong {
+    color: var(--fixture-fg);
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designScoreboard {
+    background: var(--compare-header-soft);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    display: grid;
+    gap: 0.22rem;
+    min-width: 0;
+    padding: 0.24rem 0.38rem;
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designPlayerRow {
+    align-items: center;
+    display: grid;
+    gap: 0.35rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-width: 0;
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designStone {
+    border-radius: 50%;
+    display: inline-block;
+    height: 0.78rem;
+    width: 0.78rem;
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designStone--black {
+    background: #14171b;
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designStone--white {
+    background: #f0f2f3;
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designPlayerName {
+    font-size: 0.78rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designPlayerName--black {
+    color: #f0b269;
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designPlayerName--white {
+    color: #94c9ff;
+}
+
+.KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-designClock {
+    color: var(--fixture-fg);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+@media (max-width: 1366px) {
+    .KibitzHeaderDesignFixture {
+        min-width: 900px;
+    }
+
+    .KibitzHeaderDesignFixture-workspace {
+        grid-template-columns: minmax(0, 1fr) 16rem;
+    }
+
+    .KibitzHeaderDesignFixture-rail {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    .KibitzHeaderDesignFixture-compareHeader .KibitzDesktopCompareHeader-variation {
+        padding-left: 0.65rem;
+        padding-right: 0.55rem;
+    }
+
+    .KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-variationTitle {
+        font-size: 0.82rem;
+    }
+
+    .KibitzHeaderDesignFixture .KibitzDesktopCompareHeader-sourceLine {
+        font-size: 0.66rem;
+    }
+}

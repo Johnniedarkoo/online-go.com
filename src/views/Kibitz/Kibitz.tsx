@@ -16,11 +16,25 @@
  */
 
 import * as React from "react";
+import { useLocation } from "react-router-dom";
 import { pgettext } from "@/lib/translate";
 import { KibitzController } from "./KibitzController";
 import { KibitzInner } from "./KibitzInner";
+import {
+    KibitzHeaderDesignFixture,
+    type KibitzHeaderDesignFixtureVariant,
+} from "./KibitzHeaderDesignFixture";
+
+const HEADER_DESIGN_FIXTURE_VARIANTS = new Set<KibitzHeaderDesignFixtureVariant>([
+    "baseline",
+    "current",
+    "previous",
+    "previous-streamer",
+    "current-streamer",
+]);
 
 export function Kibitz(): React.ReactElement {
+    const location = useLocation();
     const [controller, setController] = React.useState<KibitzController | null>(null);
 
     React.useEffect(() => {
@@ -35,6 +49,18 @@ export function Kibitz(): React.ReactElement {
     if (!controller) {
         return (
             <div className="Kibitz">{pgettext("Kibitz loading state", "Loading Kibitz...")}</div>
+        );
+    }
+
+    const fixtureVariant = new URLSearchParams(location.search).get("kibitz-header-design");
+    if (
+        fixtureVariant &&
+        HEADER_DESIGN_FIXTURE_VARIANTS.has(fixtureVariant as KibitzHeaderDesignFixtureVariant)
+    ) {
+        return (
+            <KibitzHeaderDesignFixture
+                variant={fixtureVariant as KibitzHeaderDesignFixtureVariant}
+            />
         );
     }
 

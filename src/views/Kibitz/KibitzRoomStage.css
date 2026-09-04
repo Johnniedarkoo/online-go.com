@@ -214,6 +214,31 @@
         width: 1.15rem !important;
     }
 
+    .room-stage-header--split {
+        padding: 0.5rem 0 0.45rem;
+    }
+
+    .room-stage-header--split.secondary-pane-small {
+        .KibitzDesktopCompareHeader {
+            grid-template-columns:
+                minmax(0, 1fr)
+                var(--board-divider-width)
+                minmax(15.25rem, 17rem);
+        }
+    }
+
+    .room-stage-header--split.secondary-pane-equal {
+        --compare-main-track: minmax(12.5rem, 0.58fr);
+        --compare-secondary-track: minmax(20.5rem, 1.42fr);
+
+        .KibitzDesktopCompareHeader {
+            grid-template-columns:
+                var(--compare-main-track)
+                var(--board-divider-width)
+                var(--compare-secondary-track);
+        }
+    }
+
     .KibitzRoomStage-boards {
         display: grid;
         flex: 1;
@@ -1186,6 +1211,11 @@
 
 @media (max-width: 1850px), (max-height: 1000px) {
     .KibitzRoomStage {
+        .room-stage-header--split.secondary-pane-equal {
+            --compare-main-track: minmax(11.75rem, 0.62fr);
+            --compare-secondary-track: minmax(18rem, 1.38fr);
+        }
+
         .KibitzRoomStage-boards.secondary-pane-equal {
             --equal-main-track: minmax(11.75rem, 0.62fr);
             --equal-secondary-track: minmax(18rem, 1.38fr);
@@ -1197,6 +1227,11 @@
 
 @media (min-width: 1001px) {
     .Kibitz.is-streamer-mode {
+        .KibitzRoomStage .room-stage-header--split.secondary-pane-equal {
+            --compare-main-track: minmax(0, 1fr);
+            --compare-secondary-track: minmax(0, 1fr);
+        }
+
         .KibitzRoomStage-boards.secondary-pane-equal {
             --equal-main-track: minmax(0, 1fr);
             --equal-secondary-track: minmax(0, 1fr);

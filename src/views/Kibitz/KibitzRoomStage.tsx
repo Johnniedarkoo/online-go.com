@@ -52,6 +52,7 @@ import {
     getDesktopMainGameMetadataRowText,
     KibitzDesktopMainGameScoreboard,
 } from "./KibitzDesktopMainGameScoreboard";
+import { KibitzDesktopCompareHeader } from "./KibitzDesktopCompareHeader";
 import { KibitzVariationComposer } from "./KibitzVariationComposer";
 import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
 import { KibitzNodeText } from "./KibitzNodeText";
@@ -6162,63 +6163,83 @@ export function KibitzRoomStage({
 
     return (
         <div className="KibitzRoomStage">
-            <div className="room-stage-header">
-                <div className="board-title-row">
-                    <div className="board-titleRowMain">
-                        <button
-                            type="button"
-                            className="board-settings-button"
-                            onClick={openRoomSettings}
-                            ref={desktopRoomSettingsTarget?.ref}
-                            aria-label={pgettext(
-                                "Aria label for opening room settings in Kibitz",
-                                "Room settings",
+            <div
+                className={
+                    "room-stage-header" +
+                    (secondaryPaneSize !== "hidden"
+                        ? ` room-stage-header--split secondary-pane-${secondaryPaneSize}`
+                        : "")
+                }
+            >
+                {secondaryPaneSize !== "hidden" ? (
+                    <KibitzDesktopCompareHeader
+                        room={room}
+                        mainGame={mainGame}
+                        mainBoardController={mainBoardController}
+                        selectedVariation={selectedVariation}
+                        selectedVariationSourceGame={selectedVariationSourceGame}
+                        onOpenRoomSettings={openRoomSettings}
+                        roomTitleRef={desktopRoomTitleTarget?.ref}
+                        roomSettingsRef={desktopRoomSettingsTarget?.ref}
+                    />
+                ) : (
+                    <div className="board-title-row">
+                        <div className="board-titleRowMain">
+                            <button
+                                type="button"
+                                className="board-settings-button"
+                                onClick={openRoomSettings}
+                                ref={desktopRoomSettingsTarget?.ref}
+                                aria-label={pgettext(
+                                    "Aria label for opening room settings in Kibitz",
+                                    "Room settings",
+                                )}
+                            >
+                                <i className="fa fa-gear" aria-hidden="true" />
+                            </button>
+                            <div className="board-title" ref={desktopRoomTitleTarget?.ref}>
+                                {room.title}
+                            </div>
+                        </div>
+                        <KibitzDesktopMainGameScoreboard
+                            controller={mainBoardController}
+                            game={mainGame}
+                        />
+                        <div className="board-subtitle">
+                            {mainGame ? (
+                                <>
+                                    <a
+                                        className="board-subtitle-link"
+                                        href={`/game/${mainGame.game_id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label={pgettext(
+                                            "Aria label for opening the original game from Kibitz",
+                                            "Open original game",
+                                        )}
+                                    >
+                                        {displayedTitle}
+                                    </a>
+                                    {mainGameMetadata ? (
+                                        <span className="board-subtitle-meta">
+                                            <span className="board-subtitle-meta-line">
+                                                {mainGameMetadata.timeText}
+                                            </span>
+                                            <span className="board-subtitle-meta-line">
+                                                {mainGameMetadata.handicapText}
+                                            </span>
+                                        </span>
+                                    ) : null}
+                                </>
+                            ) : (
+                                pgettext(
+                                    "Placeholder when no main game is loaded in a kibitz room",
+                                    "No main board selected yet",
+                                )
                             )}
-                        >
-                            <i className="fa fa-gear" aria-hidden="true" />
-                        </button>
-                        <div className="board-title" ref={desktopRoomTitleTarget?.ref}>
-                            {room.title}
                         </div>
                     </div>
-                    <KibitzDesktopMainGameScoreboard
-                        controller={mainBoardController}
-                        game={mainGame}
-                    />
-                    <div className="board-subtitle">
-                        {mainGame ? (
-                            <>
-                                <a
-                                    className="board-subtitle-link"
-                                    href={`/game/${mainGame.game_id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    aria-label={pgettext(
-                                        "Aria label for opening the original game from Kibitz",
-                                        "Open original game",
-                                    )}
-                                >
-                                    {displayedTitle}
-                                </a>
-                                {mainGameMetadata ? (
-                                    <span className="board-subtitle-meta">
-                                        <span className="board-subtitle-meta-line">
-                                            {mainGameMetadata.timeText}
-                                        </span>
-                                        <span className="board-subtitle-meta-line">
-                                            {mainGameMetadata.handicapText}
-                                        </span>
-                                    </span>
-                                ) : null}
-                            </>
-                        ) : (
-                            pgettext(
-                                "Placeholder when no main game is loaded in a kibitz room",
-                                "No main board selected yet",
-                            )
-                        )}
-                    </div>
-                </div>
+                )}
             </div>
             <div className={`KibitzRoomStage-boards secondary-pane-${secondaryPaneSize}`}>
                 <div className="board-panel main-board">
