@@ -4,7 +4,7 @@
 
 - Branch: `codex/kibitz-header-design`
 - Starting SHA: `8d9fefa61fe8d63117c0b5798baaf53d699c1a72`
-- Resulting SHA for the capture artifacts: recorded in the commit that adds this revision of the screenshots
+- Resulting SHA for the capture artifacts: `74e80c4f9a14c29369e0e6a714f07b51d52eea9d`
 
 ## Environment
 
