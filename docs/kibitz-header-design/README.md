@@ -9,7 +9,7 @@ present.
 
 - Branch: `codex/kibitz-header-design`
 - Starting SHA: `567469131e9b271f67cadbfabc19b0750c71ad08` (`origin/main` on 2026-09-04)
-- Resulting SHA (prototype implementation and screenshots): filled after the prototype snapshot commit; the exact final branch tip is reported with the handoff.
+- Resulting SHA (prototype implementation and screenshots): `50aaeadf8`
 
 ## Screenshots
 
