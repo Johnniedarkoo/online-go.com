@@ -4,7 +4,7 @@
 
 - Branch: `codex/kibitz-header-design`
 - Starting SHA: `8d9fefa61fe8d63117c0b5798baaf53d699c1a72`
-- Resulting SHA for the capture artifacts: `74e80c4f9a14c29369e0e6a714f07b51d52eea9d`
+- Resulting SHA for the capture artifacts: `74e80c4f945394f64e26632c74e4b41f4a9fa026`
 
 ## Environment
 
@@ -12,7 +12,7 @@
 - Frontend: local Vite development server on port 8084
 - Backend: beta (`OGS_BACKEND=BETA`), with live beta API and websocket services
 - Browser: authenticated Playwright Chromium
-- Viewport: `1920x1080` for every screenshot
+- Viewports: `1920x1080` for the first three screenshots; `1366x768` for the responsive screenshot
 - State: created through the existing authenticated Kibitz e2e flow using five fresh beta test users; no fake boards, CSS board illustrations, or fixture route were used
 - Streamer mode: enabled through the real room-settings checkbox while the historical variation was selected
 
@@ -26,17 +26,19 @@
 - Previous source-game title: `E2E Kibitz live source game`
 - Historical variation ID: `2ll.VUI5vYB` (source game `21223`, starting at move 4)
 - Additional current-game variation used for switching validation: `2ll.VUI63hY` (source game `21224`, starting at move 2)
+- Responsive capture run: previous source game `21226` (`e2ekibBlk_6g1rlw0` vs `e2ekibWht_bt742b0`), current game `21227` (`e2ekibCurBlk_7vg7bx0` vs `e2ekibCurWht_mrv0pd0`), variation title `Responsive previous-game branch`
 
 ## Screenshots
 
-| File                                                | State                                                                                                                                              |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `01-current-variation-real-1920x1080.jpg`           | Current-game variation, normal mode; the live game remains on the small left board and the current source line reads `From current game · move 4`. |
-| `02-previous-variation-real-1920x1080.jpg`          | Historical variation, normal mode; the left header names the new live game while the right header names the previous source players and title.     |
-| `03-previous-variation-streamer-real-1920x1080.jpg` | The same historical variation in streamer mode; the boards and header tracks expand to approximately equal widths.                                 |
-| `contact-sheet-real.jpg`                            | Compressed contact sheet of the three real captures.                                                                                               |
+| File                                                | State                                                                                                                                               |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-current-variation-real-1920x1080.jpg`           | Current-game variation, normal mode; the live game remains on the small left board and the current source line reads `From current game · move 4`.  |
+| `02-previous-variation-real-1920x1080.jpg`          | Historical variation, normal mode; the left header names the new live game while the right header names the previous source players and title.      |
+| `03-previous-variation-streamer-real-1920x1080.jpg` | The same historical variation in streamer mode; the boards and header tracks expand to approximately equal widths.                                  |
+| `04-previous-variation-real-1366x768.jpg`           | Historical variation, normal mode at the narrower desktop viewport; the live and historical contexts remain readable with the full variation inset. |
+| `contact-sheet-real.jpg`                            | Compressed contact sheet of the four real captures.                                                                                                 |
 
-All three screenshots contain the real `KibitzInner`, `KibitzRoomStage`,
+All four screenshots contain the real `KibitzInner`, `KibitzRoomStage`,
 `KibitzBoard`, `KibitzDesktopCompareHeader`, and painted Goban SVGs. The
 query-gated `KibitzHeaderDesignFixture` was not loaded.
 
@@ -61,5 +63,6 @@ instrumentation enabled was Kibitz's existing variation debug log, used to
 record the posted IDs; it did not inject room, game, player, clock, or
 variation state.
 
-No narrower viewport was added because `1920x1080` exposed the relevant normal
-and streamer layouts without a separate desktop-only failure.
+The `1366x768` capture was added to exercise the desktop layout below the former
+`1700px` breakpoint and verify that the variation context keeps its full optical
+inset without introducing truncation or overlap.
