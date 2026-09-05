@@ -42,7 +42,7 @@
     display: flex;
     gap: 0.3rem;
     min-width: 0;
-    width: 100%;
+    width: min(100%, 28rem);
 }
 
 .KibitzDesktopCompareHeader-settingsButton {

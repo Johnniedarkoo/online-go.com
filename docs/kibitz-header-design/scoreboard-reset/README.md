@@ -9,10 +9,11 @@ the shim was not committed.
 
 - Branch: `codex/kibitz-header-design`
 - Prototype head before clean captures: `b78ea465d1ab0c02b1448018e489e63d7b7c5f4f`
+- Refinement starting SHA: `c19d9cc0b22c553921555e6266bc221f6df3a141`
 - Frontend: local Vite at `http://127.0.0.1:8084`
 - Backend: beta API and websocket services (`OGS_BACKEND=BETA`)
 - Browser: authenticated Playwright Chromium
-- Route: `http://127.0.0.1:8084/kibitz/user-dfb2471b`
+- Route: `http://127.0.0.1:8084/kibitz/user-e128a213`
 - Viewport: `1920x1080`
 - State: created through the authenticated Kibitz e2e helpers with real player
   pages kept open so the current game clocks remained live during capture
@@ -20,12 +21,12 @@ the shim was not committed.
 
 ## Games and variation
 
-- Current game: `21248`, `Kibitz review current game`
-- Current-game players: `e2ekibReviewBlk_xqjpv50` vs `e2ekibReviewWht_tk7jdk0`
-- Previous source game: `21247`, `E2E Kibitz live source game`
-- Previous-game players: `e2ekibBlk_6n9gtk0` vs `e2ekibWht_4jyj1k0`
+- Current game: `21258`, `Kibitz review current game`
+- Current-game players: `e2ekibReviewBlk_s3ktk90` vs `e2ekibReviewWht_pdwrgx0`
+- Previous source game: `21257`, `E2E Kibitz live source game`
+- Previous-game players: `e2ekibBlk_3bjhkc0` vs `e2ekibWht_fpxzr60`
 - Variation title: `Historical source review`
-- Variation source: game `21247`, starting at move 4, with a real posted move
+- Variation source: game `21257`, starting at move 4, with a real posted move
   at `C3`
 
 The current game and source game were separate live games with different
@@ -35,13 +36,15 @@ state.
 
 ## Screenshots
 
-| File                                                  | State                                                                               |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `01-previous-variation-normal-1920x1080.jpg`          | Original reset capture before the review-only asset shim.                           |
-| `02-previous-variation-streamer-1920x1080.jpg`        | Original streamer capture before the review-only asset shim.                        |
-| `03-previous-variation-normal-review-1920x1080.jpg`   | Clean review capture; previous-game variation in normal mode.                       |
-| `04-previous-variation-streamer-review-1920x1080.jpg` | Clean review capture; the same variation with streamer mode and equal board tracks. |
-| `contact-sheet-scoreboard-reset.jpg`                  | Compressed contact sheet using the two clean review captures.                       |
+| File                                                   | State                                                                               |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `01-previous-variation-normal-1920x1080.jpg`           | Original reset capture before the review-only asset shim.                           |
+| `02-previous-variation-streamer-1920x1080.jpg`         | Original streamer capture before the review-only asset shim.                        |
+| `03-previous-variation-normal-review-1920x1080.jpg`    | Clean review capture; previous-game variation in normal mode.                       |
+| `04-previous-variation-streamer-review-1920x1080.jpg`  | Clean review capture; the same variation with streamer mode and equal board tracks. |
+| `05-previous-variation-normal-refined-1920x1080.jpg`   | Refined capture; bounded live header and tighter compact player spacing.            |
+| `06-previous-variation-streamer-refined-1920x1080.jpg` | Refined streamer capture; the live cluster remains bounded at 28rem.                |
+| `contact-sheet-scoreboard-reset.jpg`                   | Compressed contact sheet using the two refined review captures.                     |
 
 All screenshots contain `KibitzInner`, `KibitzRoomStage`, `KibitzBoard`,
 `KibitzDesktopCompareHeader`, the live compact scoreboard, the static source
@@ -71,7 +74,7 @@ There is no avatar, flag, country, or fallback shim in production code.
 - The static historical player card is a sibling presentation component rather
   than a live scoreboard instance, so it cannot accidentally display clocks or
   controller-driven state.
-- Compare cards are bounded at `28rem`; the live card uses `1.75rem` avatars
+- Compare cards are bounded at `28rem`; the live card uses `1.625rem` avatars
   and the static source card uses `1.5rem` avatars.
 - Beta test accounts use generated usernames and the beta avatar service may
   display its normal image-loading fallback in a restricted capture
