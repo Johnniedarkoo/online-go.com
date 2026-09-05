@@ -11,7 +11,10 @@
 
 .KibitzDesktopCompareHeader-main,
 .KibitzDesktopCompareHeader-variation {
+    align-items: flex-start;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     min-width: 0;
     padding-bottom: 0.25rem;
     padding-top: 0.2rem;
@@ -25,14 +28,13 @@
 
 .KibitzDesktopCompareHeader-variation {
     border-left: 1px solid var(--compare-header-border);
-    display: flex;
-    flex-direction: column;
     gap: 0.22rem;
     grid-column: 3;
-    justify-content: center;
+    justify-content: flex-start;
     overflow: hidden;
     padding-left: 1.25rem;
     padding-right: 0.75rem;
+    padding-top: 0.35rem;
 }
 
 .KibitzDesktopCompareHeader-topline {
@@ -40,6 +42,7 @@
     display: flex;
     gap: 0.3rem;
     min-width: 0;
+    width: 100%;
 }
 
 .KibitzDesktopCompareHeader-settingsButton {
@@ -112,11 +115,12 @@
     color: var(--compare-header-muted);
     font-size: 0.82rem;
     line-height: 1.2;
-    margin: 0.22rem 0 0;
+    margin: 0.3rem 0 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    width: min(100%, 28rem);
 }
 
 .KibitzDesktopCompareHeader-mainGameLink {
@@ -125,42 +129,7 @@
 }
 
 .KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard {
-    margin-top: 0.06rem;
-}
-
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-inner {
-    background: transparent;
-    border-radius: 0;
-    box-shadow: none;
-    column-gap: 0;
-    padding: 0;
-    grid-template-columns: minmax(0, 1fr);
-}
-
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-avatarCell,
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-playerFlag,
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-playerRank,
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-captures {
-    display: none;
-}
-
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-row {
-    border-radius: 0;
-    grid-column: 1;
-    grid-template-columns: minmax(0, 1fr) auto;
-    padding: 0.13rem 0;
-}
-
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-playerName {
-    font-size: 0.9rem;
-}
-
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-clock {
-    font-size: 0.9rem;
-}
-
-.KibitzDesktopCompareHeader-main .KibitzDesktopMainGameScoreboard-row::after {
-    display: none;
+    margin-top: 0.28rem;
 }
 
 .KibitzDesktopCompareHeader-eyebrow {
@@ -172,89 +141,74 @@
 }
 
 .KibitzDesktopCompareHeader-variationTitle {
+    align-items: baseline;
     color: var(--fg);
+    display: flex;
+    gap: 0.35rem;
     font-size: 1rem;
     font-weight: 700;
     line-height: 1.2;
+    min-width: 0;
+    overflow: hidden;
+    width: min(100%, 28rem);
+}
+
+.KibitzDesktopCompareHeader-variationName {
+    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.KibitzDesktopCompareHeader-variationName {
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 .KibitzDesktopCompareHeader-variationAuthor {
     color: var(--compare-header-muted);
+    flex: 0 1 auto;
     font-size: 0.82rem;
     font-weight: 600;
+    white-space: nowrap;
 }
 
-.KibitzDesktopCompareHeader-sourceLine {
+.KibitzDesktopCompareHeader-sourceContext {
     align-items: baseline;
     color: var(--fg);
     display: flex;
-    flex-wrap: wrap;
-    font-size: 0.86rem;
-    gap: 0.26rem;
+    gap: 0.3rem;
     font-weight: 600;
     line-height: 1.25;
+    max-width: min(100%, 28rem);
     min-width: 0;
+    width: 100%;
 }
 
 .KibitzDesktopCompareHeader-sourceLabel {
     color: var(--primary);
+    flex: 0 0 auto;
+    font-size: 0.68rem;
     font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+    white-space: nowrap;
 }
 
 .KibitzDesktopCompareHeader-sourceDetail {
     color: var(--compare-header-muted);
+    flex: 0 1 auto;
+    font-size: 0.8rem;
     font-weight: 500;
+    min-width: 0;
 }
 
 .KibitzDesktopCompareHeader-sourceDivider {
     color: color-mix(in srgb, var(--text-color) 42%, transparent);
 }
 
-.KibitzDesktopCompareHeader-sourceMatchup {
-    align-items: baseline;
-    display: inline-flex;
-    gap: 0.24rem;
-    min-width: 0;
-    overflow: hidden;
-    text-decoration: none;
-    font-weight: 700;
-}
-
-.KibitzDesktopCompareHeader-sourcePlayer {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.KibitzDesktopCompareHeader-sourcePlayer--black {
-    color: var(--supporter);
-}
-
-.KibitzDesktopCompareHeader-sourcePlayer--white {
-    color: var(--user);
-}
-
-.KibitzDesktopCompareHeader-sourceVs {
-    color: var(--compare-header-muted);
-    font-size: 0.65rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
 .KibitzDesktopCompareHeader-sourceTitle {
     color: var(--fg);
+    flex: 1 1 auto;
+    font-size: 0.8rem;
     font-weight: 700;
-    max-width: 100%;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -283,7 +237,7 @@
         font-size: 0.92rem;
     }
 
-    .KibitzDesktopCompareHeader-sourceLine {
+    .KibitzDesktopCompareHeader-sourceContext {
         font-size: 0.8rem;
     }
 }

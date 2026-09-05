@@ -335,3 +335,46 @@
 [data-theme="light"] .KibitzDesktopMainGameScoreboard {
     --kibitz-scoreboard-turn-highlight: color-mix(in srgb, var(--text-color) 18%, transparent);
 }
+
+.KibitzDesktopMainGameScoreboard--compare {
+    align-self: flex-start;
+    max-width: min(100%, 28rem);
+    width: min(100%, 28rem);
+}
+
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-inner {
+    padding: 0.3rem 0.55rem;
+    border-radius: 8px;
+}
+
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-avatarButton,
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-avatar,
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-avatarImage {
+    height: 1.75rem;
+    width: 1.75rem;
+}
+
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-avatarImage {
+    height: 1.75rem !important;
+    width: 1.75rem !important;
+}
+
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-row {
+    padding: 0.12rem 0;
+}
+
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-playerName {
+    font-size: 0.9rem;
+}
+
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-playerRank {
+    font-size: 0.8rem;
+}
+
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-clock {
+    font-size: 0.9rem;
+}
+
+.KibitzDesktopMainGameScoreboard--compare .KibitzDesktopMainGameScoreboard-captures {
+    display: none;
+}

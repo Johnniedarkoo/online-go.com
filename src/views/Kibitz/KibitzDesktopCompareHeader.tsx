@@ -20,6 +20,7 @@ import type { GobanController } from "@/lib/GobanController";
 import { interpolate, pgettext } from "@/lib/translate";
 import type { KibitzRoomSummary, KibitzVariationSummary, KibitzWatchedGame } from "@/models/kibitz";
 import { KibitzDesktopMainGameScoreboard } from "./KibitzDesktopMainGameScoreboard";
+import { KibitzDesktopSourceGameScoreboard } from "./KibitzDesktopSourceGameScoreboard";
 import "./KibitzDesktopCompareHeader.css";
 
 interface KibitzDesktopCompareHeaderProps {
@@ -42,27 +43,11 @@ function getVariationTitle(variation: KibitzVariationSummary | undefined): strin
     );
 }
 
-function renderSourcePlayers(sourceGame: KibitzWatchedGame): React.ReactElement {
-    return (
-        <>
-            <span className="KibitzDesktopCompareHeader-sourcePlayer KibitzDesktopCompareHeader-sourcePlayer--black">
-                {sourceGame.black.username}
-            </span>
-            <span className="KibitzDesktopCompareHeader-sourceVs">
-                {pgettext("Kibitz variation source game player separator", "vs")}
-            </span>
-            <span className="KibitzDesktopCompareHeader-sourcePlayer KibitzDesktopCompareHeader-sourcePlayer--white">
-                {sourceGame.white.username}
-            </span>
-        </>
-    );
-}
-
 function renderVariationSource(
     mainGame: KibitzWatchedGame | undefined,
     variation: KibitzVariationSummary | undefined,
     sourceGame: KibitzWatchedGame | undefined,
-): React.ReactElement | null {
+): React.ReactElement {
     if (!variation) {
         return (
             <span className="KibitzDesktopCompareHeader-sourcePlaceholder">
@@ -89,23 +74,25 @@ function renderVariationSource(
           );
     const sourceHref = sourceGame ? `/game/${sourceGame.game_id}` : undefined;
 
-    return (
-        <div className="KibitzDesktopCompareHeader-sourceLine">
-            {sourceHref ? (
-                <a
-                    className="KibitzDesktopCompareHeader-sourceLabel"
-                    href={sourceHref}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={sourceLinkLabel}
-                >
-                    {sourceLabel}
-                </a>
-            ) : (
-                <span className="KibitzDesktopCompareHeader-sourceLabel">{sourceLabel}</span>
-            )}
-            {isCurrentGame ? (
-                typeof variation.analysis_from === "number" ? (
+    if (isCurrentGame) {
+        return (
+            <div className="KibitzDesktopCompareHeader-sourceContext">
+                {sourceHref ? (
+                    <a
+                        className="KibitzDesktopCompareHeader-sourceLabel"
+                        href={sourceHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={sourceLinkLabel}
+                    >
+                        {pgettext("Kibitz variation source label", "FROM CURRENT GAME")}
+                    </a>
+                ) : (
+                    <span className="KibitzDesktopCompareHeader-sourceLabel">
+                        {pgettext("Kibitz variation source label", "FROM CURRENT GAME")}
+                    </span>
+                )}
+                {typeof variation.analysis_from === "number" ? (
                     <span className="KibitzDesktopCompareHeader-sourceDetail">
                         <span
                             className="KibitzDesktopCompareHeader-sourceDivider"
@@ -118,42 +105,43 @@ function renderVariationSource(
                             { move: variation.analysis_from },
                         )}
                     </span>
-                ) : null
-            ) : sourceGame ? (
-                <>
-                    <span className="KibitzDesktopCompareHeader-sourceDivider" aria-hidden="true">
-                        ·
-                    </span>
-                    <a
-                        className="KibitzDesktopCompareHeader-sourceMatchup"
-                        href={sourceHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={sourceLinkLabel}
-                    >
-                        {renderSourcePlayers(sourceGame)}
-                    </a>
-                    <span className="KibitzDesktopCompareHeader-sourceDivider" aria-hidden="true">
-                        ·
-                    </span>
-                    <a
-                        className="KibitzDesktopCompareHeader-sourceTitle"
-                        href={sourceHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        {sourceGame.title}
-                    </a>
-                </>
-            ) : (
+                ) : null}
+            </div>
+        );
+    }
+
+    if (!sourceGame) {
+        return (
+            <div className="KibitzDesktopCompareHeader-sourceContext">
+                <span className="KibitzDesktopCompareHeader-sourceLabel">{sourceLabel}</span>
                 <span className="KibitzDesktopCompareHeader-sourceDetail">
                     {interpolate(
                         pgettext("Kibitz variation source fallback label", "game #{{gameId}}"),
                         { gameId: variation.game_id },
                     )}
                 </span>
-            )}
-        </div>
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <KibitzDesktopSourceGameScoreboard game={sourceGame} />
+            <div className="KibitzDesktopCompareHeader-sourceContext">
+                <span className="KibitzDesktopCompareHeader-sourceLabel">
+                    {pgettext("Kibitz variation source label", "PREVIOUS GAME")}
+                </span>
+                <a
+                    className="KibitzDesktopCompareHeader-sourceTitle"
+                    href={sourceHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={sourceLinkLabel}
+                >
+                    {sourceGame.title}
+                </a>
+            </div>
+        </>
     );
 }
 
@@ -208,7 +196,11 @@ export function KibitzDesktopCompareHeader({
                         </span>
                     </div>
                 </div>
-                <KibitzDesktopMainGameScoreboard controller={mainBoardController} game={mainGame} />
+                <KibitzDesktopMainGameScoreboard
+                    controller={mainBoardController}
+                    game={mainGame}
+                    compact
+                />
                 <div className="KibitzDesktopCompareHeader-mainGameLinkRow">
                     {mainGame ? (
                         <a

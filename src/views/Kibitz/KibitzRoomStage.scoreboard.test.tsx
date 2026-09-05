@@ -31,6 +31,11 @@ jest.mock("./KibitzDesktopMainGameScoreboard", () => ({
     }),
 }));
 
+jest.mock("./KibitzDesktopSourceGameScoreboard", () => ({
+    __esModule: true,
+    KibitzDesktopSourceGameScoreboard: () => <div data-testid="source-scoreboard" />,
+}));
+
 jest.mock("@/lib/GobanController", () => ({
     __esModule: true,
     GobanController: class {},

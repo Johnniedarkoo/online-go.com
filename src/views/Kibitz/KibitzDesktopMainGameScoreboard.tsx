@@ -33,6 +33,7 @@ import "./KibitzDesktopMainGameScoreboard.css";
 interface KibitzDesktopMainGameScoreboardProps {
     controller: GobanController | null;
     game: KibitzWatchedGame | undefined;
+    compact?: boolean;
 }
 
 interface GameScore {
@@ -408,6 +409,7 @@ function getSideAriaLabel(side: "black" | "white"): string {
 export function KibitzDesktopMainGameScoreboard({
     controller,
     game,
+    compact = false,
 }: KibitzDesktopMainGameScoreboardProps): React.ReactElement | null {
     const goban = controller?.goban ?? null;
     const score = useGameScore(goban);
@@ -424,7 +426,12 @@ export function KibitzDesktopMainGameScoreboard({
     const whiteActive = state.phase !== "finished" && playerToMove === game.white.id;
 
     return (
-        <div className="KibitzDesktopMainGameScoreboard">
+        <div
+            className={
+                "KibitzDesktopMainGameScoreboard" +
+                (compact ? " KibitzDesktopMainGameScoreboard--compare" : "")
+            }
+        >
             <div className="KibitzDesktopMainGameScoreboard-inner">
                 {renderAvatarCell(game.black, "black", blackActive)}
                 {renderPlayerRow(
