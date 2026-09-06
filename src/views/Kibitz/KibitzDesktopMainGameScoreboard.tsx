@@ -22,21 +22,20 @@ import { shortShortTimeControl } from "@/components/TimeControl/util";
 import { generateGobanHook } from "@/components/GobanView/hooks";
 import { GobanController } from "@/lib/GobanController";
 import { popover } from "@/lib/popover";
-import { interpolate, ngettext, pgettext } from "@/lib/translate";
+import { interpolate, pgettext } from "@/lib/translate";
 import type { KibitzRoomUser, KibitzWatchedGame } from "@/models/kibitz";
 import type { Goban, JGOFClockWithTransmitting, JGOFPlayerClock, JGOFTimeControl } from "goban";
 import { KibitzDesktopScoreboardCard } from "./KibitzDesktopScoreboardCard";
+import {
+    KibitzDesktopScoreboardCapture,
+    useKibitzDesktopGameScore,
+} from "./KibitzDesktopScoreboardCaptures";
 import { KibitzUserAvatar } from "./KibitzUserAvatar";
 
 interface KibitzDesktopMainGameScoreboardProps {
     controller: GobanController | null;
     game: KibitzWatchedGame | undefined;
     compact?: boolean;
-}
-
-interface GameScore {
-    black: { prisoners: number };
-    white: { prisoners: number };
 }
 
 interface ScoreboardState {
@@ -55,30 +54,6 @@ type KibitzGoban = Goban & {
 interface KibitzEngineMetadata {
     handicap?: number | null;
 }
-
-const useGameScore = generateGobanHook<GameScore | null, KibitzGoban | null>(
-    (goban) => {
-        if (!goban) {
-            return null;
-        }
-
-        const engine = goban.engine;
-        if (
-            (engine.phase === "stone removal" || engine.phase === "finished") &&
-            engine.outcome !== "Timeout" &&
-            engine.outcome !== "Disconnection" &&
-            engine.outcome !== "Resignation" &&
-            engine.outcome !== "Abandonment" &&
-            engine.outcome !== "Cancellation" &&
-            goban.mode === "play"
-        ) {
-            return engine.computeScore(false);
-        }
-
-        return engine.computeScore(true);
-    },
-    ["phase", "mode", "outcome", "stone-removal.accepted", "stone-removal.updated", "cur_move"],
-);
 
 const useScoreboardState = generateGobanHook<ScoreboardState, KibitzGoban | null>(
     (goban) => ({
@@ -221,40 +196,6 @@ function renderClock(
     );
 }
 
-function renderCaptures(
-    value: number | undefined | null,
-    color: "black" | "white",
-): React.ReactElement | null {
-    if (value == null) {
-        return null;
-    }
-
-    return (
-        <span
-            className="KibitzDesktopMainGameScoreboard-captures"
-            aria-label={interpolate(
-                pgettext(
-                    "Kibitz desktop scoreboard capture aria label",
-                    "{{color}} has captured {{count}} {{stoneCount}}",
-                ),
-                {
-                    color:
-                        color === "black"
-                            ? pgettext("Game color", "Black")
-                            : pgettext("Game color", "White"),
-                    count: value,
-                    stoneCount: ngettext("stone", "stones", value),
-                },
-            )}
-        >
-            <span className="KibitzDesktopMainGameScoreboard-captureIcon" aria-hidden="true">
-                ●
-            </span>
-            <span className="KibitzDesktopMainGameScoreboard-captureCount">{value}</span>
-        </span>
-    );
-}
-
 function openPlayerPopover(event: React.MouseEvent<HTMLButtonElement>, user: KibitzRoomUser): void {
     event.preventDefault();
     event.stopPropagation();
@@ -292,7 +233,7 @@ export function KibitzDesktopMainGameScoreboard({
     compact = false,
 }: KibitzDesktopMainGameScoreboardProps): React.ReactElement | null {
     const goban = controller?.goban ?? null;
-    const score = useGameScore(goban);
+    const score = useKibitzDesktopGameScore(goban);
     const state = useScoreboardState(goban);
     const playerToMove = usePlayerToMove(goban);
 
@@ -316,7 +257,10 @@ export function KibitzDesktopMainGameScoreboard({
             renderAvatar={(user) => renderAvatarButton(user)}
             renderRowEnd={(_user, side) => (
                 <>
-                    {renderCaptures(side === "black" ? blackCaptures : whiteCaptures, side)}
+                    <KibitzDesktopScoreboardCapture
+                        value={side === "black" ? blackCaptures : whiteCaptures}
+                        color={side}
+                    />
                     {renderClock(controller, state, side)}
                 </>
             )}

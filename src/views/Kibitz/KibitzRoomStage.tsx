@@ -6187,6 +6187,7 @@ export function KibitzRoomStage({
                         room={room}
                         mainGame={mainGame}
                         mainBoardController={mainBoardController}
+                        secondaryBoardController={secondaryBoardController}
                         selectedVariation={selectedVariation}
                         selectedVariationSourceGame={selectedVariationSourceGame}
                         onOpenRoomSettings={openRoomSettings}

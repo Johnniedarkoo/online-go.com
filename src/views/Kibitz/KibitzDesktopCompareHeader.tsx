@@ -27,6 +27,7 @@ interface KibitzDesktopCompareHeaderProps {
     room: KibitzRoomSummary;
     mainGame: KibitzWatchedGame | undefined;
     mainBoardController: GobanController | null;
+    secondaryBoardController: GobanController | null;
     selectedVariation: KibitzVariationSummary | undefined;
     selectedVariationSourceGame: KibitzWatchedGame | undefined;
     onOpenRoomSettings: React.MouseEventHandler<HTMLButtonElement>;
@@ -45,6 +46,7 @@ function getVariationTitle(variation: KibitzVariationSummary | undefined): strin
 
 function renderVariationSource(
     mainGame: KibitzWatchedGame | undefined,
+    secondaryBoardController: GobanController | null,
     variation: KibitzVariationSummary | undefined,
     sourceGame: KibitzWatchedGame | undefined,
 ): React.ReactElement {
@@ -78,7 +80,10 @@ function renderVariationSource(
         if (sourceGame) {
             return (
                 <>
-                    <KibitzDesktopSourceGameScoreboard game={sourceGame} />
+                    <KibitzDesktopSourceGameScoreboard
+                        game={sourceGame}
+                        secondaryBoardController={secondaryBoardController}
+                    />
                     <div className="KibitzDesktopCompareHeader-sourceContext">
                         {sourceHref ? (
                             <a
@@ -165,7 +170,10 @@ function renderVariationSource(
 
     return (
         <>
-            <KibitzDesktopSourceGameScoreboard game={sourceGame} />
+            <KibitzDesktopSourceGameScoreboard
+                game={sourceGame}
+                secondaryBoardController={secondaryBoardController}
+            />
             <div className="KibitzDesktopCompareHeader-sourceContext">
                 <span className="KibitzDesktopCompareHeader-sourceLabel">
                     {pgettext("Kibitz variation source label", "PREVIOUS GAME")}
@@ -188,6 +196,7 @@ export function KibitzDesktopCompareHeader({
     room,
     mainGame,
     mainBoardController,
+    secondaryBoardController,
     selectedVariation,
     selectedVariationSourceGame,
     onOpenRoomSettings,
@@ -293,6 +302,7 @@ export function KibitzDesktopCompareHeader({
                     </div>
                     {renderVariationSource(
                         mainGame,
+                        secondaryBoardController,
                         selectedVariation,
                         selectedVariationSourceGame,
                     )}

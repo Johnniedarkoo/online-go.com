@@ -16,13 +16,20 @@
  */
 
 import * as React from "react";
+import type { GobanController } from "@/lib/GobanController";
 import { pgettext } from "@/lib/translate";
 import type { KibitzWatchedGame } from "@/models/kibitz";
+import {
+    KibitzDesktopScoreboardCapture,
+    useKibitzDesktopGameScore,
+} from "./KibitzDesktopScoreboardCaptures";
 import { KibitzUserAvatar } from "./KibitzUserAvatar";
 import { KibitzDesktopScoreboardCard } from "./KibitzDesktopScoreboardCard";
+import "./KibitzDesktopSourceGameScoreboard.css";
 
 interface KibitzDesktopSourceGameScoreboardProps {
     game: KibitzWatchedGame;
+    secondaryBoardController: GobanController | null;
 }
 
 function renderStaticAvatar(user: KibitzWatchedGame["black"]): React.ReactElement {
@@ -38,7 +45,10 @@ function renderStaticAvatar(user: KibitzWatchedGame["black"]): React.ReactElemen
 
 export function KibitzDesktopSourceGameScoreboard({
     game,
+    secondaryBoardController,
 }: KibitzDesktopSourceGameScoreboardProps): React.ReactElement {
+    const score = useKibitzDesktopGameScore(secondaryBoardController?.goban ?? null);
+
     return (
         <KibitzDesktopScoreboardCard
             className="KibitzDesktopSourceGameScoreboard"
@@ -47,6 +57,12 @@ export function KibitzDesktopSourceGameScoreboard({
             whiteUser={game.white}
             compact
             renderAvatar={(user) => renderStaticAvatar(user)}
+            renderRowEnd={(_user, side) => (
+                <KibitzDesktopScoreboardCapture
+                    value={side === "black" ? score?.black.prisoners : score?.white.prisoners}
+                    color={side}
+                />
+            )}
         />
     );
 }
