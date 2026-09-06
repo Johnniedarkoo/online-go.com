@@ -900,6 +900,44 @@ export function shouldFocusKibitzVariationEndpoint(
     );
 }
 
+export function focusKibitzVariationEndpointIfRequested({
+    controller,
+    previewGameId,
+    selectedVariationId,
+    variationFocusRequestId,
+    lastFocusRequest,
+    appliedPaths,
+}: {
+    controller: GobanController | null;
+    previewGameId: number | null | undefined;
+    selectedVariationId: string | null | undefined;
+    variationFocusRequestId: number;
+    lastFocusRequest: { variationId: string | null; requestId: number } | null;
+    appliedPaths: KibitzAppliedVariationPathRegistry;
+}): boolean {
+    if (controller == null || selectedVariationId == null || previewGameId != null) {
+        return false;
+    }
+
+    if (
+        !shouldFocusKibitzVariationEndpoint(
+            lastFocusRequest,
+            selectedVariationId,
+            variationFocusRequestId,
+        )
+    ) {
+        return false;
+    }
+
+    const appliedVariation = appliedPaths.get(selectedVariationId);
+    if (!appliedVariation?.endpoint) {
+        return false;
+    }
+
+    controller.goban.engine.jumpTo(appliedVariation.endpoint);
+    return true;
+}
+
 export type SecondaryVariationReloadAction = "skip-already-displayed" | "load-snapshot" | "apply";
 
 export interface SecondaryVariationReloadDecision {
@@ -5354,7 +5392,7 @@ export function KibitzRoomStage({
         if (
             !selectedVariation ||
             !secondaryBoardController ||
-            secondaryPane.preview_game_id == null
+            secondaryPane.preview_game_id != null
         ) {
             return;
         }
@@ -5371,14 +5409,19 @@ export function KibitzRoomStage({
         }
 
         pendingVariationCursorRestoreRef.current = null;
-        const appliedVariation = appliedSecondaryVariationPathsRef.current.get(
-            selectedVariation.id,
-        );
-        if (!appliedVariation?.endpoint) {
+        if (
+            !focusKibitzVariationEndpointIfRequested({
+                controller: secondaryBoardController,
+                previewGameId: secondaryPane.preview_game_id,
+                selectedVariationId: selectedVariation.id,
+                variationFocusRequestId: currentFocusRequestId,
+                lastFocusRequest: lastVariationFocusRequestRef.current,
+                appliedPaths: appliedSecondaryVariationPathsRef.current,
+            })
+        ) {
             return;
         }
 
-        secondaryBoardController.goban.engine.jumpTo(appliedVariation.endpoint);
         lastVariationFocusRequestRef.current = {
             variationId: selectedVariation.id,
             requestId: currentFocusRequestId,

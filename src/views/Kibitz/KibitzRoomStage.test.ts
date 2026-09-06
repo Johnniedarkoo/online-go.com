@@ -42,6 +42,7 @@ import {
     getRequiredVariationSnapshotMoveNumber,
     getRequiredSnapshotMoveForVariation,
     getVariationsToApply,
+    focusKibitzVariationEndpointIfRequested,
     isDraftBaseAlreadyApplied,
     hasBoardDimensions,
     resolveMobileSecondaryOwner,
@@ -1235,6 +1236,113 @@ describe("variation focus lifecycle", () => {
         expect(shouldFocusKibitzVariationEndpoint(previousFocusRequest, "variation-a", 8)).toBe(
             true,
         );
+    });
+
+    it("focuses a recalled posted variation endpoint without rebuilding the tree", () => {
+        const variation = makeVariation(4321);
+        const interiorNode = makeMoveTree(3);
+        const endpoint = makeMoveTree(6);
+        const controller = makeCursorController(
+            makeMoveTree(0, null, [interiorNode, endpoint]),
+            interiorNode,
+        );
+        const jumpTo = jest.spyOn(controller.goban.engine, "jumpTo");
+        const appliedPaths = new Map<string, AppliedKibitzVariationPath>([
+            [
+                variation.id,
+                {
+                    variationId: variation.id,
+                    endpoint,
+                    pathNodes: [interiorNode, endpoint],
+                    revisionKey: buildKibitzVariationPathRevisionKey(variation),
+                },
+            ],
+        ]);
+
+        expect(
+            focusKibitzVariationEndpointIfRequested({
+                controller,
+                previewGameId: undefined,
+                selectedVariationId: variation.id,
+                variationFocusRequestId: 5,
+                lastFocusRequest: { variationId: variation.id, requestId: 4 },
+                appliedPaths,
+            }),
+        ).toBe(true);
+        expect(jumpTo).toHaveBeenCalledTimes(1);
+        expect(jumpTo).toHaveBeenCalledWith(endpoint);
+        expect(controller.goban.engine.cur_move).toBe(endpoint);
+    });
+
+    it("does not focus posted-variation endpoints in preview-game mode", () => {
+        const variation = makeVariation(4321);
+        const endpoint = makeMoveTree(6);
+        const controller = makeCursorController(makeMoveTree(0), makeMoveTree(3));
+        const jumpTo = jest.spyOn(controller.goban.engine, "jumpTo");
+
+        expect(
+            focusKibitzVariationEndpointIfRequested({
+                controller,
+                previewGameId: 9876,
+                selectedVariationId: variation.id,
+                variationFocusRequestId: 5,
+                lastFocusRequest: { variationId: variation.id, requestId: 4 },
+                appliedPaths: new Map([
+                    [
+                        variation.id,
+                        {
+                            variationId: variation.id,
+                            endpoint,
+                            pathNodes: [endpoint],
+                            revisionKey: buildKibitzVariationPathRevisionKey(variation),
+                        },
+                    ],
+                ]),
+            }),
+        ).toBe(false);
+        expect(jumpTo).not.toHaveBeenCalled();
+    });
+
+    it("focuses the newly selected variation endpoint instead of the old cursor", () => {
+        const variationA = makeVariation(4321);
+        const variationB = { ...makeVariation(4321), id: "variation-b" };
+        const oldCursor = makeMoveTree(3);
+        const endpointA = makeMoveTree(6);
+        const endpointB = makeMoveTree(8);
+        const controller = makeCursorController(makeMoveTree(0), oldCursor);
+        const jumpTo = jest.spyOn(controller.goban.engine, "jumpTo");
+
+        expect(
+            focusKibitzVariationEndpointIfRequested({
+                controller,
+                previewGameId: undefined,
+                selectedVariationId: variationB.id,
+                variationFocusRequestId: 5,
+                lastFocusRequest: { variationId: variationA.id, requestId: 4 },
+                appliedPaths: new Map([
+                    [
+                        variationA.id,
+                        {
+                            variationId: variationA.id,
+                            endpoint: endpointA,
+                            pathNodes: [oldCursor, endpointA],
+                            revisionKey: buildKibitzVariationPathRevisionKey(variationA),
+                        },
+                    ],
+                    [
+                        variationB.id,
+                        {
+                            variationId: variationB.id,
+                            endpoint: endpointB,
+                            pathNodes: [endpointB],
+                            revisionKey: buildKibitzVariationPathRevisionKey(variationB),
+                        },
+                    ],
+                ]),
+            }),
+        ).toBe(true);
+        expect(jumpTo).toHaveBeenCalledWith(endpointB);
+        expect(controller.goban.engine.cur_move).toBe(endpointB);
     });
 
     it("does not restore a variation cursor into a changed variation path", () => {
