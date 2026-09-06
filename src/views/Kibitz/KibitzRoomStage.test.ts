@@ -60,6 +60,8 @@ import {
     resolveSelectedVariationSourceGame,
     resolveDraftSourceBoardDimensions,
     selectedGameSnapshotFailureKey,
+    restoreKibitzVariationCursor,
+    shouldFocusKibitzVariationEndpoint,
     type SelectedGameBaseSnapshotFailure,
 } from "./KibitzRoomStage";
 import { buildSnapshotFromEngine } from "./kibitzCurrentGameBaseSnapshot";
@@ -1090,6 +1092,43 @@ describe("variation recomposition helpers", () => {
                 visibleVariation,
             ]).map((variation) => variation.id),
         ).toEqual([visibleVariation.id, hiddenVariation.id]);
+    });
+});
+
+describe("variation focus lifecycle", () => {
+    it("does not refocus the endpoint when the selected variation tree is reapplied", () => {
+        const lastFocusRequest = { variationId: "variation-one", requestId: 4 };
+
+        expect(shouldFocusKibitzVariationEndpoint(null, "variation-one", 0)).toBe(true);
+        expect(shouldFocusKibitzVariationEndpoint(lastFocusRequest, "variation-one", 4)).toBe(
+            false,
+        );
+        expect(shouldFocusKibitzVariationEndpoint(lastFocusRequest, "variation-two", 4)).toBe(true);
+        expect(shouldFocusKibitzVariationEndpoint(lastFocusRequest, "variation-one", 5)).toBe(true);
+    });
+
+    it("restores the manually selected node from the rebuilt secondary tree", () => {
+        const restoredNode = { move_number: 6 } as MoveTree;
+        const root = {
+            branches: [restoredNode],
+        } as unknown as MoveTree;
+        const jumpTo = jest.fn();
+        const controller = {
+            goban: {
+                engine: {
+                    move_tree: root,
+                    jumpTo,
+                },
+            },
+        } as unknown as GobanController;
+
+        expect(
+            restoreKibitzVariationCursor(controller, {
+                positionPath: "B0",
+                movePath: null,
+            }),
+        ).toBe(true);
+        expect(jumpTo).toHaveBeenCalledWith(restoredNode);
     });
 });
 

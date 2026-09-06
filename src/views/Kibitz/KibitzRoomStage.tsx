@@ -879,6 +879,17 @@ export function buildSecondaryVariationApplyKey({
     ].join(":");
 }
 
+export function shouldFocusKibitzVariationEndpoint(
+    lastFocusRequest: { variationId: string | null; requestId: number } | null,
+    selectedVariationId: string,
+    variationFocusRequestId: number,
+): boolean {
+    return (
+        lastFocusRequest?.variationId !== selectedVariationId ||
+        lastFocusRequest.requestId !== variationFocusRequestId
+    );
+}
+
 export type SecondaryVariationReloadAction = "skip-already-displayed" | "load-snapshot" | "apply";
 
 export interface SecondaryVariationReloadDecision {
@@ -1691,6 +1702,122 @@ export function getSameGameVariationBaseSnapshotState({
         hasCurrentGameSnapshotMoveTree,
         snapshotUsable,
     };
+}
+
+function getVariationCursorPositionPath(node: MoveTree | null | undefined): string | null {
+    if (!node) {
+        return null;
+    }
+
+    const segments: string[] = [];
+    let cursor = node;
+
+    while (cursor.parent) {
+        const parent = cursor.parent;
+        if (parent.trunk_next === cursor) {
+            segments.push("T");
+        } else {
+            const branchIndex = parent.branches.indexOf(cursor);
+            if (branchIndex < 0) {
+                return null;
+            }
+
+            segments.push(`B${branchIndex}`);
+        }
+
+        cursor = parent;
+    }
+
+    return segments.reverse().join("/");
+}
+
+function findExistingVariationCursorByPosition(
+    controller: GobanController,
+    positionPath: string,
+): MoveTree | null {
+    let cursor = controller.goban.engine.move_tree;
+
+    if (!positionPath) {
+        return cursor;
+    }
+
+    for (const segment of positionPath.split("/")) {
+        if (segment === "T") {
+            if (!cursor.trunk_next) {
+                return null;
+            }
+
+            cursor = cursor.trunk_next;
+            continue;
+        }
+
+        if (!segment.startsWith("B")) {
+            return null;
+        }
+
+        const branchIndex = Number.parseInt(segment.slice(1), 10);
+        if (!Number.isInteger(branchIndex) || !cursor.branches[branchIndex]) {
+            return null;
+        }
+
+        cursor = cursor.branches[branchIndex];
+    }
+
+    return cursor;
+}
+
+function findExistingVariationCursor(
+    controller: GobanController,
+    movePath: string,
+): MoveTree | null {
+    const engine = controller.goban.engine;
+    let cursor = engine.move_tree;
+
+    if (!movePath) {
+        return cursor;
+    }
+
+    let decodedMoves;
+    try {
+        decodedMoves = engine.decodeMoves(movePath);
+    } catch {
+        return null;
+    }
+
+    for (const move of decodedMoves) {
+        const next = cursor.lookupMove(
+            move.x,
+            move.y,
+            engine.playerByColor(move.color || 0),
+            !!move.edited,
+        );
+        if (!next) {
+            return null;
+        }
+
+        cursor = next;
+    }
+
+    return cursor;
+}
+
+export function restoreKibitzVariationCursor(
+    controller: GobanController,
+    paths: { positionPath: string | null; movePath: string | null },
+): boolean {
+    let cursor: MoveTree | null = null;
+    if (paths.positionPath != null) {
+        cursor = findExistingVariationCursorByPosition(controller, paths.positionPath);
+    }
+    if (!cursor && paths.movePath != null) {
+        cursor = findExistingVariationCursor(controller, paths.movePath);
+    }
+    if (!cursor) {
+        return false;
+    }
+
+    controller.goban.engine.jumpTo(cursor);
+    return true;
 }
 
 function loadSecondaryVariationBaseSnapshot(
@@ -2842,12 +2969,15 @@ export function KibitzRoomStage({
     const lastVariationFocusRequestRef = React.useRef<{
         variationId: string | null;
         requestId: number;
-        visibleVariationKey: string;
     }>({
         variationId: null,
         requestId: -1,
-        visibleVariationKey: "",
     });
+    const pendingVariationCursorRestoreRef = React.useRef<{
+        variationId: string;
+        positionPath: string | null;
+        movePath: string | null;
+    } | null>(null);
     const appliedDraftBaseRef = React.useRef<{
         controller: GobanController | null;
         variationId: string | null;
@@ -4455,6 +4585,24 @@ export function KibitzRoomStage({
                 return false;
             }
 
+            const shouldFocusSelected = shouldFocusKibitzVariationEndpoint(
+                lastVariationFocusRequestRef.current,
+                selectedVariation.id,
+                variationFocusRequestId,
+            );
+            const pendingCursorRestore = pendingVariationCursorRestoreRef.current;
+            const previousCursorPaths =
+                pendingCursorRestore?.variationId === selectedVariation.id
+                    ? pendingCursorRestore
+                    : {
+                          positionPath: getVariationCursorPositionPath(goban.engine.cur_move),
+                          movePath: goban.engine.cur_move?.getMoveStringToThisPoint() ?? null,
+                      };
+
+            if (shouldFocusSelected) {
+                pendingVariationCursorRestoreRef.current = null;
+            }
+
             const variationApplication = getApplicableVisibleVariations({
                 selectedVariation,
                 visibleVariations,
@@ -4570,19 +4718,26 @@ export function KibitzRoomStage({
                     return false;
                 }
 
-                if (selectedEndpoint) {
+                if (selectedEndpoint && shouldFocusSelected) {
                     goban.engine.jumpTo(selectedEndpoint);
                     lastVariationFocusRequestRef.current = {
                         variationId: selectedVariation.id,
                         requestId: variationFocusRequestId,
-                        visibleVariationKey: visibleVariationApplyKey,
                     };
+                } else if (selectedEndpoint) {
+                    if (
+                        !restoreKibitzVariationCursor(secondaryBoardController, previousCursorPaths)
+                    ) {
+                        goban.engine.jumpTo(selectedEndpoint);
+                    }
                 } else {
                     const officialTail = getOfficialTrunkTail(goban.engine.move_tree);
                     if (officialTail) {
                         goban.engine.jumpTo(officialTail);
                     }
                 }
+
+                pendingVariationCursorRestoreRef.current = null;
 
                 if (!selectedVariation.analysis_line_tree && selectedVisible) {
                     if (selectedVariation.analysis_marks) {
@@ -4695,6 +4850,24 @@ export function KibitzRoomStage({
             }
 
             if (reloadDecision.action === "load-snapshot") {
+                if (
+                    shouldFocusKibitzVariationEndpoint(
+                        lastVariationFocusRequestRef.current,
+                        selectedVariation.id,
+                        variationFocusRequestId,
+                    )
+                ) {
+                    pendingVariationCursorRestoreRef.current = null;
+                } else if (
+                    pendingVariationCursorRestoreRef.current?.variationId !== selectedVariation.id
+                ) {
+                    pendingVariationCursorRestoreRef.current = {
+                        variationId: selectedVariation.id,
+                        positionPath: getVariationCursorPositionPath(goban.engine.cur_move),
+                        movePath: goban.engine.cur_move?.getMoveStringToThisPoint() ?? null,
+                    };
+                }
+
                 const operationId = secondarySnapshotLoadOperationIdRef.current + 1;
                 secondarySnapshotLoadOperationIdRef.current = operationId;
                 pendingSecondaryVariationBaseLoadRef.current = {
