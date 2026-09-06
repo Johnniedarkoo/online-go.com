@@ -75,6 +75,45 @@ function renderVariationSource(
     const sourceHref = sourceGame ? `/game/${sourceGame.game_id}` : undefined;
 
     if (isCurrentGame) {
+        if (sourceGame) {
+            return (
+                <>
+                    <KibitzDesktopSourceGameScoreboard game={sourceGame} />
+                    <div className="KibitzDesktopCompareHeader-sourceContext">
+                        {sourceHref ? (
+                            <a
+                                className="KibitzDesktopCompareHeader-sourceLabel"
+                                href={sourceHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={sourceLinkLabel}
+                            >
+                                {pgettext("Kibitz variation source label", "FROM CURRENT GAME")}
+                            </a>
+                        ) : (
+                            <span className="KibitzDesktopCompareHeader-sourceLabel">
+                                {pgettext("Kibitz variation source label", "FROM CURRENT GAME")}
+                            </span>
+                        )}
+                        {typeof variation.analysis_from === "number" ? (
+                            <span className="KibitzDesktopCompareHeader-sourceDetail">
+                                <span
+                                    className="KibitzDesktopCompareHeader-sourceDivider"
+                                    aria-hidden="true"
+                                >
+                                    ·
+                                </span>
+                                {interpolate(
+                                    pgettext("Kibitz variation source move label", "move {{move}}"),
+                                    { move: variation.analysis_from },
+                                )}
+                            </span>
+                        ) : null}
+                    </div>
+                </>
+            );
+        }
+
         return (
             <div className="KibitzDesktopCompareHeader-sourceContext">
                 {sourceHref ? (
@@ -166,63 +205,66 @@ export function KibitzDesktopCompareHeader({
                     "Current game context",
                 )}
             >
-                <div className="KibitzDesktopCompareHeader-topline">
-                    <button
-                        type="button"
-                        className="KibitzDesktopCompareHeader-settingsButton"
-                        onClick={onOpenRoomSettings}
-                        ref={roomSettingsRef}
-                        aria-label={pgettext(
-                            "Aria label for opening room settings in Kibitz",
-                            "Room settings",
-                        )}
-                    >
-                        <i className="fa fa-gear" aria-hidden="true" />
-                    </button>
-                    <div className="KibitzDesktopCompareHeader-roomTitle" ref={roomTitleRef}>
-                        {room.title}
-                    </div>
-                    <div className="KibitzDesktopCompareHeader-currentMarker">
-                        <span
-                            className={
-                                "KibitzDesktopCompareHeader-currentDot" + (isLive ? " is-live" : "")
-                            }
-                            aria-hidden="true"
-                        />
-                        <span>
-                            {isLive
-                                ? pgettext("Kibitz current game status badge", "LIVE")
-                                : pgettext("Kibitz current game status badge", "CURRENT GAME")}
-                        </span>
-                    </div>
-                </div>
-                <KibitzDesktopMainGameScoreboard
-                    controller={mainBoardController}
-                    game={mainGame}
-                    compact
-                />
-                <div className="KibitzDesktopCompareHeader-mainGameLinkRow">
-                    {mainGame ? (
-                        <a
-                            className="KibitzDesktopCompareHeader-mainGameLink"
-                            href={`/game/${mainGame.game_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                <div className="KibitzDesktopCompareHeader-mainGroup">
+                    <div className="KibitzDesktopCompareHeader-topline">
+                        <button
+                            type="button"
+                            className="KibitzDesktopCompareHeader-settingsButton"
+                            onClick={onOpenRoomSettings}
+                            ref={roomSettingsRef}
                             aria-label={pgettext(
-                                "Aria label for opening the current Kibitz game",
-                                "Open current game",
+                                "Aria label for opening room settings in Kibitz",
+                                "Room settings",
                             )}
                         >
-                            {mainGame.title}
-                        </a>
-                    ) : (
-                        <span>
-                            {pgettext(
-                                "Placeholder for a missing Kibitz current game",
-                                "No current game",
-                            )}
-                        </span>
-                    )}
+                            <i className="fa fa-gear" aria-hidden="true" />
+                        </button>
+                        <div className="KibitzDesktopCompareHeader-roomTitle" ref={roomTitleRef}>
+                            {room.title}
+                        </div>
+                        <div className="KibitzDesktopCompareHeader-currentMarker">
+                            <span
+                                className={
+                                    "KibitzDesktopCompareHeader-currentDot" +
+                                    (isLive ? " is-live" : "")
+                                }
+                                aria-hidden="true"
+                            />
+                            <span>
+                                {isLive
+                                    ? pgettext("Kibitz current game status badge", "LIVE")
+                                    : pgettext("Kibitz current game status badge", "CURRENT GAME")}
+                            </span>
+                        </div>
+                    </div>
+                    <KibitzDesktopMainGameScoreboard
+                        controller={mainBoardController}
+                        game={mainGame}
+                        compact
+                    />
+                    <div className="KibitzDesktopCompareHeader-mainGameLinkRow">
+                        {mainGame ? (
+                            <a
+                                className="KibitzDesktopCompareHeader-mainGameLink"
+                                href={`/game/${mainGame.game_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={pgettext(
+                                    "Aria label for opening the current Kibitz game",
+                                    "Open current game",
+                                )}
+                            >
+                                {mainGame.title}
+                            </a>
+                        ) : (
+                            <span>
+                                {pgettext(
+                                    "Placeholder for a missing Kibitz current game",
+                                    "No current game",
+                                )}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </section>
             <section
@@ -232,26 +274,32 @@ export function KibitzDesktopCompareHeader({
                     "Variation context",
                 )}
             >
-                <div className="KibitzDesktopCompareHeader-eyebrow">
-                    {pgettext("Kibitz variation header eyebrow", "VARIATION BOARD")}
-                </div>
-                <div
-                    className="KibitzDesktopCompareHeader-variationTitle"
-                    title={getVariationTitle(selectedVariation)}
-                >
-                    <span className="KibitzDesktopCompareHeader-variationName">
-                        {getVariationTitle(selectedVariation)}
-                    </span>
-                    {selectedVariation?.creator.username ? (
-                        <span className="KibitzDesktopCompareHeader-variationAuthor">
-                            {interpolate(
-                                pgettext("Kibitz variation header author", "· by {{author}}"),
-                                { author: selectedVariation.creator.username },
-                            )}
+                <div className="KibitzDesktopCompareHeader-variationGroup">
+                    <div className="KibitzDesktopCompareHeader-eyebrow">
+                        {pgettext("Kibitz variation header eyebrow", "VARIATION BOARD")}
+                    </div>
+                    <div
+                        className="KibitzDesktopCompareHeader-variationTitle"
+                        title={getVariationTitle(selectedVariation)}
+                    >
+                        <span className="KibitzDesktopCompareHeader-variationName">
+                            {getVariationTitle(selectedVariation)}
                         </span>
-                    ) : null}
+                        {selectedVariation?.creator.username ? (
+                            <span className="KibitzDesktopCompareHeader-variationAuthor">
+                                {interpolate(
+                                    pgettext("Kibitz variation header author", "· by {{author}}"),
+                                    { author: selectedVariation.creator.username },
+                                )}
+                            </span>
+                        ) : null}
+                    </div>
+                    {renderVariationSource(
+                        mainGame,
+                        selectedVariation,
+                        selectedVariationSourceGame,
+                    )}
                 </div>
-                {renderVariationSource(mainGame, selectedVariation, selectedVariationSourceGame)}
             </section>
         </div>
     );

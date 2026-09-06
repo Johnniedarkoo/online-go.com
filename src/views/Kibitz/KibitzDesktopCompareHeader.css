@@ -11,7 +11,7 @@
 
 .KibitzDesktopCompareHeader-main,
 .KibitzDesktopCompareHeader-variation {
-    align-items: flex-start;
+    align-items: center;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -28,7 +28,6 @@
 
 .KibitzDesktopCompareHeader-variation {
     border-left: 1px solid var(--compare-header-border);
-    gap: 0.22rem;
     grid-column: 3;
     justify-content: flex-start;
     overflow: hidden;
@@ -37,12 +36,25 @@
     padding-top: 0.35rem;
 }
 
+.KibitzDesktopCompareHeader-mainGroup,
+.KibitzDesktopCompareHeader-variationGroup {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    width: min(100%, 28rem);
+}
+
+.KibitzDesktopCompareHeader-variationGroup {
+    gap: 0.22rem;
+}
+
 .KibitzDesktopCompareHeader-topline {
     align-items: center;
     display: flex;
     gap: 0.3rem;
     min-width: 0;
-    width: min(100%, 28rem);
+    width: 100%;
 }
 
 .KibitzDesktopCompareHeader-settingsButton {
@@ -120,7 +132,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    width: min(100%, 28rem);
+    width: 100%;
 }
 
 .KibitzDesktopCompareHeader-mainGameLink {
@@ -150,7 +162,7 @@
     line-height: 1.2;
     min-width: 0;
     overflow: hidden;
-    width: min(100%, 28rem);
+    width: 100%;
 }
 
 .KibitzDesktopCompareHeader-variationName {
