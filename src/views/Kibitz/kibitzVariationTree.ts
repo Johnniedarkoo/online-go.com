@@ -31,6 +31,7 @@ export type KibitzVariationColorIndex = number;
 export interface AppliedKibitzVariation {
     variationId: string;
     endpoint: MoveTree | null;
+    pathNodes: MoveTree[];
 }
 
 function lineTreeNodes(lineTree: MoveTreeJson | undefined): MoveTreeJson[] {
@@ -384,7 +385,7 @@ export function applyKibitzVariationToController(
                 error,
                 currentMove: summarizeMoveTreeNode(controller.goban.engine.cur_move),
             });
-            return { variationId: variation.id, endpoint: null };
+            return { variationId: variation.id, endpoint: null, pathNodes: [] };
         }
     }
 
@@ -429,7 +430,7 @@ export function applyKibitzVariationToController(
                       )
                     : null,
         });
-        return { variationId: variation.id, endpoint: null };
+        return { variationId: variation.id, endpoint: null, pathNodes: [] };
     }
 
     if (isKibitzVariationDebugEnabled()) {
@@ -460,7 +461,7 @@ export function applyKibitzVariationToController(
             ),
             lastOfficialMove: summarizeMoveTreeNode(controller.goban.engine.last_official_move),
         });
-        return { variationId: variation.id, endpoint: null };
+        return { variationId: variation.id, endpoint: null, pathNodes: [] };
     }
 
     let pathNodes: MoveTree[];
@@ -489,7 +490,7 @@ export function applyKibitzVariationToController(
                     : null,
         });
         controller.goban.engine.jumpTo(controller.goban.engine.last_official_move);
-        return { variationId: variation.id, endpoint: null };
+        return { variationId: variation.id, endpoint: null, pathNodes: [] };
     }
 
     applyLineAnnotations(pathNodes, variation.analysis_line_tree, includeMarks);
@@ -498,6 +499,7 @@ export function applyKibitzVariationToController(
     return {
         variationId: variation.id,
         endpoint: pathNodes[pathNodes.length - 1] ?? null,
+        pathNodes,
     };
 }
 

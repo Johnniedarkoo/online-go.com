@@ -223,6 +223,20 @@ describe("applyKibitzVariationToController", () => {
         expect(JSON.parse(variation.analysis_moves ?? "[]")).toHaveLength(1);
     });
 
+    it("returns the exact duplicate-trunk endpoint created for the variation", () => {
+        const controller = makeController();
+        const root = controller.goban.engine.move_tree as unknown as TestNode;
+        const officialEndpoint = root.trunk_next?.trunk_next;
+        const variation = makeVariation("variation-duplicate-trunk", [{ x: 2, y: 2, color: 2 }]);
+
+        const applied = applyKibitzVariationToController(controller, variation, 0, false);
+
+        expect(applied.endpoint).toBeDefined();
+        expect(applied.pathNodes).toEqual([applied.endpoint]);
+        expect(applied.endpoint).not.toBe(officialEndpoint);
+        expect(controller.goban.engine.cur_move).toBe(applied.endpoint);
+    });
+
     it("refuses malformed variations with missing or empty decoded moves", () => {
         const controller = makeController();
         const malformed = {

@@ -67,6 +67,16 @@ import {
     isVariationOfficialAnchorReady,
 } from "./kibitzVariationTree";
 import {
+    buildKibitzVariationPathRevisionKey,
+    captureKibitzVariationCursorBookmark,
+    isCurrentKibitzVariationCursorRestore,
+    restoreKibitzVariationCursor,
+    type AppliedKibitzVariationPath,
+    type KibitzAppliedVariationPathRegistry,
+    type KibitzVariationCursorBookmark,
+    type PendingKibitzVariationCursorRestore,
+} from "./kibitzVariationCursor";
+import {
     isKibitzVariationDebugEnabled,
     logKibitzVariationDebug,
     summarizeKibitzMoveTreeNode,
@@ -861,21 +871,21 @@ export function buildSecondaryVariationApplyKey({
     selectedGameId,
     snapshotTailMoveNumber,
     visibleVariationKey,
+    variationColorApplyKey,
     selectedVariationId,
-    variationFocusRequestId,
 }: {
     selectedGameId: number | null | undefined;
     snapshotTailMoveNumber: number | null | undefined;
     visibleVariationKey: string;
+    variationColorApplyKey: string;
     selectedVariationId: string | null | undefined;
-    variationFocusRequestId: number;
 }): string {
     return [
         selectedGameId ?? "no-game",
         snapshotTailMoveNumber ?? "no-snapshot",
         visibleVariationKey || "no-visible-variations",
+        variationColorApplyKey || "no-variation-colors",
         selectedVariationId ?? "no-selected-variation",
-        variationFocusRequestId,
     ].join(":");
 }
 
@@ -1011,6 +1021,8 @@ interface PendingSecondaryVariationBaseLoad {
     roomId: string | null;
     gameId: number;
     operationId: number;
+    cursorBookmark: KibitzVariationCursorBookmark | null;
+    focusRequestId: number;
 }
 
 export interface InstalledSecondaryVariationBaseState {
@@ -1702,122 +1714,6 @@ export function getSameGameVariationBaseSnapshotState({
         hasCurrentGameSnapshotMoveTree,
         snapshotUsable,
     };
-}
-
-function getVariationCursorPositionPath(node: MoveTree | null | undefined): string | null {
-    if (!node) {
-        return null;
-    }
-
-    const segments: string[] = [];
-    let cursor = node;
-
-    while (cursor.parent) {
-        const parent = cursor.parent;
-        if (parent.trunk_next === cursor) {
-            segments.push("T");
-        } else {
-            const branchIndex = parent.branches.indexOf(cursor);
-            if (branchIndex < 0) {
-                return null;
-            }
-
-            segments.push(`B${branchIndex}`);
-        }
-
-        cursor = parent;
-    }
-
-    return segments.reverse().join("/");
-}
-
-function findExistingVariationCursorByPosition(
-    controller: GobanController,
-    positionPath: string,
-): MoveTree | null {
-    let cursor = controller.goban.engine.move_tree;
-
-    if (!positionPath) {
-        return cursor;
-    }
-
-    for (const segment of positionPath.split("/")) {
-        if (segment === "T") {
-            if (!cursor.trunk_next) {
-                return null;
-            }
-
-            cursor = cursor.trunk_next;
-            continue;
-        }
-
-        if (!segment.startsWith("B")) {
-            return null;
-        }
-
-        const branchIndex = Number.parseInt(segment.slice(1), 10);
-        if (!Number.isInteger(branchIndex) || !cursor.branches[branchIndex]) {
-            return null;
-        }
-
-        cursor = cursor.branches[branchIndex];
-    }
-
-    return cursor;
-}
-
-function findExistingVariationCursor(
-    controller: GobanController,
-    movePath: string,
-): MoveTree | null {
-    const engine = controller.goban.engine;
-    let cursor = engine.move_tree;
-
-    if (!movePath) {
-        return cursor;
-    }
-
-    let decodedMoves;
-    try {
-        decodedMoves = engine.decodeMoves(movePath);
-    } catch {
-        return null;
-    }
-
-    for (const move of decodedMoves) {
-        const next = cursor.lookupMove(
-            move.x,
-            move.y,
-            engine.playerByColor(move.color || 0),
-            !!move.edited,
-        );
-        if (!next) {
-            return null;
-        }
-
-        cursor = next;
-    }
-
-    return cursor;
-}
-
-export function restoreKibitzVariationCursor(
-    controller: GobanController,
-    paths: { positionPath: string | null; movePath: string | null },
-): boolean {
-    let cursor: MoveTree | null = null;
-    if (paths.positionPath != null) {
-        cursor = findExistingVariationCursorByPosition(controller, paths.positionPath);
-    }
-    if (!cursor && paths.movePath != null) {
-        cursor = findExistingVariationCursor(controller, paths.movePath);
-    }
-    if (!cursor) {
-        return false;
-    }
-
-    controller.goban.engine.jumpTo(cursor);
-    return true;
 }
 
 function loadSecondaryVariationBaseSnapshot(
@@ -2859,6 +2755,12 @@ export function KibitzRoomStage({
             secondaryVariationRetryCountRef.current = 0;
             secondarySnapshotLoadOperationIdRef.current += 1;
             lastAppliedSecondaryVariationKeyRef.current = null;
+            appliedSecondaryVariationPathsRef.current = new Map();
+            pendingVariationCursorRestoreRef.current = null;
+            lastVariationFocusRequestRef.current = {
+                variationId: null,
+                requestId: -1,
+            };
             pendingSecondaryRedrawReasonRef.current = null;
             pendingSecondaryMoveTreeRedrawCancelRef.current?.();
             pendingSecondaryMoveTreeRedrawCancelRef.current = null;
@@ -2958,6 +2860,9 @@ export function KibitzRoomStage({
     const secondaryVariationRetryTimeoutRef = React.useRef<number | null>(null);
     const secondaryVariationRetryCountRef = React.useRef(0);
     const lastAppliedSecondaryVariationKeyRef = React.useRef<string | null>(null);
+    const appliedSecondaryVariationPathsRef = React.useRef<KibitzAppliedVariationPathRegistry>(
+        new Map(),
+    );
     const pendingSecondaryRedrawReasonRef = React.useRef<string | null>(null);
     const appliedDraftAnalyzeToolRef = React.useRef<{
         controller: GobanController | null;
@@ -2973,11 +2878,10 @@ export function KibitzRoomStage({
         variationId: null,
         requestId: -1,
     });
-    const pendingVariationCursorRestoreRef = React.useRef<{
-        variationId: string;
-        positionPath: string | null;
-        movePath: string | null;
-    } | null>(null);
+    const pendingVariationCursorRestoreRef =
+        React.useRef<PendingKibitzVariationCursorRestore | null>(null);
+    const variationFocusRequestIdRef = React.useRef(variationFocusRequestId);
+    variationFocusRequestIdRef.current = variationFocusRequestId;
     const appliedDraftBaseRef = React.useRef<{
         controller: GobanController | null;
         variationId: string | null;
@@ -3421,6 +3325,12 @@ export function KibitzRoomStage({
             pendingSecondaryRedrawReasonRef.current = null;
             secondaryBoardControllerEpochRef.current += 1;
             secondarySnapshotLoadOperationIdRef.current += 1;
+            appliedSecondaryVariationPathsRef.current = new Map();
+            pendingVariationCursorRestoreRef.current = null;
+            lastVariationFocusRequestRef.current = {
+                variationId: null,
+                requestId: -1,
+            };
             if (isKibitzVariationDebugEnabled()) {
                 logKibitzVariationDebug(
                     controller ? "secondary-board:on-ready" : "secondary-board:on-ready-null",
@@ -3665,7 +3575,6 @@ export function KibitzRoomStage({
         selectedVariation?.game_id,
         selectedVariation?.id,
         visibleVariationApplyKey,
-        variationFocusRequestId,
         selectedVariationBaseSnapshotIdentity,
     ]);
 
@@ -3718,6 +3627,12 @@ export function KibitzRoomStage({
         secondaryVariationBaseInstalledRef.current = clearInstalledSecondaryVariationBaseState();
         secondaryVariationBaseHydrationRef.current = null;
         lastAppliedSecondaryVariationKeyRef.current = null;
+        appliedSecondaryVariationPathsRef.current = new Map();
+        pendingVariationCursorRestoreRef.current = null;
+        lastVariationFocusRequestRef.current = {
+            variationId: null,
+            requestId: -1,
+        };
         pendingSecondaryRedrawReasonRef.current = null;
         pendingSecondaryMoveTreeRedrawCancelRef.current?.();
         pendingSecondaryMoveTreeRedrawCancelRef.current = null;
@@ -4456,6 +4371,12 @@ export function KibitzRoomStage({
         suppressSelectedVariationLoadRef.current = false;
         secondaryVariationRetryCountRef.current = 0;
         lastAppliedSecondaryVariationKeyRef.current = null;
+        appliedSecondaryVariationPathsRef.current = new Map();
+        pendingVariationCursorRestoreRef.current = null;
+        lastVariationFocusRequestRef.current = {
+            variationId: null,
+            requestId: -1,
+        };
         pendingSecondaryRedrawReasonRef.current = null;
         clearSecondaryVariationRetryTimeout();
     }, [clearSecondaryVariationRetryTimeout, secondaryBoardController, selectedVariationGameId]);
@@ -4516,6 +4437,7 @@ export function KibitzRoomStage({
             return Boolean(
                 pendingLoad &&
                 pendingLoad.controller === secondaryBoardController &&
+                pendingLoad.controllerEpoch === secondaryBoardControllerEpochRef.current &&
                 pendingLoad.roomId === currentRoomIdRef.current &&
                 pendingLoad.gameId === selectedVariationGameId &&
                 pendingLoad.operationId === secondarySnapshotLoadOperationIdRef.current &&
@@ -4554,7 +4476,7 @@ export function KibitzRoomStage({
                 currentRoomGameId,
                 visibleVariationIds: visibleVariations.map((variation) => variation.id),
                 visibleVariationKey: visibleVariationApplyKey,
-                variationFocusRequestId,
+                variationFocusRequestId: variationFocusRequestIdRef.current,
                 mainBoardOfficialTailMoveNumber,
                 treeDirty: secondaryVariationTreeDirtyRef.current,
                 suppressLoad: suppressSelectedVariationLoadRef.current,
@@ -4585,19 +4507,33 @@ export function KibitzRoomStage({
                 return false;
             }
 
+            const currentFocusRequestId = variationFocusRequestIdRef.current;
             const shouldFocusSelected = shouldFocusKibitzVariationEndpoint(
                 lastVariationFocusRequestRef.current,
                 selectedVariation.id,
-                variationFocusRequestId,
+                currentFocusRequestId,
             );
             const pendingCursorRestore = pendingVariationCursorRestoreRef.current;
-            const previousCursorPaths =
-                pendingCursorRestore?.variationId === selectedVariation.id
-                    ? pendingCursorRestore
-                    : {
-                          positionPath: getVariationCursorPositionPath(goban.engine.cur_move),
-                          movePath: goban.engine.cur_move?.getMoveStringToThisPoint() ?? null,
-                      };
+            const pendingCursorBookmark = isCurrentKibitzVariationCursorRestore(
+                pendingCursorRestore,
+                {
+                    controller: secondaryBoardController,
+                    controllerEpoch: secondaryBoardControllerEpochRef.current,
+                    roomId: currentRoomIdRef.current,
+                    gameId: selectedVariation.game_id,
+                    operationId: secondarySnapshotLoadOperationIdRef.current,
+                    focusRequestId: currentFocusRequestId,
+                },
+            )
+                ? pendingCursorRestore.cursorBookmark
+                : null;
+            const previousCursorBookmark = shouldFocusSelected
+                ? null
+                : (pendingCursorBookmark ??
+                  captureKibitzVariationCursorBookmark(
+                      secondaryBoardController,
+                      appliedSecondaryVariationPathsRef.current,
+                  ));
 
             if (shouldFocusSelected) {
                 pendingVariationCursorRestoreRef.current = null;
@@ -4630,6 +4566,8 @@ export function KibitzRoomStage({
                             : null,
                     reason: variationApplication.selectedVariationSkipReason,
                 });
+                appliedSecondaryVariationPathsRef.current = new Map();
+                pendingVariationCursorRestoreRef.current = null;
                 return true;
             }
 
@@ -4684,6 +4622,7 @@ export function KibitzRoomStage({
 
             try {
                 let selectedEndpoint: MoveTree | null = null;
+                const nextAppliedVariationPaths = new Map<string, AppliedKibitzVariationPath>();
 
                 for (const { variation, colorIndex, isSelected } of preparedVariations) {
                     logVariationStage("apply:variation", {
@@ -4701,7 +4640,13 @@ export function KibitzRoomStage({
                     logVariationStage("apply:variation-result", () => ({
                         variationId: variation.id,
                         endpoint: summarizeKibitzMoveTreeNode(applied.endpoint),
+                        pathNodeCount: applied.pathNodes.length,
                     }));
+
+                    nextAppliedVariationPaths.set(variation.id, {
+                        ...applied,
+                        revisionKey: buildKibitzVariationPathRevisionKey(variation),
+                    });
 
                     if (isSelected) {
                         selectedEndpoint = applied.endpoint;
@@ -4718,16 +4663,23 @@ export function KibitzRoomStage({
                     return false;
                 }
 
+                appliedSecondaryVariationPathsRef.current = nextAppliedVariationPaths;
+
                 if (selectedEndpoint && shouldFocusSelected) {
                     goban.engine.jumpTo(selectedEndpoint);
                     lastVariationFocusRequestRef.current = {
                         variationId: selectedVariation.id,
-                        requestId: variationFocusRequestId,
+                        requestId: currentFocusRequestId,
                     };
                 } else if (selectedEndpoint) {
-                    if (
-                        !restoreKibitzVariationCursor(secondaryBoardController, previousCursorPaths)
-                    ) {
+                    const restored = previousCursorBookmark
+                        ? restoreKibitzVariationCursor(
+                              secondaryBoardController,
+                              previousCursorBookmark,
+                              nextAppliedVariationPaths,
+                          )
+                        : false;
+                    if (!restored) {
                         goban.engine.jumpTo(selectedEndpoint);
                     }
                 } else {
@@ -4801,8 +4753,8 @@ export function KibitzRoomStage({
                 selectedGameId: selectedVariation.game_id,
                 snapshotTailMoveNumber: snapshot.trunkTailMoveNumber,
                 visibleVariationKey: visibleVariationApplyKey,
+                variationColorApplyKey,
                 selectedVariationId: selectedVariation.id,
-                variationFocusRequestId,
             });
             const snapshotInstalled = isSecondaryVariationBaseSnapshotInstalled(
                 snapshot,
@@ -4850,33 +4802,59 @@ export function KibitzRoomStage({
             }
 
             if (reloadDecision.action === "load-snapshot") {
-                if (
-                    shouldFocusKibitzVariationEndpoint(
-                        lastVariationFocusRequestRef.current,
-                        selectedVariation.id,
-                        variationFocusRequestId,
-                    )
-                ) {
-                    pendingVariationCursorRestoreRef.current = null;
-                } else if (
-                    pendingVariationCursorRestoreRef.current?.variationId !== selectedVariation.id
-                ) {
-                    pendingVariationCursorRestoreRef.current = {
-                        variationId: selectedVariation.id,
-                        positionPath: getVariationCursorPositionPath(goban.engine.cur_move),
-                        movePath: goban.engine.cur_move?.getMoveStringToThisPoint() ?? null,
-                    };
-                }
-
+                const currentFocusRequestId = variationFocusRequestIdRef.current;
+                const shouldFocusSelected = shouldFocusKibitzVariationEndpoint(
+                    lastVariationFocusRequestRef.current,
+                    selectedVariation.id,
+                    currentFocusRequestId,
+                );
+                const existingPendingCursorRestore = pendingVariationCursorRestoreRef.current;
+                const canReusePendingCursorRestore =
+                    !shouldFocusSelected &&
+                    existingPendingCursorRestore?.controller === secondaryBoardController &&
+                    existingPendingCursorRestore.controllerEpoch ===
+                        secondaryBoardControllerEpochRef.current &&
+                    existingPendingCursorRestore.roomId === currentRoomIdRef.current &&
+                    existingPendingCursorRestore.gameId === selectedVariation.game_id &&
+                    existingPendingCursorRestore.focusRequestId === currentFocusRequestId;
+                const cursorBookmark = shouldFocusSelected
+                    ? null
+                    : canReusePendingCursorRestore
+                      ? existingPendingCursorRestore.cursorBookmark
+                      : captureKibitzVariationCursorBookmark(
+                            secondaryBoardController,
+                            appliedSecondaryVariationPathsRef.current,
+                        );
                 const operationId = secondarySnapshotLoadOperationIdRef.current + 1;
                 secondarySnapshotLoadOperationIdRef.current = operationId;
+
+                if (shouldFocusSelected) {
+                    pendingVariationCursorRestoreRef.current = null;
+                } else if (cursorBookmark) {
+                    pendingVariationCursorRestoreRef.current = {
+                        variationId: selectedVariation.id,
+                        controller: secondaryBoardController,
+                        controllerEpoch: secondaryBoardControllerEpochRef.current,
+                        roomId: currentRoomIdRef.current,
+                        gameId: selectedVariation.game_id,
+                        operationId,
+                        cursorBookmark,
+                        focusRequestId: currentFocusRequestId,
+                    };
+                } else {
+                    pendingVariationCursorRestoreRef.current = null;
+                }
+
                 pendingSecondaryVariationBaseLoadRef.current = {
                     controller: secondaryBoardController,
                     controllerEpoch: secondaryBoardControllerEpochRef.current,
                     roomId: currentRoomIdRef.current,
                     gameId: selectedVariation.game_id,
                     operationId,
+                    cursorBookmark,
+                    focusRequestId: currentFocusRequestId,
                 };
+                appliedSecondaryVariationPathsRef.current = new Map();
                 suppressSelectedVariationLoadRef.current = true;
                 logVariationStage("reload-or-apply:load-snapshot", {
                     reason,
@@ -4964,13 +4942,24 @@ export function KibitzRoomStage({
                     );
 
                     if (selectedGameBase) {
+                        const previousSecondaryBaseSnapshot =
+                            secondaryVariationBaseSnapshotRef.current;
+                        const baseChanged =
+                            previousSecondaryBaseSnapshot?.controller !==
+                                secondaryBoardController ||
+                            previousSecondaryBaseSnapshot?.gameId !== selectedGameBase.gameId ||
+                            previousSecondaryBaseSnapshot?.trunkTailMoveNumber !==
+                                selectedGameBase.trunkTailMoveNumber;
                         secondaryVariationBaseSnapshotRef.current = selectedGameBase;
-                        lastAppliedSecondaryVariationKeyRef.current = null;
+                        if (baseChanged) {
+                            lastAppliedSecondaryVariationKeyRef.current = null;
+                        }
                         logVariationStage("try:selected-game-snapshot", {
                             reason,
                             requiredSnapshotMoveNumber,
                             selectedGameId: selectedVariation.game_id,
                             selectedGameTailMoveNumber: selectedGameSnapshot.trunkTailMoveNumber,
+                            baseChanged,
                         });
                         return reloadBaseThenApplyVisibleVariations("selected-game-snapshot");
                     }
@@ -5243,8 +5232,8 @@ export function KibitzRoomStage({
                             selectedGameId: selectedVariation.game_id,
                             snapshotTailMoveNumber: loadedSnapshot.trunkTailMoveNumber,
                             visibleVariationKey: visibleVariationApplyKey,
+                            variationColorApplyKey,
                             selectedVariationId: selectedVariation.id,
-                            variationFocusRequestId,
                         }),
                     )
                 ) {
@@ -5357,9 +5346,48 @@ export function KibitzRoomStage({
         selectedVariationApplyKey,
         visibleVariationApplyKey,
         variationColorApplyKey,
-        variationFocusRequestId,
         scheduleSecondaryBoardVisibleRedraw,
         scheduleSecondaryMoveTreeRedraw,
+    ]);
+
+    React.useEffect(() => {
+        if (
+            !selectedVariation ||
+            !secondaryBoardController ||
+            secondaryPane.preview_game_id == null
+        ) {
+            return;
+        }
+
+        const currentFocusRequestId = variationFocusRequestIdRef.current;
+        if (
+            !shouldFocusKibitzVariationEndpoint(
+                lastVariationFocusRequestRef.current,
+                selectedVariation.id,
+                currentFocusRequestId,
+            )
+        ) {
+            return;
+        }
+
+        pendingVariationCursorRestoreRef.current = null;
+        const appliedVariation = appliedSecondaryVariationPathsRef.current.get(
+            selectedVariation.id,
+        );
+        if (!appliedVariation?.endpoint) {
+            return;
+        }
+
+        secondaryBoardController.goban.engine.jumpTo(appliedVariation.endpoint);
+        lastVariationFocusRequestRef.current = {
+            variationId: selectedVariation.id,
+            requestId: currentFocusRequestId,
+        };
+    }, [
+        secondaryBoardController,
+        secondaryPane.preview_game_id,
+        selectedVariation?.id,
+        variationFocusRequestId,
     ]);
 
     React.useEffect(() => {

@@ -60,12 +60,19 @@ import {
     resolveSelectedVariationSourceGame,
     resolveDraftSourceBoardDimensions,
     selectedGameSnapshotFailureKey,
-    restoreKibitzVariationCursor,
     shouldFocusKibitzVariationEndpoint,
     type SelectedGameBaseSnapshotFailure,
 } from "./KibitzRoomStage";
 import { buildSnapshotFromEngine } from "./kibitzCurrentGameBaseSnapshot";
 import type { KibitzCurrentGameBaseSnapshot } from "./kibitzCurrentGameBaseSnapshotTypes";
+import {
+    buildKibitzVariationPathRevisionKey,
+    captureKibitzVariationCursorBookmark,
+    isCurrentKibitzVariationCursorRestore,
+    restoreKibitzVariationCursor,
+    type AppliedKibitzVariationPath,
+    type PendingKibitzVariationCursorRestore,
+} from "./kibitzVariationCursor";
 
 function makeUser(id: number, username: string) {
     return {
@@ -123,6 +130,22 @@ function makeMoveTree(
     };
 
     return tree as unknown as MoveTree;
+}
+
+function makeCursorController(root: MoveTree, currentNode: MoveTree): GobanController {
+    const engine = {
+        move_tree: root,
+        cur_move: currentNode,
+        jumpTo: (node: MoveTree) => {
+            engine.cur_move = node;
+        },
+    };
+
+    return {
+        goban: {
+            engine,
+        },
+    } as unknown as GobanController;
 }
 
 function makeSelectedGameDetails(
@@ -563,10 +586,10 @@ describe("variation snapshot readiness", () => {
                 selectedGameId: selectedVariation.game_id,
                 snapshotTailMoveNumber: snapshot?.trunkTailMoveNumber,
                 visibleVariationKey: "variation-1",
+                variationColorApplyKey: "variation-1:0",
                 selectedVariationId: selectedVariation.id,
-                variationFocusRequestId: 10,
             }),
-        ).toBe("4321:17:variation-1:variation-4321:10");
+        ).toBe("4321:17:variation-1:variation-1:0:variation-4321");
     });
 
     it("waits when the current-game snapshot is stale for a same-game variation", () => {
@@ -1107,28 +1130,186 @@ describe("variation focus lifecycle", () => {
         expect(shouldFocusKibitzVariationEndpoint(lastFocusRequest, "variation-one", 5)).toBe(true);
     });
 
-    it("restores the manually selected node from the rebuilt secondary tree", () => {
-        const restoredNode = { move_number: 6 } as MoveTree;
-        const root = {
-            branches: [restoredNode],
-        } as unknown as MoveTree;
-        const jumpTo = jest.fn();
-        const controller = {
-            goban: {
-                engine: {
-                    move_tree: root,
-                    jumpTo,
+    it("restores a variation-relative cursor after branch order changes", () => {
+        const oldVariationNode = makeMoveTree(6);
+        const oldOtherVariationNode = makeMoveTree(6);
+        const oldRoot = makeMoveTree(0, null, [oldVariationNode, oldOtherVariationNode]);
+        const oldController = makeCursorController(oldRoot, oldVariationNode);
+        const variation = makeVariation(4321);
+        const revisionKey = buildKibitzVariationPathRevisionKey(variation);
+        const oldRegistry = new Map<string, AppliedKibitzVariationPath>([
+            [
+                variation.id,
+                {
+                    variationId: variation.id,
+                    endpoint: oldVariationNode,
+                    pathNodes: [oldVariationNode],
+                    revisionKey,
                 },
-            },
-        } as unknown as GobanController;
+            ],
+        ]);
+
+        const bookmark = captureKibitzVariationCursorBookmark(oldController, oldRegistry);
+        expect(bookmark).toEqual({
+            kind: "variation",
+            variationId: variation.id,
+            pathIndex: 0,
+            revisionKey,
+        });
+
+        const newVariationNode = makeMoveTree(6);
+        const newOtherVariationNode = makeMoveTree(6);
+        const newRoot = makeMoveTree(0, null, [newOtherVariationNode, newVariationNode]);
+        const jumpTo = jest.fn();
+        const controller = makeCursorController(newRoot, newRoot);
+        controller.goban.engine.jumpTo = jumpTo;
+
+        const newRegistry = new Map<string, AppliedKibitzVariationPath>([
+            [
+                variation.id,
+                {
+                    variationId: variation.id,
+                    endpoint: newVariationNode,
+                    pathNodes: [newVariationNode],
+                    revisionKey,
+                },
+            ],
+        ]);
+
+        expect(bookmark).not.toBeNull();
+        expect(restoreKibitzVariationCursor(controller, bookmark!, newRegistry)).toBe(true);
+        expect(jumpTo).toHaveBeenCalledWith(newVariationNode);
+    });
+
+    it("restores a genuine official-trunk position instead of an equivalent variation node", () => {
+        const oldOfficial = makeMoveTree(6);
+        const oldDuplicate = makeMoveTree(6);
+        const oldRoot = makeMoveTree(0, oldOfficial, [oldDuplicate]);
+        const variation = makeVariation(4321);
+        const revisionKey = buildKibitzVariationPathRevisionKey(variation);
+        const oldRegistry = new Map<string, AppliedKibitzVariationPath>([
+            [
+                variation.id,
+                {
+                    variationId: variation.id,
+                    endpoint: oldDuplicate,
+                    pathNodes: [oldDuplicate],
+                    revisionKey,
+                },
+            ],
+        ]);
+        const bookmark = captureKibitzVariationCursorBookmark(
+            makeCursorController(oldRoot, oldOfficial),
+            oldRegistry,
+        );
+        expect(bookmark).toEqual({ kind: "official", moveNumber: 6 });
+
+        const newOfficial = makeMoveTree(6);
+        const newDuplicate = makeMoveTree(6);
+        const newRoot = makeMoveTree(0, newOfficial, [newDuplicate]);
+        const jumpTo = jest.fn();
+        const controller = makeCursorController(newRoot, newRoot);
+        controller.goban.engine.jumpTo = jumpTo;
+
+        const newRegistry = new Map<string, AppliedKibitzVariationPath>([
+            [
+                variation.id,
+                {
+                    variationId: variation.id,
+                    endpoint: newDuplicate,
+                    pathNodes: [newDuplicate],
+                    revisionKey,
+                },
+            ],
+        ]);
+
+        expect(restoreKibitzVariationCursor(controller, bookmark!, newRegistry)).toBe(true);
+        expect(jumpTo).toHaveBeenCalledWith(newOfficial);
+    });
+
+    it("treats a new focus request as endpoint intent when switching variations", () => {
+        const previousFocusRequest = { variationId: "variation-a", requestId: 7 };
+        expect(shouldFocusKibitzVariationEndpoint(previousFocusRequest, "variation-b", 7)).toBe(
+            true,
+        );
+        expect(shouldFocusKibitzVariationEndpoint(previousFocusRequest, "variation-a", 8)).toBe(
+            true,
+        );
+    });
+
+    it("does not restore a variation cursor into a changed variation path", () => {
+        const oldNode = makeMoveTree(6);
+        const oldRoot = makeMoveTree(0, null, [oldNode]);
+        const variation = makeVariation(4321);
+        const bookmark = captureKibitzVariationCursorBookmark(
+            makeCursorController(oldRoot, oldNode),
+            new Map<string, AppliedKibitzVariationPath>([
+                [
+                    variation.id,
+                    {
+                        variationId: variation.id,
+                        endpoint: oldNode,
+                        pathNodes: [oldNode],
+                        revisionKey: buildKibitzVariationPathRevisionKey(variation),
+                    },
+                ],
+            ]),
+        );
+        const newNode = makeMoveTree(7);
+        const controller = makeCursorController(makeMoveTree(0, null, [newNode]), newNode);
 
         expect(
-            restoreKibitzVariationCursor(controller, {
-                positionPath: "B0",
-                movePath: null,
+            restoreKibitzVariationCursor(
+                controller,
+                bookmark!,
+                new Map<string, AppliedKibitzVariationPath>([
+                    [
+                        variation.id,
+                        {
+                            variationId: variation.id,
+                            endpoint: newNode,
+                            pathNodes: [newNode],
+                            revisionKey: `${buildKibitzVariationPathRevisionKey(variation)}-changed`,
+                        },
+                    ],
+                ]),
+            ),
+        ).toBe(false);
+    });
+
+    it("rejects a pending cursor when a newer focus or load operation exists", () => {
+        const controller = makeCursorController(makeMoveTree(0), makeMoveTree(0));
+        const pending: PendingKibitzVariationCursorRestore = {
+            variationId: "variation-a",
+            controller,
+            controllerEpoch: 3,
+            roomId: "room-1",
+            gameId: 4321,
+            operationId: 11,
+            cursorBookmark: { kind: "official", moveNumber: 4 },
+            focusRequestId: 8,
+        };
+
+        expect(
+            isCurrentKibitzVariationCursorRestore(pending, {
+                controller,
+                controllerEpoch: 3,
+                roomId: "room-1",
+                gameId: 4321,
+                operationId: 12,
+                focusRequestId: 8,
             }),
-        ).toBe(true);
-        expect(jumpTo).toHaveBeenCalledWith(restoredNode);
+        ).toBe(false);
+        expect(
+            isCurrentKibitzVariationCursorRestore(pending, {
+                controller,
+                controllerEpoch: 3,
+                roomId: "room-1",
+                gameId: 4321,
+                operationId: 11,
+                focusRequestId: 9,
+            }),
+        ).toBe(false);
     });
 });
 
