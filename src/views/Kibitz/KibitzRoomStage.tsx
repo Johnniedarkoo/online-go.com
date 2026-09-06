@@ -1063,6 +1063,88 @@ interface PendingSecondaryVariationBaseLoad {
     focusRequestId: number;
 }
 
+export interface KibitzSecondaryMoveTreeViewport {
+    scrollLeft: number;
+    scrollTop: number;
+}
+
+export interface PendingKibitzSecondaryMoveTreeViewportRestore {
+    variationId: string;
+    controller: GobanController;
+    controllerEpoch: number;
+    roomId: string | null;
+    gameId: number;
+    operationId: number;
+    focusRequestId: number;
+    viewport: KibitzSecondaryMoveTreeViewport;
+}
+
+export interface KibitzSecondaryMoveTreeViewportRestoreContext {
+    variationId: string;
+    controller: GobanController;
+    controllerEpoch: number;
+    roomId: string | null;
+    gameId: number;
+    operationId: number;
+    focusRequestId: number;
+}
+
+export function captureKibitzSecondaryMoveTreeViewport(
+    container: HTMLElement | null,
+): KibitzSecondaryMoveTreeViewport | null {
+    if (!container) {
+        return null;
+    }
+
+    return {
+        scrollLeft: container.scrollLeft,
+        scrollTop: container.scrollTop,
+    };
+}
+
+export function restoreKibitzSecondaryMoveTreeViewport(
+    container: HTMLElement | null,
+    viewport: KibitzSecondaryMoveTreeViewport,
+): boolean {
+    if (!container) {
+        return false;
+    }
+
+    const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    container.scrollLeft = Math.min(Math.max(0, viewport.scrollLeft), maxScrollLeft);
+    container.scrollTop = Math.min(Math.max(0, viewport.scrollTop), maxScrollTop);
+    return true;
+}
+
+export function isCurrentKibitzSecondaryMoveTreeViewportRestore(
+    pending: PendingKibitzSecondaryMoveTreeViewportRestore | null,
+    context: KibitzSecondaryMoveTreeViewportRestoreContext,
+): pending is PendingKibitzSecondaryMoveTreeViewportRestore {
+    return Boolean(
+        pending &&
+        pending.variationId === context.variationId &&
+        pending.controller === context.controller &&
+        pending.controllerEpoch === context.controllerEpoch &&
+        pending.roomId === context.roomId &&
+        pending.gameId === context.gameId &&
+        pending.operationId === context.operationId &&
+        pending.focusRequestId === context.focusRequestId,
+    );
+}
+
+export function restoreKibitzSecondaryMoveTreeViewportIfCurrent(
+    container: HTMLElement | null,
+    pending: PendingKibitzSecondaryMoveTreeViewportRestore | null,
+    context: KibitzSecondaryMoveTreeViewportRestoreContext,
+): boolean {
+    if (!isCurrentKibitzSecondaryMoveTreeViewportRestore(pending, context)) {
+        return false;
+    }
+
+    return restoreKibitzSecondaryMoveTreeViewport(container, pending.viewport);
+}
+
 export interface InstalledSecondaryVariationBaseState {
     controller: GobanController | null;
     gameId: number | null;
@@ -1828,6 +1910,7 @@ function scheduleNoWarpMoveTreeRedrawWhenReady(
     goban: { move_tree_redraw?: (no_warp?: boolean) => void } | null | undefined,
     container: HTMLElement | null,
     attempts = 5,
+    onAfterRedraw?: () => void,
 ): () => void {
     let frame1: number | null = null;
     let frame2: number | null = null;
@@ -1860,6 +1943,7 @@ function scheduleNoWarpMoveTreeRedrawWhenReady(
                 }
 
                 goban?.move_tree_redraw?.(true);
+                onAfterRedraw?.();
             });
         });
     };
@@ -2795,6 +2879,7 @@ export function KibitzRoomStage({
             lastAppliedSecondaryVariationKeyRef.current = null;
             appliedSecondaryVariationPathsRef.current = new Map();
             pendingVariationCursorRestoreRef.current = null;
+            pendingSecondaryMoveTreeViewportRestoreRef.current = null;
             lastVariationFocusRequestRef.current = {
                 variationId: null,
                 requestId: -1,
@@ -2893,6 +2978,8 @@ export function KibitzRoomStage({
     } | null>(null);
     const pendingSecondaryVariationBaseLoadRef =
         React.useRef<PendingSecondaryVariationBaseLoad | null>(null);
+    const pendingSecondaryMoveTreeViewportRestoreRef =
+        React.useRef<PendingKibitzSecondaryMoveTreeViewportRestore | null>(null);
     const secondarySnapshotLoadOperationIdRef = React.useRef(0);
     const suppressSelectedVariationLoadRef = React.useRef(false);
     const secondaryVariationRetryTimeoutRef = React.useRef<number | null>(null);
@@ -3365,6 +3452,7 @@ export function KibitzRoomStage({
             secondarySnapshotLoadOperationIdRef.current += 1;
             appliedSecondaryVariationPathsRef.current = new Map();
             pendingVariationCursorRestoreRef.current = null;
+            pendingSecondaryMoveTreeViewportRestoreRef.current = null;
             lastVariationFocusRequestRef.current = {
                 variationId: null,
                 requestId: -1,
@@ -3437,32 +3525,38 @@ export function KibitzRoomStage({
 
         secondaryBoardController?.goban.move_tree_redraw(true);
     }, [isCurrentSecondaryBoardController, secondaryBoardController]);
-    const scheduleSecondaryMoveTreeRedraw = React.useCallback(() => {
-        pendingSecondaryMoveTreeRedrawCancelRef.current?.();
+    const scheduleSecondaryMoveTreeRedraw = React.useCallback(
+        (onAfterRedraw?: () => void) => {
+            pendingSecondaryMoveTreeRedrawCancelRef.current?.();
 
-        const container = secondaryMoveTreeContainer?.div ?? null;
-        if (
-            !secondaryBoardController ||
-            !container ||
-            !isCurrentSecondaryBoardController(secondaryBoardController)
-        ) {
+            const container = secondaryMoveTreeContainer?.div ?? null;
             if (
-                secondaryBoardController &&
+                !secondaryBoardController ||
+                !container ||
                 !isCurrentSecondaryBoardController(secondaryBoardController)
             ) {
-                logSecondaryBoardStaleCallback("move-tree-redraw", {
-                    controllerPresent: true,
-                });
+                if (
+                    secondaryBoardController &&
+                    !isCurrentSecondaryBoardController(secondaryBoardController)
+                ) {
+                    logSecondaryBoardStaleCallback("move-tree-redraw", {
+                        controllerPresent: true,
+                    });
+                }
+                pendingSecondaryMoveTreeRedrawCancelRef.current = null;
+                onAfterRedraw?.();
+                return;
             }
-            pendingSecondaryMoveTreeRedrawCancelRef.current = null;
-            return;
-        }
 
-        pendingSecondaryMoveTreeRedrawCancelRef.current = scheduleNoWarpMoveTreeRedrawWhenReady(
-            secondaryBoardController.goban,
-            container,
-        );
-    }, [isCurrentSecondaryBoardController, secondaryBoardController, secondaryMoveTreeContainer]);
+            pendingSecondaryMoveTreeRedrawCancelRef.current = scheduleNoWarpMoveTreeRedrawWhenReady(
+                secondaryBoardController.goban,
+                container,
+                5,
+                onAfterRedraw,
+            );
+        },
+        [isCurrentSecondaryBoardController, secondaryBoardController, secondaryMoveTreeContainer],
+    );
     const scheduleMainBoardVisibleRedraw = React.useCallback(
         (reason: string) => {
             const currentController = mainBoardController;
@@ -3667,6 +3761,7 @@ export function KibitzRoomStage({
         lastAppliedSecondaryVariationKeyRef.current = null;
         appliedSecondaryVariationPathsRef.current = new Map();
         pendingVariationCursorRestoreRef.current = null;
+        pendingSecondaryMoveTreeViewportRestoreRef.current = null;
         lastVariationFocusRequestRef.current = {
             variationId: null,
             requestId: -1,
@@ -4411,6 +4506,7 @@ export function KibitzRoomStage({
         lastAppliedSecondaryVariationKeyRef.current = null;
         appliedSecondaryVariationPathsRef.current = new Map();
         pendingVariationCursorRestoreRef.current = null;
+        pendingSecondaryMoveTreeViewportRestoreRef.current = null;
         lastVariationFocusRequestRef.current = {
             variationId: null,
             requestId: -1,
@@ -4481,6 +4577,50 @@ export function KibitzRoomStage({
                 pendingLoad.operationId === secondarySnapshotLoadOperationIdRef.current &&
                 isCurrentSecondaryLoadController(),
             );
+        };
+
+        const isCurrentPendingSecondaryMoveTreeViewportRestore = (
+            pendingRestore: PendingKibitzSecondaryMoveTreeViewportRestore | null,
+            operationId: number,
+        ): pendingRestore is PendingKibitzSecondaryMoveTreeViewportRestore => {
+            return Boolean(
+                pendingRestore &&
+                pendingRestore.variationId === selectedVariation.id &&
+                pendingRestore.controller === secondaryBoardController &&
+                pendingRestore.controllerEpoch === secondaryBoardControllerEpochRef.current &&
+                pendingRestore.roomId === currentRoomIdRef.current &&
+                pendingRestore.gameId === selectedVariation.game_id &&
+                pendingRestore.operationId === operationId &&
+                pendingRestore.focusRequestId === variationFocusRequestIdRef.current &&
+                isCurrentSecondaryLoadController(),
+            );
+        };
+
+        const capturePendingSecondaryMoveTreeViewportRestore = (
+            operationId: number,
+        ): PendingKibitzSecondaryMoveTreeViewportRestore | null => {
+            const existingRestore = pendingSecondaryMoveTreeViewportRestoreRef.current;
+            if (isCurrentPendingSecondaryMoveTreeViewportRestore(existingRestore, operationId)) {
+                return existingRestore;
+            }
+
+            const viewport = captureKibitzSecondaryMoveTreeViewport(
+                secondaryMoveTreeContainerRef.current?.div ?? null,
+            );
+            if (!viewport) {
+                return null;
+            }
+
+            return {
+                variationId: selectedVariation.id,
+                controller: secondaryBoardController,
+                controllerEpoch: secondaryBoardControllerEpochRef.current,
+                roomId: currentRoomIdRef.current,
+                gameId: selectedVariation.game_id,
+                operationId,
+                focusRequestId: variationFocusRequestIdRef.current,
+                viewport,
+            };
         };
 
         const warnVariationApplyTimeout = (reason: string): void => {
@@ -4572,9 +4712,17 @@ export function KibitzRoomStage({
                       secondaryBoardController,
                       appliedSecondaryVariationPathsRef.current,
                   ));
+            const previousViewportRestore = shouldFocusSelected
+                ? null
+                : capturePendingSecondaryMoveTreeViewportRestore(
+                      secondarySnapshotLoadOperationIdRef.current,
+                  );
 
             if (shouldFocusSelected) {
                 pendingVariationCursorRestoreRef.current = null;
+                pendingSecondaryMoveTreeViewportRestoreRef.current = null;
+            } else if (previousViewportRestore) {
+                pendingSecondaryMoveTreeViewportRestoreRef.current = previousViewportRestore;
             }
 
             const variationApplication = getApplicableVisibleVariations({
@@ -4728,6 +4876,32 @@ export function KibitzRoomStage({
                 }
 
                 pendingVariationCursorRestoreRef.current = null;
+                const restoreViewportAfterRedraw = previousViewportRestore
+                    ? () => {
+                          if (
+                              pendingSecondaryMoveTreeViewportRestoreRef.current !==
+                              previousViewportRestore
+                          ) {
+                              return;
+                          }
+
+                          restoreKibitzSecondaryMoveTreeViewportIfCurrent(
+                              secondaryMoveTreeContainerRef.current?.div ?? null,
+                              previousViewportRestore,
+                              {
+                                  variationId: selectedVariation.id,
+                                  controller: secondaryBoardController,
+                                  controllerEpoch: secondaryBoardControllerEpochRef.current,
+                                  roomId: currentRoomIdRef.current,
+                                  gameId: selectedVariation.game_id,
+                                  operationId: previousViewportRestore.operationId,
+                                  focusRequestId: variationFocusRequestIdRef.current,
+                              },
+                          );
+
+                          pendingSecondaryMoveTreeViewportRestoreRef.current = null;
+                      }
+                    : undefined;
 
                 if (!selectedVariation.analysis_line_tree && selectedVisible) {
                     if (selectedVariation.analysis_marks) {
@@ -4743,7 +4917,7 @@ export function KibitzRoomStage({
 
                 goban.redraw(true);
                 scheduleSecondaryBoardVisibleRedraw("apply:done");
-                scheduleSecondaryMoveTreeRedraw();
+                scheduleSecondaryMoveTreeRedraw(restoreViewportAfterRedraw);
                 clearSecondaryVariationRetryTimeout();
                 secondaryVariationRetryCountRef.current = 0;
                 lastAppliedSecondaryVariationKeyRef.current = desiredApplyKey;
@@ -4865,9 +5039,13 @@ export function KibitzRoomStage({
                         );
                 const operationId = secondarySnapshotLoadOperationIdRef.current + 1;
                 secondarySnapshotLoadOperationIdRef.current = operationId;
+                const viewportRestore = shouldFocusSelected
+                    ? null
+                    : capturePendingSecondaryMoveTreeViewportRestore(operationId);
 
                 if (shouldFocusSelected) {
                     pendingVariationCursorRestoreRef.current = null;
+                    pendingSecondaryMoveTreeViewportRestoreRef.current = null;
                 } else if (cursorBookmark) {
                     pendingVariationCursorRestoreRef.current = {
                         variationId: selectedVariation.id,
@@ -4882,6 +5060,8 @@ export function KibitzRoomStage({
                 } else {
                     pendingVariationCursorRestoreRef.current = null;
                 }
+
+                pendingSecondaryMoveTreeViewportRestoreRef.current = viewportRestore;
 
                 pendingSecondaryVariationBaseLoadRef.current = {
                     controller: secondaryBoardController,
@@ -5409,6 +5589,7 @@ export function KibitzRoomStage({
         }
 
         pendingVariationCursorRestoreRef.current = null;
+        pendingSecondaryMoveTreeViewportRestoreRef.current = null;
         if (
             !focusKibitzVariationEndpointIfRequested({
                 controller: secondaryBoardController,

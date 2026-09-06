@@ -43,6 +43,8 @@ import {
     getRequiredSnapshotMoveForVariation,
     getVariationsToApply,
     focusKibitzVariationEndpointIfRequested,
+    captureKibitzSecondaryMoveTreeViewport,
+    isCurrentKibitzSecondaryMoveTreeViewportRestore,
     isDraftBaseAlreadyApplied,
     hasBoardDimensions,
     resolveMobileSecondaryOwner,
@@ -60,12 +62,19 @@ import {
     recordSelectedGameSnapshotFailure,
     resolveSelectedVariationSourceGame,
     resolveDraftSourceBoardDimensions,
+    restoreKibitzSecondaryMoveTreeViewport,
+    restoreKibitzSecondaryMoveTreeViewportIfCurrent,
     selectedGameSnapshotFailureKey,
     shouldFocusKibitzVariationEndpoint,
     type SelectedGameBaseSnapshotFailure,
 } from "./KibitzRoomStage";
 import { buildSnapshotFromEngine } from "./kibitzCurrentGameBaseSnapshot";
 import type { KibitzCurrentGameBaseSnapshot } from "./kibitzCurrentGameBaseSnapshotTypes";
+import type {
+    KibitzSecondaryMoveTreeViewport,
+    KibitzSecondaryMoveTreeViewportRestoreContext,
+    PendingKibitzSecondaryMoveTreeViewportRestore,
+} from "./KibitzRoomStage";
 import {
     buildKibitzVariationPathRevisionKey,
     captureKibitzVariationCursorBookmark,
@@ -147,6 +156,19 @@ function makeCursorController(root: MoveTree, currentNode: MoveTree): GobanContr
             engine,
         },
     } as unknown as GobanController;
+}
+
+function makeMoveTreeViewportContainer(viewport: KibitzSecondaryMoveTreeViewport): HTMLElement {
+    const container = document.createElement("div");
+    Object.defineProperties(container, {
+        clientWidth: { configurable: true, value: 100 },
+        clientHeight: { configurable: true, value: 80 },
+        scrollWidth: { configurable: true, value: 500 },
+        scrollHeight: { configurable: true, value: 400 },
+    });
+    container.scrollLeft = viewport.scrollLeft;
+    container.scrollTop = viewport.scrollTop;
+    return container;
 }
 
 function makeSelectedGameDetails(
@@ -1343,6 +1365,188 @@ describe("variation focus lifecycle", () => {
         ).toBe(true);
         expect(jumpTo).toHaveBeenCalledWith(endpointB);
         expect(controller.goban.engine.cur_move).toBe(endpointB);
+    });
+
+    it("preserves the semantic cursor and manually scrolled viewport during passive rebuilds", () => {
+        const variation = makeVariation(4321);
+        const oldInteriorNode = makeMoveTree(3);
+        const oldEndpoint = makeMoveTree(6);
+        const oldController = makeCursorController(
+            makeMoveTree(0, null, [oldInteriorNode, oldEndpoint]),
+            oldInteriorNode,
+        );
+        const container = makeMoveTreeViewportContainer({ scrollLeft: 160, scrollTop: 90 });
+        const viewport = captureKibitzSecondaryMoveTreeViewport(container);
+        const oldRevisionKey = buildKibitzVariationPathRevisionKey(variation);
+        const bookmark = captureKibitzVariationCursorBookmark(
+            oldController,
+            new Map<string, AppliedKibitzVariationPath>([
+                [
+                    variation.id,
+                    {
+                        variationId: variation.id,
+                        endpoint: oldEndpoint,
+                        pathNodes: [oldInteriorNode, oldEndpoint],
+                        revisionKey: oldRevisionKey,
+                    },
+                ],
+            ]),
+        );
+        const newInteriorNode = makeMoveTree(3);
+        const newEndpoint = makeMoveTree(6);
+        const newRoot = makeMoveTree(0, null, [newEndpoint, newInteriorNode]);
+        const controller = makeCursorController(newRoot, newRoot);
+        const jumpTo = jest.fn((node: MoveTree) => {
+            controller.goban.engine.cur_move = node;
+        });
+        controller.goban.engine.jumpTo = jumpTo;
+        const newRegistry = new Map<string, AppliedKibitzVariationPath>([
+            [
+                variation.id,
+                {
+                    variationId: variation.id,
+                    endpoint: newEndpoint,
+                    pathNodes: [newInteriorNode, newEndpoint],
+                    revisionKey: oldRevisionKey,
+                },
+            ],
+        ]);
+        const pendingViewportRestore: PendingKibitzSecondaryMoveTreeViewportRestore = {
+            variationId: variation.id,
+            controller,
+            controllerEpoch: 3,
+            roomId: "room-1",
+            gameId: variation.game_id,
+            operationId: 11,
+            focusRequestId: 8,
+            viewport: viewport!,
+        };
+        const restoreContext: KibitzSecondaryMoveTreeViewportRestoreContext = {
+            variationId: variation.id,
+            controller,
+            controllerEpoch: 3,
+            roomId: "room-1",
+            gameId: variation.game_id,
+            operationId: 11,
+            focusRequestId: 8,
+        };
+
+        expect(restoreKibitzVariationCursor(controller, bookmark!, newRegistry)).toBe(true);
+        expect(controller.goban.engine.cur_move).toBe(newInteriorNode);
+        container.scrollLeft = 0;
+        container.scrollTop = 0;
+        expect(
+            restoreKibitzSecondaryMoveTreeViewportIfCurrent(
+                container,
+                pendingViewportRestore,
+                restoreContext,
+            ),
+        ).toBe(true);
+        expect(controller.goban.engine.cur_move).toBe(newInteriorNode);
+        expect(container.scrollLeft).toBe(160);
+        expect(container.scrollTop).toBe(90);
+        expect(jumpTo).toHaveBeenCalledWith(newInteriorNode);
+    });
+
+    it("restores the viewport independently when the current move did not change", () => {
+        const container = makeMoveTreeViewportContainer({ scrollLeft: 140, scrollTop: 70 });
+        const viewport = captureKibitzSecondaryMoveTreeViewport(container);
+        const currentNode = makeMoveTree(4);
+        const controller = makeCursorController(currentNode, currentNode);
+
+        container.scrollLeft = 0;
+        container.scrollTop = 0;
+        expect(restoreKibitzSecondaryMoveTreeViewport(container, viewport!)).toBe(true);
+        expect(container.scrollLeft).toBe(140);
+        expect(container.scrollTop).toBe(70);
+        expect(controller.goban.engine.cur_move).toBe(currentNode);
+    });
+
+    it("clamps a passive viewport to the rebuilt container bounds", () => {
+        const container = makeMoveTreeViewportContainer({ scrollLeft: 140, scrollTop: 70 });
+        Object.defineProperties(container, {
+            scrollWidth: { configurable: true, value: 180 },
+            scrollHeight: { configurable: true, value: 100 },
+        });
+
+        expect(
+            restoreKibitzSecondaryMoveTreeViewport(container, {
+                scrollLeft: 999,
+                scrollTop: 999,
+            }),
+        ).toBe(true);
+        expect(container.scrollLeft).toBe(80);
+        expect(container.scrollTop).toBe(20);
+    });
+
+    it("does not restore a passive viewport after a newer focus request", () => {
+        const variation = makeVariation(4321);
+        const controller = makeCursorController(makeMoveTree(0), makeMoveTree(3));
+        const container = makeMoveTreeViewportContainer({ scrollLeft: 120, scrollTop: 60 });
+        const pendingViewportRestore: PendingKibitzSecondaryMoveTreeViewportRestore = {
+            variationId: variation.id,
+            controller,
+            controllerEpoch: 3,
+            roomId: "room-1",
+            gameId: variation.game_id,
+            operationId: 11,
+            focusRequestId: 8,
+            viewport: { scrollLeft: 120, scrollTop: 60 },
+        };
+
+        container.scrollLeft = 25;
+        container.scrollTop = 15;
+        expect(
+            restoreKibitzSecondaryMoveTreeViewportIfCurrent(container, pendingViewportRestore, {
+                variationId: variation.id,
+                controller,
+                controllerEpoch: 3,
+                roomId: "room-1",
+                gameId: variation.game_id,
+                operationId: 11,
+                focusRequestId: 9,
+            }),
+        ).toBe(false);
+        expect(container.scrollLeft).toBe(25);
+        expect(container.scrollTop).toBe(15);
+    });
+
+    it("rejects a viewport restore after controller or operation changes", () => {
+        const variation = makeVariation(4321);
+        const controller = makeCursorController(makeMoveTree(0), makeMoveTree(3));
+        const pendingViewportRestore: PendingKibitzSecondaryMoveTreeViewportRestore = {
+            variationId: variation.id,
+            controller,
+            controllerEpoch: 3,
+            roomId: "room-1",
+            gameId: variation.game_id,
+            operationId: 11,
+            focusRequestId: 8,
+            viewport: { scrollLeft: 120, scrollTop: 60 },
+        };
+
+        expect(
+            isCurrentKibitzSecondaryMoveTreeViewportRestore(pendingViewportRestore, {
+                variationId: variation.id,
+                controller,
+                controllerEpoch: 3,
+                roomId: "room-1",
+                gameId: variation.game_id,
+                operationId: 12,
+                focusRequestId: 8,
+            }),
+        ).toBe(false);
+        expect(
+            isCurrentKibitzSecondaryMoveTreeViewportRestore(pendingViewportRestore, {
+                variationId: variation.id,
+                controller,
+                controllerEpoch: 4,
+                roomId: "room-1",
+                gameId: variation.game_id,
+                operationId: 11,
+                focusRequestId: 8,
+            }),
+        ).toBe(false);
     });
 
     it("does not restore a variation cursor into a changed variation path", () => {
