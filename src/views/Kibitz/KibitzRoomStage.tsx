@@ -53,6 +53,10 @@ import {
     KibitzDesktopMainGameScoreboard,
 } from "./KibitzDesktopMainGameScoreboard";
 import { KibitzDesktopCompareHeader } from "./KibitzDesktopCompareHeader";
+import {
+    isSplitCurrentVariationHeaderForced,
+    shouldUseCompareHeader,
+} from "./kibitzHeaderSelection";
 import { KibitzVariationComposer } from "./KibitzVariationComposer";
 import { KibitzRoomSettingsPopover } from "./KibitzRoomSettingsPopover";
 import { KibitzNodeText } from "./KibitzNodeText";
@@ -2111,6 +2115,13 @@ export function KibitzRoomStage({
     const selectedVariation = variations.find(
         (variation) => variation.id === secondaryPane.variation_id,
     );
+    const useCompareHeader =
+        secondaryPaneSize !== "hidden" &&
+        shouldUseCompareHeader(
+            mainGame?.game_id,
+            selectedVariation?.game_id,
+            isSplitCurrentVariationHeaderForced(window.location.search),
+        );
     const draftBaseVariation = variations.find(
         (variation) => variation.id === secondaryPane.variation_draft_base_id,
     );
@@ -6166,12 +6177,12 @@ export function KibitzRoomStage({
             <div
                 className={
                     "room-stage-header" +
-                    (secondaryPaneSize !== "hidden"
+                    (useCompareHeader
                         ? ` room-stage-header--split secondary-pane-${secondaryPaneSize}`
                         : "")
                 }
             >
-                {secondaryPaneSize !== "hidden" ? (
+                {useCompareHeader ? (
                     <KibitzDesktopCompareHeader
                         room={room}
                         mainGame={mainGame}

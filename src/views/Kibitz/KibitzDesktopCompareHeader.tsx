@@ -275,9 +275,6 @@ export function KibitzDesktopCompareHeader({
                 )}
             >
                 <div className="KibitzDesktopCompareHeader-variationGroup">
-                    <div className="KibitzDesktopCompareHeader-eyebrow">
-                        {pgettext("Kibitz variation header eyebrow", "VARIATION BOARD")}
-                    </div>
                     <div
                         className="KibitzDesktopCompareHeader-variationTitle"
                         title={getVariationTitle(selectedVariation)}
