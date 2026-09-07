@@ -272,6 +272,26 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         ).toHaveLength(2);
     });
 
+    it("places compare context inside the shared scoreboard card", () => {
+        render(
+            <KibitzDesktopMainGameScoreboard
+                controller={null}
+                game={makeGame()}
+                compact
+                context={<span>Room context</span>}
+            />,
+        );
+
+        const card = document.querySelector(".KibitzDesktopMainGameScoreboard");
+        const inner = document.querySelector(".KibitzDesktopMainGameScoreboard-inner");
+        const context = document.querySelector(".KibitzDesktopMainGameScoreboard-context");
+
+        expect(card).toHaveClass("KibitzDesktopMainGameScoreboard--withContext");
+        expect(context).toHaveTextContent("Room context");
+        expect(context?.parentElement).toBe(inner);
+        expect(inner?.querySelectorAll(".KibitzDesktopMainGameScoreboard-row")).toHaveLength(2);
+    });
+
     it("shows a two-row scoreboard for a normal game", () => {
         render(<KibitzDesktopMainGameScoreboard controller={null} game={makeGame()} />);
 
@@ -449,6 +469,7 @@ describe("KibitzDesktopMainGameScoreboard", () => {
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard\s*{[^}]*--kibitz-scoreboard-text:\s*var\(--text-color\)[^}]*--kibitz-scoreboard-muted-text:\s*color-mix\(in srgb, var\(--text-color\) 70%, transparent\)[^}]*--kibitz-scoreboard-strong-text:\s*var\(--text-color\)[^}]*--kibitz-scoreboard-turn-highlight:\s*color-mix\(in srgb, var\(--text-color\) 20%, transparent\);/s,
         );
+        expect(css).toContain("--kibitz-desktop-scoreboard-height: 3.4rem;");
         expect(css).toMatch(
             /\.KibitzDesktopMainGameScoreboard-inner\s*{[^}]*display:\s*grid;[^}]*max-width:\s*min\(1600px, 100%\);[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\) auto;/s,
         );

@@ -30,6 +30,7 @@ import "./KibitzDesktopSourceGameScoreboard.css";
 interface KibitzDesktopSourceGameScoreboardProps {
     game: KibitzWatchedGame;
     secondaryBoardController: GobanController | null;
+    context?: React.ReactNode;
 }
 
 function renderStaticAvatar(user: KibitzWatchedGame["black"]): React.ReactElement {
@@ -46,6 +47,7 @@ function renderStaticAvatar(user: KibitzWatchedGame["black"]): React.ReactElemen
 export function KibitzDesktopSourceGameScoreboard({
     game,
     secondaryBoardController,
+    context,
 }: KibitzDesktopSourceGameScoreboardProps): React.ReactElement {
     const score = useKibitzDesktopGameScore(secondaryBoardController?.goban ?? null);
 
@@ -55,6 +57,7 @@ export function KibitzDesktopSourceGameScoreboard({
             ariaLabel={pgettext("Kibitz source scoreboard aria label", "Source game players")}
             blackUser={game.black}
             whiteUser={game.white}
+            context={context}
             compact
             renderAvatar={(user) => renderStaticAvatar(user)}
             renderRowEnd={(_user, side) => (

@@ -1,5 +1,6 @@
 .KibitzRoomStage {
     --board-divider-width: 0;
+    --kibitz-desktop-scoreboard-height: 3.4rem;
     --kibitz-header-block-height: 1.5rem;
 
     background: var(--bg);
@@ -215,7 +216,7 @@
     }
 
     .room-stage-header--split {
-        padding: 0.5rem 0 0.45rem;
+        padding: 0.5rem 0 0;
     }
 
     .room-stage-header--split.secondary-pane-small {

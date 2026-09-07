@@ -36,6 +36,7 @@ interface KibitzDesktopScoreboardCardProps {
     blackUser: KibitzRoomUser;
     whiteUser: KibitzRoomUser;
     ariaLabel: string;
+    context?: React.ReactNode;
     renderAvatar: AvatarRenderer;
     renderRowEnd?: RowEndRenderer;
     blackActive?: boolean;
@@ -156,6 +157,7 @@ export function KibitzDesktopScoreboardCard({
     blackUser,
     whiteUser,
     ariaLabel,
+    context,
     renderAvatar = renderDefaultAvatar,
     renderRowEnd,
     blackActive = false,
@@ -163,17 +165,23 @@ export function KibitzDesktopScoreboardCard({
     compact = false,
     className,
 }: KibitzDesktopScoreboardCardProps): React.ReactElement {
+    const hasContext = context !== undefined && context !== null;
+
     return (
         <div
             className={
                 "KibitzDesktopMainGameScoreboard" +
                 (compact ? " KibitzDesktopMainGameScoreboard--compare" : "") +
+                (hasContext ? " KibitzDesktopMainGameScoreboard--withContext" : "") +
                 (className ? ` ${className}` : "")
             }
             role="group"
             aria-label={ariaLabel}
         >
             <div className="KibitzDesktopMainGameScoreboard-inner">
+                {hasContext ? (
+                    <div className="KibitzDesktopMainGameScoreboard-context">{context}</div>
+                ) : null}
                 {renderAvatarCell(blackUser, "black", blackActive, renderAvatar)}
                 {renderPlayerRow(blackUser, "black", blackActive, renderRowEnd)}
                 {renderPlayerRow(whiteUser, "white", whiteActive, renderRowEnd)}

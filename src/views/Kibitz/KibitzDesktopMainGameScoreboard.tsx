@@ -35,6 +35,7 @@ import { KibitzUserAvatar } from "./KibitzUserAvatar";
 interface KibitzDesktopMainGameScoreboardProps {
     controller: GobanController | null;
     game: KibitzWatchedGame | undefined;
+    context?: React.ReactNode;
     compact?: boolean;
 }
 
@@ -230,6 +231,7 @@ function renderAvatarButton(user: KibitzRoomUser): React.ReactElement {
 export function KibitzDesktopMainGameScoreboard({
     controller,
     game,
+    context,
     compact = false,
 }: KibitzDesktopMainGameScoreboardProps): React.ReactElement | null {
     const goban = controller?.goban ?? null;
@@ -251,6 +253,7 @@ export function KibitzDesktopMainGameScoreboard({
             blackUser={game.black}
             whiteUser={game.white}
             ariaLabel={pgettext("Kibitz desktop scoreboard aria label", "Current game players")}
+            context={context}
             compact={compact}
             blackActive={blackActive}
             whiteActive={whiteActive}

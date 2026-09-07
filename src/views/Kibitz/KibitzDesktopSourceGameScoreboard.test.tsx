@@ -127,7 +127,11 @@ function makeController(scoreProvider: () => MockScore): {
 describe("KibitzDesktopSourceGameScoreboard", () => {
     it("uses the shared bookend layout without live-state content", () => {
         const { container } = render(
-            <KibitzDesktopSourceGameScoreboard game={makeGame()} secondaryBoardController={null} />,
+            <KibitzDesktopSourceGameScoreboard
+                game={makeGame()}
+                secondaryBoardController={null}
+                context={<span>PREVIOUS · Source game</span>}
+            />,
         );
 
         expect(container.querySelector(".KibitzDesktopSourceGameScoreboard")).toHaveClass(
@@ -148,6 +152,9 @@ describe("KibitzDesktopSourceGameScoreboard", () => {
             container.querySelectorAll(".KibitzDesktopMainGameScoreboard-playerFlag"),
         ).toHaveLength(2);
         expect(container.querySelectorAll("[class*=stone]")).toHaveLength(0);
+        expect(
+            container.querySelector(".KibitzDesktopMainGameScoreboard-context"),
+        ).toHaveTextContent("PREVIOUS · Source game");
         expect(screen.getAllByText("Black source")).toHaveLength(2);
         expect(screen.getAllByText("White source")).toHaveLength(2);
         expect(screen.queryByTestId("clock-black")).toBeNull();
