@@ -184,7 +184,9 @@ ogsTest.describe("@Kibitz responsive layout", () => {
             expect(await tabs.isVisible()).toBe(true);
             expect(await page.locator(".Goban").boundingBox()).toEqual(boardBeforeScroll);
             await page.getByTitle("Kibitz chat", { exact: true }).click();
-            const composer = page.locator(".KibitzChatPanel-composer");
+            const composer = page
+                .locator(".KibitzChatPanel-composer")
+                .filter({ has: page.locator("[id^='kibitz-chat-input-']") });
             await expect(composer).toBeVisible();
             const composerBox = await composer.boundingBox();
             const sidebarBox = await page.locator(".GobanView-sidebar").boundingBox();
