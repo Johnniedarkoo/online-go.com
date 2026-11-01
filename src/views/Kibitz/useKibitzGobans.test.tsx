@@ -271,7 +271,7 @@ describe("useKibitzGobans", () => {
         expect(instances).toHaveLength(2);
         expect(instances[1].config).toMatchObject({
             game_id: undefined,
-            interactive: false,
+            interactive: true,
             move_tree: { x: 1 },
         });
         expect(latest!.centerMode).toBe("variation");
@@ -486,6 +486,45 @@ describe("useKibitzGobans", () => {
             (call) => (call[1] as { id: string }).id,
         );
         expect(applied).toEqual(["v1", "v2"]);
+    });
+
+    test("a clicked move replayed into a draft remains unsaved", () => {
+        readyMainTrunk();
+        applyKibitzVariationToController.mockImplementationOnce((controller: unknown) => {
+            const engine = (
+                controller as {
+                    goban: { engine: { move_tree: unknown; followPath: jest.Mock } };
+                }
+            ).goban.engine;
+            engine.move_tree = { branches: [], foreachMarkedPosition: jest.fn() };
+            engine.followPath.mockImplementation(() => {
+                engine.move_tree = {
+                    branches: [{ branches: [], foreachMarkedPosition: jest.fn() }],
+                    foreachMarkedPosition: jest.fn(),
+                };
+            });
+            return { variationId: "v1", endpoint: null };
+        });
+        let latest: KibitzGobans | null = null;
+        const { rerender } = render(
+            <Harness options={baseOptions()} onResult={(r) => (latest = r)} />,
+        );
+        emit(instances[0], "load");
+        rerender(
+            <Harness
+                options={baseOptions({
+                    secondaryPane: {
+                        collapsed: false,
+                        variation_source_game_id: 100,
+                        variation_draft_base_id: "v1",
+                        variation_draft_base_path: "aabb",
+                    },
+                    variations: [makeVariation("v1")],
+                })}
+                onResult={(r) => (latest = r)}
+            />,
+        );
+        expect(latest!.isDraftDirty()).toBe(true);
     });
 
     test("a draft branched from a variation opens where the reader was", () => {

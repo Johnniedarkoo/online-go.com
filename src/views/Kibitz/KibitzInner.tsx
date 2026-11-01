@@ -37,6 +37,7 @@ import type { KibitzCurrentGameBaseSnapshot } from "./kibitzCurrentGameBaseSnaps
 import { KibitzPresetChangePendingBanner } from "./KibitzPresetChangePendingBanner";
 import type { KibitzController } from "./KibitzController";
 import { KibitzView } from "./KibitzView";
+import { observeKibitzVariationPlacement } from "./kibitzVariationPlacement";
 import { useKibitzGobans } from "./useKibitzGobans";
 import { leftAsideAllowed, useGameLayout } from "@/components/GobanView/layout";
 import { kibitzTelemetry } from "./kibitzTelemetry";
@@ -961,7 +962,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
 
             if (variation.game_id === currentGameId && !snapshot) {
                 showCurrentGameBaseNotReadyToast();
-                return;
+                return false;
             }
 
             controller.startVariationFromPostedVariation(
@@ -971,6 +972,7 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
                 moveTreeIdAsNumber(snapshot?.moveTreeId ?? null),
                 fromPath,
             );
+            return true;
         },
         [
             controller,
@@ -997,6 +999,25 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         gobans.secondary,
         onCreateVariationFromPostedVariation,
         secondaryPane.variation_id,
+    ]);
+
+    React.useEffect(() => {
+        const board = gobans.secondary?.goban;
+        const variation = displayedVariations.find(
+            (candidate) => candidate.id === secondaryPane.variation_id,
+        );
+        if (centerMode !== "variation" || !board || !variation) {
+            return;
+        }
+        return observeKibitzVariationPlacement(board, (path) =>
+            onCreateVariationFromPostedVariation(variation, path),
+        );
+    }, [
+        centerMode,
+        gobans.secondary,
+        displayedVariations,
+        secondaryPane.variation_id,
+        onCreateVariationFromPostedVariation,
     ]);
 
     const onOpenCreateRoom = React.useCallback(() => {
