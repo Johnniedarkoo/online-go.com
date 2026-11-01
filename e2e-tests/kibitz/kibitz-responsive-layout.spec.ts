@@ -9,6 +9,8 @@
 
 import { expect } from "@playwright/test";
 import { ogsTest, load } from "@helpers";
+import { expectOGSClickableByName } from "@helpers/matchers";
+import { waitForKibitzReady } from "./kibitz-helpers";
 
 const compactSizes = [
     [844, 390],
@@ -250,4 +252,74 @@ ogsTest.describe("@Kibitz responsive layout", () => {
             },
         );
     }
+    ogsTest("keeps room and variation sections separate above the mini board", async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        const roomLoaded = page.waitForResponse(
+            (response) =>
+                new URL(response.url()).pathname ===
+                    "/api/v1/kibitz/rooms/preset-high-ranked-live" && response.ok(),
+        );
+        await load(page, "/kibitz/preset-high-ranked-live");
+        await (await roomLoaded).finished();
+        await waitForKibitzReady(page);
+        const aside = page.locator(".KibitzLeftAside");
+        await expect(aside).toBeVisible();
+        await expect(aside.locator(".KibitzRoomList-item")).not.toHaveCount(0);
+        const miniBoard = aside.locator(".KibitzLeftAside-miniBoard");
+        // The room rail can render before its base game is ready for a variation.
+        await expect(async () => {
+            if (!(await miniBoard.isVisible())) {
+                await (
+                    await expectOGSClickableByName(
+                        aside.locator(".KibitzVariationList"),
+                        /^Variation$/,
+                    )
+                ).click();
+            }
+            await expect(miniBoard).toBeVisible({ timeout: 1000 });
+        }).toPass({ timeout: 15000 });
+
+        for (const [width, height] of [
+            [1280, 700],
+            [1280, 800],
+            [1440, 900],
+        ]) {
+            await page.setViewportSize({ width, height });
+            await expect
+                .poll(async () =>
+                    aside.evaluate((element) => {
+                        const sections = element.querySelectorAll(".KibitzLeftAside-section");
+                        const roomList = sections[0]?.querySelector(".KibitzRoomList");
+                        const variationsHeader = sections[1]?.querySelector(
+                            ".KibitzLeftAside-sectionHeader",
+                        );
+                        return Boolean(
+                            roomList &&
+                            variationsHeader &&
+                            roomList.getBoundingClientRect().bottom <=
+                                variationsHeader.getBoundingClientRect().top,
+                        );
+                    }),
+                )
+                .toBe(true);
+        }
+
+        await page.setViewportSize({ width: 1280, height: 700 });
+        const scroll = aside.locator(".KibitzLeftAside-scroll");
+        await expect
+            .poll(() => scroll.evaluate((element) => element.scrollHeight > element.clientHeight))
+            .toBe(true);
+        const before = await miniBoard.boundingBox();
+        await scroll.evaluate((element) => {
+            element.scrollTop = element.scrollHeight;
+        });
+        await expect.poll(() => scroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        expect(await miniBoard.boundingBox()).toEqual(before);
+        await expect(aside.locator(".KibitzVariationList-footer")).toBeInViewport();
+
+        await (await expectOGSClickableByName(aside, /^Rooms$/i)).click();
+        await expect(aside.locator(".KibitzRoomList")).toHaveCount(0);
+        await (await expectOGSClickableByName(aside, /^Rooms$/i)).click();
+        await expect(aside.locator(".KibitzRoomList")).toBeVisible();
+    });
 });
