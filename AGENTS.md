@@ -43,6 +43,28 @@ Only run the full build once before the final push, since it is slow and not nee
 
 ## Pull Requests
 
+Before opening or updating a PR, review its complete contents against the actual
+target branch, including changes from rebases and conflict resolution:
+
+- Check `git status` and `git log --oneline <base>..HEAD`. Exclude unrelated
+  commits, accidental merges, and work from other tasks. Do not rewrite published
+  history or modify unrelated work to clean up the PR.
+- Review `git diff --stat <base>...HEAD`, `git diff --name-status <base>...HEAD`,
+  and `git diff <base>...HEAD`. Check every changed file and the complete diff,
+  not only the latest commit or files you intended to edit.
+- Exclude temporary agent plans, duplicate specifications, scratch files,
+  screenshots, logs, debugging output, and other incidental artifacts unless
+  they have an explicit, lasting purpose in the repository. Keep planning and
+  design documents when explicitly requested or when they provide lasting value.
+- Update established documentation where relevant. Do not automatically include
+  every generated plan or design document. Keep documentation, fixtures, test
+  assets, and other supporting files needed for the change.
+- Confirm that all changes serve the stated PR purpose, including appropriate
+  tests and necessary documentation.
+- After cleanup, repeat the history, file-list, and full-diff checks before
+  publishing or updating the PR. Replace `<base>` with the actual target branch
+  reference for this repository's workflow, such as `origin/main`.
+
 - When appropriate include screenshot(s) of what changed. Attach them to the
   pull request description. Do not commit them to the repository.
 - Be concise and professional with your pull request text. Aim for 300 words or
@@ -82,7 +104,7 @@ Non-trivial work produces two kinds of document. They have different lifetimes. 
 **Working artifacts** — `docs/superpowers/specs/` and `docs/superpowers/plans/`
 
 - Name them `YYYY-MM-DD-<topic>-design.md` and `YYYY-MM-DD-<topic>.md`.
-- Commit each as its own `docs:` commit on the feature branch: spec first, plan second, then the implementation.
+- For working artifacts retained under the PR checklist above, commit each as its own `docs:` commit on the feature branch: spec first, plan second, then the implementation.
 - Amend them in place as the work teaches you things. A plan that no longer matches what was built is worse than no plan.
 - Put them in the repository the work is in. Work that spans repositories goes in the repository carrying most of it.
 
