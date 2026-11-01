@@ -266,3 +266,11 @@ move and does not recolour the official position. Selecting another post
 rebuilds the secondary board, so annotations from posts at the same position
 stay separate and do not change the live board. Draft discard detection includes
 annotation edits to existing positions and pen drawings.
+
+## Continue a posted variation
+
+Playing a move on the main game board or a posted variation starts a separate analysis draft that includes the move. Users can extend the line or return to an earlier position to branch. The original post remains unchanged. Navigation does not start a draft.
+
+Kibitz observes Goban’s existing `cur_move` and `update` events. A matching `move_selected` identifies placement; the following completed update starts the draft. No separate Goban event is required.
+
+Main-board clicks use local analysis mode and keep the live connection active. Live game moves and navigation do not start drafts. Main-board placement is disabled while another board is open and during stone removal.
