@@ -91,6 +91,10 @@ the portrait pane (`kibitz.portrait_pane`, seeded once from the chat tab)
 and the people column (`kibitz.people_column`). The height the handle gives
 the board is the `goban-view-portrait-split` preference.
 
+The Rooms and Variations sections keep their content height and scroll
+together when the left aside runs out of vertical space. The mini main board
+stays below that shared scroll area and does not move with the lists.
+
 Pressing the room list's or the variation list's action while it is the pane
 on screen puts back whatever the reader was on before it, the way pressing
 the analysis action again leaves the draft it opened. A list will not close
