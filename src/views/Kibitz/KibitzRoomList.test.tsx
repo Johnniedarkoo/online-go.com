@@ -5,7 +5,7 @@
  */
 
 import * as React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { KibitzRoomSummary } from "@/models/kibitz";
 import { KibitzRoomList } from "./KibitzRoomList";
 
@@ -38,6 +38,77 @@ function makeRoom(overrides?: Partial<KibitzRoomSummary>): KibitzRoomSummary {
 }
 
 describe("KibitzRoomList", () => {
+    it("labels room groups and preserves room selection and order within each group", () => {
+        const onSelectRoom = jest.fn();
+        render(
+            <KibitzRoomList
+                rooms={[
+                    makeRoom({ id: "preset-high", title: "High-ranked game", kind: "preset" }),
+                    makeRoom({ id: "preset-extra", title: "Extra preset", kind: "preset" }),
+                    makeRoom({ id: "user-busy", title: "Busy room", viewer_count: 20 }),
+                    makeRoom({ id: "user-quiet", title: "Quiet room", viewer_count: 2 }),
+                ]}
+                activeRoomId="user-busy"
+                onSelectRoom={onSelectRoom}
+                canOpenCreateRoomFlow={true}
+                signInHref="/sign-in#/kibitz"
+                blockedRoomIds={new Set(["user-quiet"])}
+            />,
+        );
+
+        const presets = screen.getByRole("region", { name: "Preset rooms" });
+        const users = screen.getByRole("region", { name: "User rooms" });
+        expect(
+            within(presets)
+                .getAllByRole("button")
+                .map((button) => button.textContent),
+        ).toEqual(["High-ranked game12", "Extra preset12"]);
+        expect(
+            within(users)
+                .getAllByRole("button")
+                .map((button) => button.textContent),
+        ).toEqual(["Busy room20", "Quiet room2"]);
+        expect(within(users).getByRole("button", { name: "Busy room 20" })).toHaveClass("active");
+        expect(within(users).getByRole("button", { name: "Quiet room 2" })).toBeDisabled();
+        fireEvent.click(within(presets).getByRole("button", { name: "Extra preset 12" }));
+        expect(onSelectRoom).toHaveBeenCalledWith("preset-extra");
+    });
+
+    it("omits empty groups as the directory changes", () => {
+        const props = {
+            activeRoomId: "room-1",
+            onSelectRoom: jest.fn(),
+            canOpenCreateRoomFlow: true,
+            signInHref: "/sign-in#/kibitz",
+        };
+        const { rerender } = render(
+            <KibitzRoomList {...props} rooms={[makeRoom({ kind: "preset" })]} />,
+        );
+        expect(screen.getAllByRole("region")).toHaveLength(1);
+        expect(screen.queryByRole("heading", { name: "User rooms" })).toBeNull();
+
+        rerender(<KibitzRoomList {...props} rooms={[makeRoom()]} />);
+        expect(screen.getAllByRole("region")).toHaveLength(1);
+        expect(screen.queryByRole("heading", { name: "Preset rooms" })).toBeNull();
+
+        rerender(<KibitzRoomList {...props} rooms={[]} />);
+        expect(screen.queryByRole("region")).toBeNull();
+    });
+
+    it("does not label broadcasts as user rooms", () => {
+        render(
+            <KibitzRoomList
+                rooms={[makeRoom({ kind: "broadcast" })]}
+                activeRoomId="room-1"
+                onSelectRoom={jest.fn()}
+                canOpenCreateRoomFlow={true}
+                signInHref="/sign-in#/kibitz"
+            />,
+        );
+        expect(screen.getByRole("region", { name: "Other rooms" })).toBeInTheDocument();
+        expect(screen.queryByRole("heading", { name: "User rooms" })).toBeNull();
+    });
+
     it("shows a preset badge on preset rooms", () => {
         const { container } = render(
             <KibitzRoomList

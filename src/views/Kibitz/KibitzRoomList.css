@@ -11,6 +11,25 @@
         overflow-y: auto;
     }
 
+    .KibitzRoomList-group {
+        flex: 0 0 auto;
+
+        & + .KibitzRoomList-group::before {
+            content: "";
+            display: block;
+            margin: 0.6rem 0.5rem 0;
+            border-top: 1px solid var(--shade3);
+        }
+    }
+
+    .KibitzRoomList-groupHeading {
+        margin: 0.5rem 0.5rem 0.25rem;
+        color: var(--fg);
+        font-size: 0.8rem;
+        font-weight: normal;
+        opacity: 0.75;
+    }
+
     /* One row per room, as in the chat page's channel list. */
     .KibitzRoomList-item {
         display: flex;
