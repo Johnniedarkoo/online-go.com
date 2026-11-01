@@ -37,7 +37,10 @@ import type { KibitzCurrentGameBaseSnapshot } from "./kibitzCurrentGameBaseSnaps
 import { KibitzPresetChangePendingBanner } from "./KibitzPresetChangePendingBanner";
 import type { KibitzController } from "./KibitzController";
 import { KibitzView } from "./KibitzView";
-import { observeKibitzVariationPlacement } from "./kibitzVariationPlacement";
+import {
+    observeKibitzVariationPlacement,
+    observeKibitzMainBoardPlacement,
+} from "./kibitzVariationPlacement";
 import { useKibitzGobans } from "./useKibitzGobans";
 import { leftAsideAllowed, useGameLayout } from "@/components/GobanView/layout";
 import { kibitzTelemetry } from "./kibitzTelemetry";
@@ -63,6 +66,7 @@ import { useKibitzRoomNavigation } from "./useKibitzRoomNavigation";
 import {
     captureCurrentGameBaseSnapshotFromController,
     chooseFresherCurrentGameBaseSnapshot,
+    restoreMainBoardToOfficialTail,
 } from "./kibitzCurrentGameBaseSnapshot";
 import { openKibitzChatMove } from "./kibitzChatMove";
 import "./KibitzInner.css";
@@ -953,6 +957,38 @@ export function KibitzInner({ controller }: KibitzInnerProps): React.ReactElemen
         },
         [confirmDiscardDraft, onOpenVariation],
     );
+    React.useEffect(() => {
+        const main = gobans.main;
+        if (!main) {
+            return;
+        }
+        const board = main.goban;
+        if (centerMode !== "main") {
+            board.disableStonePlacement();
+            return;
+        }
+        return observeKibitzMainBoardPlacement(board, (path) => {
+            const snapshot = getCurrentGameBaseSnapshotForVariation();
+            if (!snapshot) {
+                showCurrentGameBaseNotReadyToast();
+                restoreMainBoardToOfficialTail(main);
+                return false;
+            }
+            return controller.startVariationFromCurrentBoard(
+                { roomId: snapshot.roomId ?? "", gameId: snapshot.gameId },
+                snapshot.config.move_tree,
+                path,
+                moveTreeIdAsNumber(snapshot.moveTreeId),
+            );
+        });
+    }, [
+        centerMode,
+        gobans.main,
+        controller,
+        getCurrentGameBaseSnapshotForVariation,
+        showCurrentGameBaseNotReadyToast,
+    ]);
+
     const onCreateVariationFromPostedVariation = React.useCallback(
         (variation: KibitzVariationSummary, fromPath?: string) => {
             const snapshot =

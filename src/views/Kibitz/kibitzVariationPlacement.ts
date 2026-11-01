@@ -60,3 +60,39 @@ export function observeKibitzVariationPlacement(
         board.off("load", reset);
     };
 }
+
+/** Enable local analysis input on the main board while retaining its live connection. */
+export function observeKibitzMainBoardPlacement(
+    board: Pick<
+        Goban,
+        | "on"
+        | "off"
+        | "engine"
+        | "move_selected"
+        | "disableStonePlacement"
+        | "enableStonePlacement"
+        | "setMode"
+        | "setAnalyzeTool"
+    >,
+    onPlacement: (path: string) => boolean,
+): () => void {
+    const enable = () => {
+        if (board.engine.phase === "stone removal") {
+            board.disableStonePlacement();
+            return;
+        }
+        board.setMode("analyze");
+        board.setAnalyzeTool("stone", "alternate");
+        board.enableStonePlacement();
+    };
+    enable();
+    board.on("load", enable);
+    board.on("phase", enable);
+    const stop = observeKibitzVariationPlacement(board, onPlacement);
+    return () => {
+        stop();
+        board.off("load", enable);
+        board.off("phase", enable);
+        board.disableStonePlacement();
+    };
+}

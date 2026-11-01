@@ -16,7 +16,10 @@
  */
 
 import { TestGoban } from "goban";
-import { observeKibitzVariationPlacement } from "./kibitzVariationPlacement";
+import {
+    observeKibitzVariationPlacement,
+    observeKibitzMainBoardPlacement,
+} from "./kibitzVariationPlacement";
 
 class PlacementBoard extends TestGoban {
     public click(x: number, y: number, shift = false): void {
@@ -94,5 +97,65 @@ describe("posted variation placement", () => {
         board.click(2, 3);
         expect(placed).toHaveBeenCalledTimes(1);
         expect(placed).toHaveBeenCalledWith(board.engine.cur_move.getMoveStringToThisPoint());
+    });
+});
+
+describe("main board placement", () => {
+    function mainBoard() {
+        const board = new PlacementBoard({ width: 9, height: 9, mode: "play", phase: "play" });
+        board.engine.parentEventEmitter = board;
+        const placed = jest.fn(() => true);
+        const stop = observeKibitzMainBoardPlacement(board, placed);
+        return { board, placed, stop };
+    }
+
+    test("a click enters local analysis and includes the first move", () => {
+        const { board, placed } = mainBoard();
+        expect(board.mode).toBe("analyze");
+        board.click(2, 3);
+        expect(placed).toHaveBeenCalledWith(board.engine.cur_move.getMoveStringToThisPoint());
+        expect(placed).toHaveBeenCalledTimes(1);
+    });
+
+    test("official moves and navigation do not start a draft", () => {
+        const { board, placed } = mainBoard();
+        board.engine.place(2, 3, false, false, false, false, true);
+        board.engine.setLastOfficialMove();
+        board.emit("update");
+        board.emit("move-made");
+        board.showPrevious();
+        board.showNext();
+        expect(placed).not.toHaveBeenCalled();
+        board.click(3, 3);
+        expect(placed).toHaveBeenCalledTimes(1);
+    });
+
+    test("closing a draft allows another click to start a fresh draft", () => {
+        const { board, placed, stop } = mainBoard();
+        board.click(2, 3);
+        stop();
+        const next = jest.fn(() => true);
+        observeKibitzMainBoardPlacement(board, next);
+        board.click(3, 3);
+        expect(placed).toHaveBeenCalledTimes(1);
+        expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    test("does not accept analysis placements during stone removal", () => {
+        const { board, placed } = mainBoard();
+        board.engine.phase = "stone removal";
+        board.click(2, 3);
+        expect(placed).not.toHaveBeenCalled();
+        board.engine.phase = "play";
+        board.click(2, 3);
+        expect(placed).toHaveBeenCalledTimes(1);
+    });
+
+    test("keeps main-board input disabled while another board is open", () => {
+        const { board, placed, stop } = mainBoard();
+        stop();
+        board.click(2, 3);
+        expect(placed).not.toHaveBeenCalled();
+        expect(board.engine.cur_move).toBe(board.engine.move_tree);
     });
 });

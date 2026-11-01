@@ -211,7 +211,8 @@ describe("useKibitzGobans", () => {
             game_id: 100,
             width: 9,
             height: 9,
-            interactive: false,
+            interactive: true,
+            mode: "analyze",
         });
         expect(latest!.centerMode).toBe("main");
         expect(latest!.center).toBe(latest!.main);

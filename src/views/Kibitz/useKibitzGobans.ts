@@ -268,7 +268,8 @@ export function useKibitzGobans({
         const controller = new GobanController({
             ...baseConfig(latest.current.currentGame),
             board_div: document.createElement("div"),
-            interactive: false,
+            interactive: true,
+            mode: "analyze",
             connect_to_chat: true,
             game_id: gameId,
         });
